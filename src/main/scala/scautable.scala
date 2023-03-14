@@ -130,8 +130,13 @@ package object scautable {
       productType: CaseClassType[A]
     ): HtmlTableRender[A ] = new HtmlTableRender[A] {
       override def tableHeader(a: A) = ???
-      override def tableCell(a: A)   = 
-        // scautable(a) - this really ought to work... but doesn't :-/
+      override def tableCell(a: A) = 
+        // val b = a.asInstanceOf[Product]
+        // val h    = b.productElementNames.toList
+        // val header = tr(h.map(th(_)))
+        // val rows = tableDeriveInstance.tableRow(a)
+        // table(tbody(header,rows))
+        // scautable(a)
         throw new Exception("compound case classes not foreseen")        
       override def tableRow(a: A): scalatags.Text.TypedTag[String] = {
         // println("table row in pretty string")
