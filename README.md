@@ -15,7 +15,7 @@ https://github.com/Quafadas/scautable/blob/c59cffc07391d47f4a0b2be778e6d9795e2e4
 I'd love to know... 
 
 ### Is this project a good idea
-Unclear
+Unclear. But I wanted to play with Mirrors.
 
 ### How does it work
 According to Arthur C. Clarke, any sufficiently advanced technology is indistinguisgable from magic. To me: this is clearly magic. 
