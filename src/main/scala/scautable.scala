@@ -1,26 +1,25 @@
-//> using lib "org.scalameta::munit:1.0.0-M7"
-//> using lib "com.lihaoyi::scalatags:0.12.0"
-
+import scalatags.Text.all.*
 import scala.deriving.Mirror
 import scala.compiletime.erasedValue
 import scala.compiletime.constValue
 import scala.compiletime.summonInline
+import java.time.LocalDate
 
 package object scautable {
 
   // Aggressively copy-pasta-d from here; https://blog.philipp-martini.de/blog/magic-mirror-scala3/
-  inline def getTypeclassInstances[A <: Tuple]: List[PrettyString[Any]] =
+  inline def getTypeclassInstances[A <: Tuple]: List[HtmlTableRender[Any]] =
     inline erasedValue[A] match {
       case _: EmptyTuple => Nil
       case _: (head *: tail) =>
         val headTypeClass =
-          summonInline[PrettyString[
+          summonInline[HtmlTableRender[
             head
           ]] // summon was known as implicitly in scala 2
         val tailTypeClasses =
           getTypeclassInstances[tail] // recursive call to resolve also the tail
         headTypeClass
-          .asInstanceOf[PrettyString[Any]] :: getTypeclassInstances[tail]
+          .asInstanceOf[HtmlTableRender[Any]] :: getTypeclassInstances[tail]
     }
 
 // helper method like before
@@ -120,19 +119,21 @@ package object scautable {
     }
   }
 
-  trait PrettyString[A] {
-    def tableRow(a: A): ReactiveHtmlElement[TableRow]    = ???
-    def tableCell(a: A): ReactiveHtmlElement[TableCell]  = ???
-    def tableHeader(a: A): ReactiveHtmlElement[TableRow] = ???
+  trait HtmlTableRender[A] {
+    def tableRow(a: A): scalatags.Text.TypedTag[String]    = ???
+    def tableCell(a: A): scalatags.Text.TypedTag[String]   = ???
+    def tableHeader(a: A): scalatags.Text.TypedTag[String] = ???
   }
 
-  object PrettyString extends EasyDerive[PrettyString] {
+  object HtmlTableRender extends EasyDerive[HtmlTableRender] {
     override def deriveCaseClass[A](
       productType: CaseClassType[A]
-    ): PrettyString[A] = new PrettyString[A] {
-      override def tableHeader(a: A): ReactiveHtmlElement[TableRow] = ???
-      override def tableCell(a: A): ReactiveHtmlElement[TableCell]  = ???
-      override def tableRow(a: A): ReactiveHtmlElement[TableRow] = {
+    ): HtmlTableRender[A ] = new HtmlTableRender[A] {
+      override def tableHeader(a: A) = ???
+      override def tableCell(a: A)   = 
+        // scautable(a) - this really ought to work... but doesn't :-/
+        throw new Exception("compound case classes not foreseen")        
+      override def tableRow(a: A): scalatags.Text.TypedTag[String] = {
         // println("table row in pretty string")
         if (productType.elements.isEmpty) tr("empty")
         else {
@@ -144,66 +145,41 @@ package object scautable {
         }
       }
     }
-    override def deriveSealed[A](sumType: SealedType[A]): PrettyString[A] =
-      new PrettyString[A] {
-        override def tableHeader(a: A): ReactiveHtmlElement[TableRow] = ???
-        override def tableCell(a: A): ReactiveHtmlElement[TableCell]  = ???
-        override def tableRow(a: A): ReactiveHtmlElement[TableRow]    = ???
+    override def deriveSealed[A](sumType: SealedType[A]): HtmlTableRender[A] =
+      new HtmlTableRender[A] {
       }
   }
 
-  given stringPrettyString: PrettyString[String] = new PrettyString[String] {
-    override def tableHeader(a: String): ReactiveHtmlElement[TableRow] = ???
-    override def tableCell(a: String): ReactiveHtmlElement[TableCell]  = td(a)
-    override def tableRow(a: String): ReactiveHtmlElement[TableRow]    = ???
+  given stringT: HtmlTableRender[String] = new HtmlTableRender[String] {
+    override def tableCell(a: String)   = td(a)
   }
 
-  given intPrettyString: PrettyString[Int] = new PrettyString[Int] {
-
-    override def tableHeader(a: Int): ReactiveHtmlElement[TableRow] = ???
-
-    override def tableCell(a: Int): ReactiveHtmlElement[TableCell] = td(a)
-
-    override def tableRow(a: Int): ReactiveHtmlElement[TableRow] = ???
+  given intT: HtmlTableRender[Int] = new HtmlTableRender[Int] {
+    override def tableCell(a: Int) = td(a)    
   }
 
-  given longPrettyString: PrettyString[Long] = new PrettyString[Long] {
-    override def tableHeader(a: Long): ReactiveHtmlElement[TableRow] = ???
-    override def tableCell(a: Long): ReactiveHtmlElement[TableCell]  = td(s"$a")
-    override def tableRow(a: Long): ReactiveHtmlElement[TableRow]    = ???
+  given longT: HtmlTableRender[Long] = new HtmlTableRender[Long] {
+    override def tableCell(a: Long)   = td(s"$a")
   }
 
-  given datePrettyString: PrettyString[LocalDateJ] =
-    new PrettyString[LocalDateJ] {
-      override def tableHeader(a: LocalDateJ): ReactiveHtmlElement[TableRow] =
-        ???
-      override def tableCell(a: LocalDateJ): ReactiveHtmlElement[TableCell] =
-        td(a.value.toString())
-      override def tableRow(a: LocalDateJ): ReactiveHtmlElement[TableRow] = ???
-    }
-
-  given doublePrettyString: PrettyString[Double] = new PrettyString[Double] {
-    override def tableHeader(a: Double): ReactiveHtmlElement[TableRow] = ???
-    override def tableCell(a: Double): ReactiveHtmlElement[TableCell] = td(
+  given doubleT: HtmlTableRender[Double] = new HtmlTableRender[Double] {
+    override def tableCell(a: Double) = td(
       s"$a"
     )
-    override def tableRow(a: Double): ReactiveHtmlElement[TableRow] = ???
   }
 
-  given booleanPrettyString: PrettyString[Boolean] = new PrettyString[Boolean] {
-    override def tableHeader(a: Boolean): ReactiveHtmlElement[TableRow] = ???
-    override def tableCell(a: Boolean): ReactiveHtmlElement[TableCell] = td(
+  given booleanT: HtmlTableRender[Boolean] = new HtmlTableRender[Boolean] {
+    override def tableCell(a: Boolean) = td(
       s"$a"
     )
-    override def tableRow(a: Boolean): ReactiveHtmlElement[TableRow] = ???
   }
 
-  def deriveTableRow[A](a: A)(using prettyStringInstance: PrettyString[A]) =
-    prettyStringInstance.tableRow(a)
+  def deriveTableRow[A](a: A)(using instance: HtmlTableRender[A]) =
+    instance.tableRow(a)
 
-  def deriveTableHeader[A](a: A)(using prettyStringInstance: PrettyString[A]) =
+  def deriveTableHeader[A](a: A)(using instance: HtmlTableRender[A]) =
     println("deriveTableHeader")
-    tr(prettyStringInstance.tableRow(a))
+    tr(instance.tableRow(a))
 
   inline def getElemLabels[A <: Tuple]: List[String] =
     inline erasedValue[A] match {
@@ -216,20 +192,20 @@ package object scautable {
         headElementLabel :: tailElementLabels // concat head + tail
     }
 
-  inline def tableHeader[A](using m: Mirror.ProductOf[A]) =
+  inline def tableHeader[A](using m: Mirror.Of[A]) =
     val elemLabels = getElemLabels[m.MirroredElemLabels]
     tr(elemLabels.map(th(_)))
 
-  inline def derivePrettyStringCaseClass[A](using m: Mirror.ProductOf[A]) =
-    new PrettyString[A] {
+  inline def deriveCaseClass[A](using m: Mirror.ProductOf[A]) =
+    new HtmlTableRender[A] {
 
-      override def tableHeader(a: A): ReactiveHtmlElement[TableRow] =
+      override def tableHeader(a: A) =
         val elemLabels = getElemLabels[m.MirroredElemLabels]
         tr(elemLabels.map(th(_)))
 
-      override def tableCell(a: A): ReactiveHtmlElement[TableCell] = ???
+      override def tableCell(a: A) = ???
 
-      override def tableRow(a: A): ReactiveHtmlElement[TableRow] = {
+      override def tableRow(a: A) = {
         val elemLabels    = getElemLabels[m.MirroredElemLabels]
         val elemInstances = getTypeclassInstances[m.MirroredElemTypes]
         val elems =
@@ -246,7 +222,9 @@ package object scautable {
       }
     }
 
-  def apply() = "hi"
+  def apply[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]) =    
+    val h    = a.head.productElementNames.toList
+    val header = tr(h.map(th(_)))
+    val rows = for(r <- a) yield {tableDeriveInstance.tableRow(r)}
+    table(tbody(header,rows))
 }
-
-@main def runSomething = println(scautable())
