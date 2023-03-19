@@ -4,6 +4,7 @@ import scala.compiletime.erasedValue
 import scala.compiletime.constValue
 import scala.compiletime.summonInline
 import java.time.LocalDate
+import scalatags.Text.TypedTag
 
 package object scautable {
 
@@ -67,28 +68,14 @@ package object scautable {
         case _: (t *: ts)  => constValue[t].toString :: getElemLabels[ts]
       }
 
-    def deriveCaseClass[A](caseClassType: CaseClassType[A]): TC[A]
+    def deriveCaseClass[A <: Product](caseClassType: CaseClassType[A]): TC[A]
 
-    def deriveSealed[A](sealedType: SealedType[A]): TC[A]
-
-    inline given derived[A](using m: Mirror.Of[A]): TC[A] = {
+    inline given derived[A <: Product](using m: Mirror.Of[A]): TC[A] = {
       val label         = constValue[m.MirroredLabel]
       val elemInstances = getInstances[m.MirroredElemTypes]
       val elemLabels    = getElemLabels[m.MirroredElemLabels]
 
-      inline m match {
-        case s: Mirror.SumOf[A] =>
-          val elements = elemInstances.zip(elemLabels).zipWithIndex.map { case ((inst, lbl), idx) =>
-            SealedElement[A, Any](
-              lbl,
-              inst.asInstanceOf[TC[Any]],
-              idx,
-              identity
-            )
-          }
-          val getElement = (a: A) => elements(s.ordinal(a))
-          deriveSealed(SealedType[A](label, elements, getElement))
-
+      inline m match {        
         case p: Mirror.ProductOf[A] =>
           val caseClassElements =
             elemInstances
@@ -126,19 +113,24 @@ package object scautable {
   }
 
   object HtmlTableRender extends EasyDerive[HtmlTableRender] {
-    override def deriveCaseClass[A](
+    override def deriveCaseClass[A <: Product](
       productType: CaseClassType[A]
-    ): HtmlTableRender[A ] = new HtmlTableRender[A] {
+    ): HtmlTableRender[A] = new HtmlTableRender[A] {
       override def tableHeader(a: A) = ???
       // The dream, would be for this method to embed a table in a table - i.e. be able to render "compound products"
-      override def tableCell(a: A) = 
+      override def tableCell(a: A) =
         // val b = a.asInstanceOf[Product]
         // val h    = b.productElementNames.toList
         // val header = tr(h.map(th(_)))
         // val rows = tableDeriveInstance.tableRow(a)
         // table(tbody(header,rows))
-        //scautable(Seq(a))
-        throw new Exception("compound case classes not foreseen")        
+        a match {
+          case p: Product =>
+            scautable(p)(using this)
+          // case q: Seq[Product] =>
+          //   scautable(q)(using this)
+
+        }        
       override def tableRow(a: A): scalatags.Text.TypedTag[String] = {
         // println("table row in pretty string")
         if (productType.elements.isEmpty) tr("empty")
@@ -151,21 +143,17 @@ package object scautable {
         }
       }
     }
-    override def deriveSealed[A](sumType: SealedType[A]): HtmlTableRender[A] =
-      new HtmlTableRender[A] {
-      }
   }
-
   given stringT: HtmlTableRender[String] = new HtmlTableRender[String] {
-    override def tableCell(a: String)   = td(a)
+    override def tableCell(a: String) = td(a)
   }
 
   given intT: HtmlTableRender[Int] = new HtmlTableRender[Int] {
-    override def tableCell(a: Int) = td(a)    
+    override def tableCell(a: Int) = td(a)
   }
 
   given longT: HtmlTableRender[Long] = new HtmlTableRender[Long] {
-    override def tableCell(a: Long)   = td(s"$a")
+    override def tableCell(a: Long) = td(s"$a")
   }
 
   given doubleT: HtmlTableRender[Double] = new HtmlTableRender[Double] {
@@ -179,6 +167,12 @@ package object scautable {
       s"$a"
     )
   }
+
+  // given optT: HtmlTableRender[Some[_]] = new HtmlTableRender[Some[_]] {
+  //   override def tableCell[Some[A]](a: Some[_]) = td(
+  //     s"$a"
+  //   )
+  // }
 
   def deriveTableRow[A](a: A)(using instance: HtmlTableRender[A]) =
     instance.tableRow(a)
@@ -228,9 +222,12 @@ package object scautable {
       }
     }
 
-  def apply[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]) =    
-    val h    = a.head.productElementNames.toList
+  def apply[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
+    val h      = a.head.productElementNames.toList
     val header = tr(h.map(th(_)))
-    val rows = for(r <- a) yield {tableDeriveInstance.tableRow(r)}
-    table(tbody(header,rows))
+    val rows   = for (r <- a) yield { tableDeriveInstance.tableRow(r) }
+    table(tbody(header, rows))
+
+  def apply[A <: Product](a: A)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
+    apply(Seq(a))
 }

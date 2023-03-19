@@ -36,17 +36,23 @@ class MySuite extends munit.FunSuite {
     case class Customize(t: LocalDate, i: Int)
     val custom = Seq(Customize(LocalDate.of(2025,1,1), 1))
     assertEquals("<table><tbody><tr><th>t</th><th>i</th></tr><tr><td>2025-01-01</td><td>1</td></tr></tbody></table>", scautable(custom).toString())
-
   }
-  test("not compoundable - alas") {
+
+  test("compoundable") {
     case class Address(num: Int, street: String)
     case class Person(n: String, age: Int, a:Address)
     
     val one = Person("me", 5, Address(0, "happyland"))
     val listOne = Seq(one)
-    interceptMessage[Exception]("compound case classes not foreseen"){scautable(listOne).toString()}
-
+    
+    assertEquals("<table><tbody><tr><th>n</th><th>age</th><th>a</th></tr><tr><td>me</td><td>5</td><table><tbody><tr><th>num</th><th>street</th></tr><tr><td>0</td><td>happyland</td></tr></tbody></table></tr></tbody></table>", scautable(listOne).toString())
   }
 
+  // test("optionable") {
+  //   case class Address(num: Int, street: Option[String])
+  //   val testMe = Address(0, None)
+  //   val t = scautable(testMe)
+  //   assert
+  // }
 
 }
