@@ -18,9 +18,7 @@ I'd love to know...
 Unclear. But I wanted to play with Mirrors.
 
 ### How does it work
-According to Arthur C. Clarke, any sufficiently advanced technology is indistinguisgable from magic. To me: this is clearly magic. 
-
-Source: I aggressively copy pasted everything from here and poked it with a sharp stick until it did what I wanted.
+I aggressively copy pasted everything from here and poked it with a sharp stick until it did what I wanted.
 https://blog.philipp-martini.de/blog/magic-mirror-scala3/
 
 ### Limitations
