@@ -12,6 +12,11 @@ class MySuite extends munit.FunSuite {
     val startSeq = Seq(start)    
     assertEquals("<table><tbody><tr><th>anInt</th><th>aString</th></tr><tr><td>1</td><td>2</td></tr></tbody></table>", scautable(startSeq).toString())
   }
+  test("tuple") {
+    val start    = (1, "2")
+    val startSeq = Seq(start)    
+    assertEquals("<table><tbody><tr><th>_1</th><th>_2</th></tr><tr><td>1</td><td>2</td></tr></tbody></table>", scautable(startSeq).toString())
+  }
   test("three rows") {    
     val start    = ScauTest(1, "2")
     val startSeq = Seq.fill(3)(start)    
