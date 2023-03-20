@@ -9,6 +9,11 @@ class MySuite extends munit.FunSuite {
 
   test("one row") {
     val start    = ScauTest(1, "2")
+    val startSeq = start
+    assertEquals("<table><tbody><tr><th>anInt</th><th>aString</th></tr><tr><td>1</td><td>2</td></tr></tbody></table>", scautable(startSeq).toString())
+  }
+  test("one row as seq") {
+    val start    = ScauTest(1, "2")
     val startSeq = Seq(start)    
     assertEquals("<table><tbody><tr><th>anInt</th><th>aString</th></tr><tr><td>1</td><td>2</td></tr></tbody></table>", scautable(startSeq).toString())
   }
@@ -48,11 +53,14 @@ class MySuite extends munit.FunSuite {
     assertEquals("<table><tbody><tr><th>n</th><th>age</th><th>a</th></tr><tr><td>me</td><td>5</td><table><tbody><tr><th>num</th><th>street</th></tr><tr><td>0</td><td>happyland</td></tr></tbody></table></tr></tbody></table>", scautable(listOne).toString())
   }
 
-  // test("optionable") {
-  //   case class Address(num: Int, street: Option[String])
-  //   val testMe = Address(0, None)
-  //   val t = scautable(testMe)
-  //   assert
-  // }
+  test("optionable") {
+    case class Address(num: Int, street: Option[String])
+    val testMe = Address(0, None)
+    val t = scautable(testMe)
+    println(t)
+    assertEquals("<table><tbody><tr><th>num</th><th>street</th></tr><tr><td>0</td><td></td></tr></tbody></table>", t.toString())
 
+    val test2 = Address(1, Some("happyland"))
+    assertEquals("<table><tbody><tr><th>num</th><th>street</th></tr><tr><td>1</td><td>happyland</td></tr></tbody></table>", scautable(test2).toString())
+  }
 }

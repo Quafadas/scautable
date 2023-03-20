@@ -168,11 +168,12 @@ package object scautable {
     )
   }
 
-  // given optT: HtmlTableRender[Some[_]] = new HtmlTableRender[Some[_]] {
-  //   override def tableCell[Some[A]](a: Some[_]) = td(
-  //     s"$a"
-  //   )
-  // }
+  given optT[A](using inner : HtmlTableRender[A]) : HtmlTableRender[Option[A]]= new HtmlTableRender[Option[A]] {
+    override def tableCell(a: Option[A]) = 
+      a match 
+        case None => td("")
+        case Some(aContent) => inner.tableCell(aContent)
+  }
 
   def deriveTableRow[A](a: A)(using instance: HtmlTableRender[A]) =
     instance.tableRow(a)
