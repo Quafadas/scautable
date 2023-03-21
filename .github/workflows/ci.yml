@@ -15,9 +15,20 @@ jobs:
       with:
         fetch-depth: 0
     - uses: coursier/cache-action@v6.4
-    - uses: VirtusLab/scala-cli-setup@v0.1
+    - uses: VirtusLab/scala-cli-setup@v0.2.1
     - name: Test
-      run: scala-cli test . --cross
+      run: scala-cli --cli-version nightly --power test . --cross
+
+  version:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - uses: coursier/cache-action@v6.4
+    - uses: VirtusLab/scala-cli-setup@v0.2.1
+    - name: Test
+      run: scala-cli --cli-version nightly version
 
   publish:
     needs: test
@@ -28,9 +39,9 @@ jobs:
       with:
         fetch-depth: 0
     - uses: coursier/cache-action@v6.4
-    - uses: VirtusLab/scala-cli-setup@v0.1
+    - uses: VirtusLab/scala-cli-setup@v0.2.1
     - name: Publish
-      run: scala-cli publish . --cross
+      run: scala-cli --cli-version nightly --power publish . --cross -v -v
       env:
         PUBLISH_USER: ${{ secrets.PUBLISH_USER }}
         PUBLISH_PASSWORD: ${{ secrets.PUBLISH_PASSWORD }}
