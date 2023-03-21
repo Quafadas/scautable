@@ -29,8 +29,8 @@ class MySuite extends munit.FunSuite {
   }
   test("built in types") {
     case class EasyTypes(s: String, i: Int, l:Long, d:Double, b:Boolean)
-    val startSeq = Seq(EasyTypes("hi",1, 2, 3.0, false))
-    assertEquals("<table><tbody><tr><th>s</th><th>i</th><th>l</th><th>d</th><th>b</th></tr><tr><td>hi</td><td>1</td><td>2</td><td>3.0</td><td>false</td></tr></tbody></table>", scautable(startSeq).toString())
+    val startSeq = Seq(EasyTypes("hi",1, 2, 3.1, false))
+    assertEquals("<table><tbody><tr><th>s</th><th>i</th><th>l</th><th>d</th><th>b</th></tr><tr><td>hi</td><td>1</td><td>2</td><td>3.1</td><td>false</td></tr></tbody></table>", scautable(startSeq).toString())
   }
   test("extendable") {  
     given dateT: HtmlTableRender[LocalDate] = new HtmlTableRender[LocalDate] {
