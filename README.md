@@ -7,7 +7,7 @@ Insta-auto-magically generate a [scalatags](https://github.com/com-lihaoyi/scala
 
 with scala-cli
 ```
-//> using lib "io.github.quafadas::scautable:0.0.4"
+//> using lib "io.github.quafadas::scautable:0.0.5"
 @main def testThis = 
   import scautable.given  
   case class Easy(s: String, d: Double)
