@@ -1,3 +1,5 @@
+package scautable
+
 import scalatags.Text.all.*
 import java.time.LocalDate
 class MySuite extends munit.FunSuite {

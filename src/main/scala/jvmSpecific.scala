@@ -1,10 +1,11 @@
 //> using target { platform "jvm" }
+package scautable
 
 import scautable.HtmlTableRender
 import java.awt.Desktop
-import almond.api.JupyterApi
-import almond.interpreter.api.DisplayData
-import almond.api.JupyterAPIHolder.value
+// import almond.api.JupyterApi
+// import almond.interpreter.api.DisplayData
+// import almond.api.JupyterAPIHolder.value
 
 trait PlatformSpecific {
 
@@ -58,15 +59,15 @@ $$(document).ready( function () {
     tempFi
   }
 
-  def almondShow[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]) =
-    val kernel = summon[JupyterApi]
-    val asString = scautable(a).toString()
-    kernel.publish.html(asString)
+  // def almondShow[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]) =
+  //   val kernel = summon[JupyterApi]
+  //   val asString = scautable(a).toString()
+  //   kernel.publish.html(asString)
 
 }
 
-// @main def runSomething =
-//   case class ScauTest(anInt: Int, aString: String, l: Seq[(Int, String)]) 
-//   scautable.desktopShow(Seq(ScauTest(1,"s", Seq((1,"a"),(2,"b"),(3,"c")))))
-//   case class ScauTestI(anInt: Int, aString: String, l: Seq[Int])
-//   scautable.desktopShow(Seq(ScauTestI(1,"s", Seq(1,2,3))))
+@main def runSomething =
+  val one     = Person("me", Some(38), Address(0, "happyland"))
+  val two     = Person("you", None, Address(1, "happyland"))
+  val peeps = Seq(one, two)
+  scautable.desktopShow(Seq(ScauTestI(1,"s", Seq(1,2,3))))

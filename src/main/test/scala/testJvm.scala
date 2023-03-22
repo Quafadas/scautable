@@ -1,4 +1,5 @@
 //> using target { platform "jvm" }
+package scautable
 
 import scalatags.Text.all.*
 import java.time.LocalDate
