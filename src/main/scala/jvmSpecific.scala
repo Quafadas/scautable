@@ -65,9 +65,3 @@ $$(document).ready( function () {
   //   kernel.publish.html(asString)
 
 }
-
-@main def runSomething =
-  val one     = Person("me", Some(38), Address(0, "happyland"))
-  val two     = Person("you", None, Address(1, "happyland"))
-  val peeps = Seq(one, two)
-  scautable.desktopShow(Seq(ScauTestI(1,"s", Seq(1,2,3))))
