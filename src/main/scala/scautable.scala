@@ -180,15 +180,13 @@ object scautable extends PlatformSpecific {
     override def tableCell(a: Seq[A]) = 
       
       a.head match {
-        case p: Product =>
-          println("p")
+        case p: Product =>          
           val i = summon[HtmlTableRender[A]]
           val h      = p.productElementNames.toList
           val header = tr(h.map(th(_)))
           val rows = a.map(in => i.tableRow(in))
           td(table(thead(header), tbody(rows)))
-        case _ =>
-          println("o")
+        case _ =>          
           val cells = a.map(in => tr(inner.tableCell(in)))
           td(table(tbody(cells)))
       }

@@ -65,8 +65,8 @@ $$(document).ready( function () {
 
 }
 
-@main def runSomething =
-  case class ScauTest(anInt: Int, aString: String, l: Seq[(Int, String)]) 
-  scautable.desktopShow(Seq(ScauTest(1,"s", Seq((1,"a"),(2,"b"),(3,"c")))))
-  case class ScauTestI(anInt: Int, aString: String, l: Seq[Int])
-  scautable.desktopShow(Seq(ScauTestI(1,"s", Seq(1,2,3))))
+// @main def runSomething =
+//   case class ScauTest(anInt: Int, aString: String, l: Seq[(Int, String)]) 
+//   scautable.desktopShow(Seq(ScauTest(1,"s", Seq((1,"a"),(2,"b"),(3,"c")))))
+//   case class ScauTestI(anInt: Int, aString: String, l: Seq[Int])
+//   scautable.desktopShow(Seq(ScauTestI(1,"s", Seq(1,2,3))))

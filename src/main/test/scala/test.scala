@@ -72,8 +72,7 @@ class MySuite extends munit.FunSuite {
 
   test("Compound Product Seq") {
     case class SeqMe(s: Seq[(Int, String)])
-    val startSeq = SeqMe(Seq((1, "happy"), (2, "land")))
-    println(startSeq)
+    val startSeq = SeqMe(Seq((1, "happy"), (2, "land")))    
     assertEquals(
       """<table id="scautable" class="display"><thead><tr><th>s</th></tr></thead><tbody><tr><td><table><thead><tr><th>_1</th><th>_2</th></tr></thead><tbody><tr><td>1</td><td>happy</td></tr><tr><td>2</td><td>land</td></tr></tbody></table></td></tr></tbody></table>""",
       scautable(startSeq, true).toString()
