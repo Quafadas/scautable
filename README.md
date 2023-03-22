@@ -9,7 +9,7 @@ with scala-cli
 ```
 //> using lib "io.github.quafadas::scautable:0.0.5"
 @main def testThis = 
-  import scautable.given  
+  import scautable.{*,given}  
   case class Easy(s: String, d: Double)
   println(scautable(Seq(Easy("thing", 1.2)))).toString()
 ```
