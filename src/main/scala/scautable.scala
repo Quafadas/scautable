@@ -1,3 +1,4 @@
+package scautable
 
 import scalatags.Text.all.*
 import scala.deriving.Mirror
@@ -178,18 +179,20 @@ object scautable extends PlatformSpecific {
 
   given seqT[A](using inner : HtmlTableRender[A]) : HtmlTableRender[Seq[A]]= new HtmlTableRender[Seq[A]] {
     override def tableCell(a: Seq[A]) = 
-      
-      a.head match {
-        case p: Product =>          
-          val i = summon[HtmlTableRender[A]]
-          val h      = p.productElementNames.toList
-          val header = tr(h.map(th(_)))
-          val rows = a.map(in => i.tableRow(in))
-          td(table(thead(header), tbody(rows)))
-        case _ =>          
-          val cells = a.map(in => tr(inner.tableCell(in)))
-          td(table(tbody(cells)))
-      }
+      if (a.isEmpty)
+        td()
+      else
+        a.head match {
+          case p: Product =>          
+            val i = summon[HtmlTableRender[A]]
+            val h      = p.productElementNames.toList
+            val header = tr(h.map(th(_)))
+            val rows = a.map(in => i.tableRow(in))
+            td(table(thead(header), tbody(rows)))
+          case _ =>          
+            val cells = a.map(in => tr(inner.tableCell(in)))
+            td(table(tbody(cells)))
+        }
   }
 
   def deriveTableRow[A](a: A)(using instance: HtmlTableRender[A]) =
