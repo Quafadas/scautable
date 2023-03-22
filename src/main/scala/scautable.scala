@@ -1,3 +1,4 @@
+
 import scalatags.Text.all.*
 import scala.deriving.Mirror
 import scala.compiletime.erasedValue
@@ -6,7 +7,7 @@ import scala.compiletime.summonInline
 import java.time.LocalDate
 import scalatags.Text.TypedTag
 
-package object scautable {
+object scautable extends PlatformSpecific {
 
   // Aggressively copy-pasta-d from here; https://blog.philipp-martini.de/blog/magic-mirror-scala3/
   inline def getTypeclassInstances[A <: Tuple]: List[HtmlTableRender[Any]] =
@@ -126,7 +127,7 @@ package object scautable {
         // table(tbody(header,rows))
         a match {
           case p: Product =>
-            scautable(p)(using this)
+            td(scautable(p, false)(using this))
           // case q: Seq[Product] =>
           //   scautable(q)(using this)
 
@@ -173,6 +174,24 @@ package object scautable {
       a match 
         case None => td("")
         case Some(aContent) => inner.tableCell(aContent)
+  }
+
+  given seqT[A](using inner : HtmlTableRender[A]) : HtmlTableRender[Seq[A]]= new HtmlTableRender[Seq[A]] {
+    override def tableCell(a: Seq[A]) = 
+      
+      a.head match {
+        case p: Product =>
+          println("p")
+          val i = summon[HtmlTableRender[A]]
+          val h      = p.productElementNames.toList
+          val header = tr(h.map(th(_)))
+          val rows = a.map(in => i.tableRow(in))
+          td(table(thead(header), tbody(rows)))
+        case _ =>
+          println("o")
+          val cells = a.map(in => tr(inner.tableCell(in)))
+          td(table(tbody(cells)))
+      }
   }
 
   def deriveTableRow[A](a: A)(using instance: HtmlTableRender[A]) =
@@ -223,12 +242,16 @@ package object scautable {
       }
     }
 
-  def apply[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
+  def apply[A <: Product](a: Seq[A], addHeader:Boolean = true)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
     val h      = a.head.productElementNames.toList
     val header = tr(h.map(th(_)))
     val rows   = for (r <- a) yield { tableDeriveInstance.tableRow(r) }
-    table(tbody(header, rows))
+    if(addHeader) {
+      table(thead(header), tbody(rows), id := "scautable", cls := "display")
+    } else 
+      table(thead(header), tbody(rows))
+    
 
-  def apply[A <: Product](a: A)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
-    apply(Seq(a))
+  def apply[A <: Product](a: A, addHeader:Boolean)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
+    apply(Seq(a), addHeader)
 }
