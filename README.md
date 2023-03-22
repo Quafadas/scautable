@@ -16,7 +16,7 @@ with scala-cli
 
 ![tostring](toString.png)
 ### Desktop
-Automagically pimp your html table with [https://datatables.net](datatables.net)
+Pimp your html table with [https://datatables.net](datatables.net)
 
 ![desktop](desktop.png)
 
