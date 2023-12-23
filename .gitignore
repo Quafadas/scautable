@@ -22,3 +22,8 @@ mill-assembly.jar
 mill-native
 *.class
 *.log
+.vscode
+.scala-build
+.metals
+.bsp
+out

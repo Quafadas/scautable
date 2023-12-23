@@ -1,5 +1,5 @@
-//> using platform jvm
 package scautable
+
 
 import scautable.HtmlTableRender
 import java.awt.Desktop
