@@ -62,13 +62,13 @@ jobs:
           java-version: 17
           distribution: 'temurin'
       - uses: actions/checkout@v3
-      - run: ./mill site.docJar
+      - run: ./mill site.siteGen
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - uses: actions/upload-artifact@v3
         with:
           name: page
-          path: out/site/docJar.dest/javadoc/
+          path: out/site/siteGen.dest
           if-no-files-found: error
 
   deploy:
