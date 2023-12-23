@@ -2,7 +2,17 @@
 title: Getting Started
 ---
 
-# Elevator Pitch
+# Import
+
+```scala
+
+//> using dep io.github.quafadas::scautable:{{projectVersion}}
+
+```
+
+# Elevator Pitch - {{projectTitle}}
+
+{{projectVersion}}
 
 ```scala mdoc
 import scautable.{*, given}
