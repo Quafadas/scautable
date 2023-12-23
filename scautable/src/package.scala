@@ -1,5 +1,4 @@
 package scautable
-
 import scalatags.Text.all.*
 import scala.deriving.Mirror
 import scala.compiletime.erasedValue
@@ -8,6 +7,9 @@ import scala.compiletime.summonInline
 import java.time.LocalDate
 import scalatags.Text.TypedTag
 
+/**
+  * This is a simple library to render a scala case class as an html table. It assumes the presence of a HtmlTableRender instance for each type in the case class.
+  */
 object scautable extends PlatformSpecific {
 
   // Aggressively copy-pasta-d from here; https://blog.philipp-martini.de/blog/magic-mirror-scala3/
@@ -30,7 +32,7 @@ object scautable extends PlatformSpecific {
     getTypeclassInstances[m.MirroredElemTypes]
 
   // this traits can just be copy/pasted or reside in a library
-  trait EasyDerive[TC[_]] {
+  private trait EasyDerive[TC[_]] {
     final def apply[A](using tc: TC[A]): TC[A] = tc
 
     case class CaseClassElement[A, B](
@@ -77,7 +79,7 @@ object scautable extends PlatformSpecific {
       val elemInstances = getInstances[m.MirroredElemTypes]
       val elemLabels    = getElemLabels[m.MirroredElemLabels]
 
-      inline m match {        
+      inline m match {
         case p: Mirror.ProductOf[A] =>
           val caseClassElements =
             elemInstances
@@ -108,6 +110,9 @@ object scautable extends PlatformSpecific {
     }
   }
 
+  /**
+  * Implement this trait for any type you want to render as part of an html table. See the concrete examples below.
+  */
   trait HtmlTableRender[A] {
     def tableRow(a: A): scalatags.Text.TypedTag[String]    = ???
     def tableCell(a: A): scalatags.Text.TypedTag[String]   = ???
@@ -132,7 +137,7 @@ object scautable extends PlatformSpecific {
           // case q: Seq[Product] =>
           //   scautable(q)(using this)
 
-        }        
+        }
       override def tableRow(a: A): scalatags.Text.TypedTag[String] = {
         // println("table row in pretty string")
         if (productType.elements.isEmpty) tr("empty")
@@ -171,25 +176,25 @@ object scautable extends PlatformSpecific {
   }
 
   given optT[A](using inner : HtmlTableRender[A]) : HtmlTableRender[Option[A]]= new HtmlTableRender[Option[A]] {
-    override def tableCell(a: Option[A]) = 
-      a match 
+    override def tableCell(a: Option[A]) =
+      a match
         case None => td("")
         case Some(aContent) => inner.tableCell(aContent)
   }
 
   given seqT[A](using inner : HtmlTableRender[A]) : HtmlTableRender[Seq[A]]= new HtmlTableRender[Seq[A]] {
-    override def tableCell(a: Seq[A]) = 
+    override def tableCell(a: Seq[A]) =
       if (a.isEmpty)
         td()
       else
         a.head match {
-          case p: Product =>          
+          case p: Product =>
             val i = summon[HtmlTableRender[A]]
             val h      = p.productElementNames.toList
             val header = tr(h.map(th(_)))
             val rows = a.map(in => i.tableRow(in))
             td(table(thead(header), tbody(rows)))
-          case _ =>          
+          case _ =>
             val cells = a.map(in => tr(inner.tableCell(in)))
             td(table(tbody(cells)))
         }
@@ -243,15 +248,22 @@ object scautable extends PlatformSpecific {
       }
     }
 
+    /**
+      * Render a sequence of unknown type as an html table
+      *
+      * @param a - A sequence of unknown type you wish to render as an html table
+      * @param addHeader - If true, add a header row to the table
+      * @param tableDeriveInstance - An instance of HtmlTableRender for the type `A`
+      */
   def apply[A <: Product](a: Seq[A], addHeader:Boolean = true)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
     val h      = a.head.productElementNames.toList
     val header = tr(h.map(th(_)))
     val rows   = for (r <- a) yield { tableDeriveInstance.tableRow(r) }
     if(addHeader) {
       table(thead(header), tbody(rows), id := "scautable", cls := "display")
-    } else 
+    } else
       table(thead(header), tbody(rows))
-    
+
 
   def apply[A <: Product](a: A, addHeader:Boolean)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
     apply(Seq(a), addHeader)
