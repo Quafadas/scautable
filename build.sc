@@ -1,19 +1,37 @@
 
 import $ivy.`com.github.lolgab::mill-crossplatform::0.2.4`
 import $ivy.`io.github.quafadas::mill_scala3_site_mdoc::0.0.7`
+import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
 
+import de.tobiasroeser.mill.vcs.version._
 import com.github.lolgab.mill.crossplatform._
 import mill._, mill.scalalib._, mill.scalajslib._, mill.scalanativelib._
 import millSite.SiteModule
-import mill._, scalalib._
+import mill._, scalalib._, publish._
 
-trait Common extends ScalaModule {
+trait Common extends ScalaModule  with PublishModule {
   def scalaVersion = "3.3.1"
 
   override def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"com.lihaoyi::scalatags::0.12.0",
     ivy"com.lihaoyi::os-lib:0.9.1"
   )
+
+  def publishVersion = VcsVersion.vcsState().format()
+
+  override def pomSettings = T {
+    PomSettings(
+      description = "Automatically generate html tables from scala case classes",
+      organization = "io.github.quafadas",
+      url = "https://github.com/Quafadas/scautable",
+      licenses = Seq(License.`Apache-2.0`),
+      versionControl =
+        VersionControl.github("quafadas", "scautable"),
+      developers = Seq(
+        Developer("quafadas", "Simon Parten", "https://github.com/quafadas")
+      )
+    )
+  }
 
 }
 

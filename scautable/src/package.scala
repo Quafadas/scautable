@@ -32,7 +32,7 @@ object scautable extends PlatformSpecific {
     getTypeclassInstances[m.MirroredElemTypes]
 
   // this traits can just be copy/pasted or reside in a library
-  private trait EasyDerive[TC[_]] {
+  trait EasyDerive[TC[_]] {
     final def apply[A](using tc: TC[A]): TC[A] = tc
 
     case class CaseClassElement[A, B](
