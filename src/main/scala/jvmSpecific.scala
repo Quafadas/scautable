@@ -1,4 +1,4 @@
-//> using target { platform "jvm" }
+//> using platform jvm
 package scautable
 
 import scautable.HtmlTableRender
@@ -43,7 +43,7 @@ trait PlatformSpecific {
       <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
       <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     </head>
-    <body>            
+    <body>
       <div>
         $asString
       </div>

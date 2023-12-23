@@ -1,4 +1,4 @@
-//> using target { platform "jvm" }
+//> using platform jvm
 package scautable
 
 import scalatags.Text.all.*
@@ -7,7 +7,7 @@ import java.time.LocalDate
 class JVMSuite extends munit.FunSuite {
 
   import scautable.*
-  import scautable.{given}  
+  import scautable.{given}
 
   test("extendable") {
     given dateT: HtmlTableRender[LocalDate] = new HtmlTableRender[LocalDate] {
