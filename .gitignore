@@ -4,3 +4,4 @@
 .scala-build
 .metals
 .bsp
+out

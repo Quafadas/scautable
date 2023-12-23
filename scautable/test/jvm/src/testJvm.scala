@@ -1,4 +1,3 @@
-//> using platform jvm
 package scautable
 
 import scalatags.Text.all.*
