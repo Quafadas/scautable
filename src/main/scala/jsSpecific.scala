@@ -1,4 +1,4 @@
-//> using target { platform "js" }
+//> using platform js
 package scautable
 trait PlatformSpecific {
 
