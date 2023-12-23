@@ -49,6 +49,10 @@ object site extends SiteModule {
 
   def scalaVersion = scautable.jvm .scalaVersion
 
-  override def moduleDeps = Seq( scautable.jvm )
+  override def moduleDeps = Seq( scautable.jvm, scautable.js )
+
+  override def scalaDocOptions = super.scalaDocOptions() ++ Seq(
+    "-scastie-configuration", """libraryDependencies += "io.github.quafadas" %% "scautable" % "0.0.5""""
+  )
 
 }
