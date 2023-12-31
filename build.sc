@@ -1,6 +1,6 @@
 
 import $ivy.`com.github.lolgab::mill-crossplatform::0.2.4`
-import $ivy.`io.github.quafadas::mill_scala3_site_mdoc::0.0.7`
+import $ivy.`io.github.quafadas::mill_scala3_site_mdoc::0.0.9`
 import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
 
 import de.tobiasroeser.mill.vcs.version._
@@ -65,14 +65,17 @@ object scautable extends CrossPlatform {
 
 object site extends SiteModule {
 
+  def latestVersion = T{VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")}
+
   def scalaVersion = scautable.jvm .scalaVersion
 
   override def moduleDeps = Seq( scautable.jvm, scautable.js )
 
   override def scalaDocOptions = super.scalaDocOptions() ++  Seq(
-    "-scastie-configuration", """libraryDependencies += "io.github.quafadas" %% "scautable" % "0.0.5"""",
+    "-scastie-configuration", s"""libraryDependencies += "io.github.quafadas" %% "scautable" % "${latestVersion()}"}"""",
     "-project", "scautable",
-    "-project-version", VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", ""),
+    "-project-version", latestVersion(),
+    s"-social-links:github::${scautable.jvm.pomSettings().url}"
   )
 
 }
