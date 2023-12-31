@@ -67,12 +67,12 @@ object site extends SiteModule {
 
   def latestVersion = T{VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")}
 
-  def scalaVersion = scautable.jvm .scalaVersion
+  def scalaVersion = scautable.jvm.scalaVersion
 
   override def moduleDeps = Seq( scautable.jvm, scautable.js )
 
   override def scalaDocOptions = super.scalaDocOptions() ++  Seq(
-    "-scastie-configuration", s"""libraryDependencies += "io.github.quafadas" %% "scautable" % "${latestVersion()}"}"""",
+    "-scastie-configuration", s"""libraryDependencies += "io.github.quafadas" %% "scautable" % "${latestVersion()}"""",
     "-project", "scautable",
     "-project-version", latestVersion(),
     s"-social-links:github::${scautable.jvm.pomSettings().url}"
