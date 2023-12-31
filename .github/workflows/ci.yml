@@ -73,7 +73,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: page
-          path: out/site/siteGen.dest
+          path: out/site/siteGen.dest/site
           if-no-files-found: error
 
   deploy:
