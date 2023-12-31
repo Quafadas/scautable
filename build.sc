@@ -72,7 +72,7 @@ object site extends SiteModule {
   override def moduleDeps = Seq( scautable.jvm, scautable.js )
 
   override def scalaDocOptions = super.scalaDocOptions() ++  Seq(
-    "-scastie-configuration", s"""libraryDependencies += "io.github.quafadas" %% "scautable" % "${latestVersion()}"""",
+    "-scastie-configuration", s"""libraryDependencies += "io.github.quafadas" %% "scautable" % "${latestVersion()}" """,
     "-project", "scautable",
     "-project-version", latestVersion(),
     s"-social-links:github::${scautable.jvm.pomSettings().url}"
