@@ -10,9 +10,7 @@ title: Getting Started
 
 ```
 
-# Elevator Pitch - {{projectTitle}}
-
-{{projectVersion}}
+# Elevator Pitch
 
 ```scala mdoc
 import scautable.{*, given}
