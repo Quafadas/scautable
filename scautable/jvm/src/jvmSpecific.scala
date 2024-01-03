@@ -31,6 +31,13 @@ trait PlatformSpecific {
       runtime.exec(Array[String](s"""xdg-open $uri]"""))
   }
 
+  /**
+    * Attempts to open a browser window, and display this Seq of `Product` as a table.
+    *
+    * @param a - seq of case classes
+    * @param tableDeriveInstance - summon a HtmlTableRender instance for the case class
+    * @return
+    */
   def desktopShow[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]) = {
     val asString = scautable(a).toString()
     val theHtml = raw"""

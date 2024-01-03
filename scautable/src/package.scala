@@ -8,7 +8,7 @@ import java.time.LocalDate
 import scalatags.Text.TypedTag
 
 /**
-  * This is a simple library to render a scala case class as an html table. It assumes the presence of a HtmlTableRender instance for each type in the case class.
+  * This is a simple library to render a scala case class as an html table. It assumes the presence of a [[HtmlTableRender]] instance for each type in the case class.
   */
 object scautable extends PlatformSpecific {
 
