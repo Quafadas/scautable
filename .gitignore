@@ -27,3 +27,4 @@ mill-native
 .metals
 .bsp
 out
+.bloop

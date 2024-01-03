@@ -1,8 +1,4 @@
----
-title: Getting Started
----
 
-# Import
 
 ```scala
 
@@ -13,7 +9,7 @@ title: Getting Started
 # Elevator Pitch
 
 ```scala mdoc
-import scautable.{*, given}
+import io.github.quafadas.scautable.{*, given}
 
 case class ScauTest(anInt: Int, aString: String)
 scautable(
@@ -22,10 +18,10 @@ scautable(
 ).toString()
 ```
 
-On the JVM in particular, the ability to pop it open in the browser, see and search the actual data... can be useful. Particularly if you're working with a lot of mesy, csv data for example.
+On the JVM in particular, the ability to pop it open in the browser, see and search the actual data... can be useful. Particularly if you're working with a lot of messy, csv data for example.
 
 ```scala
-import scautable.{*, given}
+import io.github.quafadas.scautable.{*, given}
 
 case class ScauTest(anInt: Int, aString: String)
 val soComplex = Seq(ScauTest(1, "one"), ScauTest(2, "two"))

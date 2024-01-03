@@ -1,4 +1,4 @@
-package scautable
+package io.github.quafadas.scautable
 import scalatags.Text.all.*
 import scala.deriving.Mirror
 import scala.compiletime.erasedValue
@@ -13,7 +13,7 @@ import scalatags.Text.TypedTag
 object scautable extends PlatformSpecific {
 
   // Aggressively copy-pasta-d from here; https://blog.philipp-martini.de/blog/magic-mirror-scala3/
-  inline def getTypeclassInstances[A <: Tuple]: List[HtmlTableRender[Any]] =
+  protected inline def getTypeclassInstances[A <: Tuple]: List[HtmlTableRender[Any]] =
     inline erasedValue[A] match {
       case _: EmptyTuple => Nil
       case _: (head *: tail) =>
@@ -28,11 +28,11 @@ object scautable extends PlatformSpecific {
     }
 
 // helper method like before
-  inline def summonInstancesHelper[A](using m: Mirror.Of[A]) =
+  protected inline def summonInstancesHelper[A](using m: Mirror.Of[A]) =
     getTypeclassInstances[m.MirroredElemTypes]
 
   // this traits can just be copy/pasted or reside in a library
-  trait EasyDerive[TC[_]] {
+  protected trait EasyDerive[TC[_]] {
     final def apply[A](using tc: TC[A]): TC[A] = tc
 
     case class CaseClassElement[A, B](
@@ -59,14 +59,14 @@ object scautable extends PlatformSpecific {
       getElement: A => SealedElement[A, _]
     )
 
-    inline def getInstances[A <: Tuple]: List[TC[Any]] =
+    protected inline def getInstances[A <: Tuple]: List[TC[Any]] =
       inline erasedValue[A] match {
         case _: EmptyTuple => Nil
         case _: (t *: ts) =>
           summonInline[TC[t]].asInstanceOf[TC[Any]] :: getInstances[ts]
       }
 
-    inline def getElemLabels[A <: Tuple]: List[String] =
+    protected inline def getElemLabels[A <: Tuple]: List[String] =
       inline erasedValue[A] match {
         case _: EmptyTuple => Nil
         case _: (t *: ts)  => constValue[t].toString :: getElemLabels[ts]
@@ -200,14 +200,14 @@ object scautable extends PlatformSpecific {
         }
   }
 
-  def deriveTableRow[A](a: A)(using instance: HtmlTableRender[A]) =
+  protected def deriveTableRow[A](a: A)(using instance: HtmlTableRender[A]) =
     instance.tableRow(a)
 
-  def deriveTableHeader[A](a: A)(using instance: HtmlTableRender[A]) =
+  protected def deriveTableHeader[A](a: A)(using instance: HtmlTableRender[A]) =
     println("deriveTableHeader")
     tr(instance.tableRow(a))
 
-  inline def getElemLabels[A <: Tuple]: List[String] =
+  protected inline def getElemLabels[A <: Tuple]: List[String] =
     inline erasedValue[A] match {
       case _: EmptyTuple => Nil // stop condition - the tuple is empty
       case _: (head *: tail) => // yes, in scala 3 we can match on tuples head and tail to deconstruct them step by step
@@ -218,11 +218,11 @@ object scautable extends PlatformSpecific {
         headElementLabel :: tailElementLabels // concat head + tail
     }
 
-  inline def tableHeader[A](using m: Mirror.Of[A]) =
+  protected inline def tableHeader[A](using m: Mirror.Of[A]) =
     val elemLabels = getElemLabels[m.MirroredElemLabels]
     tr(elemLabels.map(th(_)))
 
-  inline def deriveCaseClass[A](using m: Mirror.ProductOf[A]) =
+  protected inline def deriveCaseClass[A](using m: Mirror.ProductOf[A]) =
     new HtmlTableRender[A] {
 
       override def tableHeader(a: A) =
