@@ -1,4 +1,4 @@
-package scautable
+package io.github.quafadas.scautable
 
 import scalatags.Text.all.*
 import java.time.LocalDate

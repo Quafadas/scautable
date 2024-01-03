@@ -1,8 +1,7 @@
-package scautable
+package io.github.quafadas.scautable
 
-
-import scautable.HtmlTableRender
 import java.awt.Desktop
+import io.github.quafadas.scautable.scautable.HtmlTableRender
 // import almond.api.JupyterApi
 // import almond.interpreter.api.DisplayData
 // import almond.api.JupyterAPIHolder.value

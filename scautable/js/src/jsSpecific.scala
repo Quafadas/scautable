@@ -1,4 +1,4 @@
-package scautable
+package io.github.quafadas.scautable
 
 trait PlatformSpecific {
 

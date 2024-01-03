@@ -238,4 +238,4 @@ unset MILL_REPO_URL
 
 # We don't quote MILL_FIRST_ARG on purpose, so we can expand the empty value without quotes
 # shellcheck disable=SC2086
-exec "${MILL}" $MILL_FIRST_ARG -D "mill.main.cli=${MILL_MAIN_CLI}" "$@"
+exec "${MILL}" $MILL_FIRST_ARG -D "mill.main.cli=${MILL_MAIN_CLI}" -j 0 "$@"
