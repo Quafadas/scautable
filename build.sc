@@ -12,7 +12,6 @@ import mill._, scalalib._, publish._
 
 import mill.api.Result
 
-
 trait Common extends ScalaModule  with PublishModule {
   def scalaVersion = "3.3.1"
 
