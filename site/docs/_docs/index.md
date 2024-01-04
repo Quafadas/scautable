@@ -1,4 +1,4 @@
-Auto Magically generate and view searchablehtml tables a `Seq[A]`
+Auto Magically generate and view searchable html tables for a `Seq[A]`
 
 
 ```scala
@@ -11,8 +11,10 @@ Auto Magically generate and view searchablehtml tables a `Seq[A]`
 import io.github.quafadas.scautable.{*, given}
 
 case class ScauTest(anInt: Int, aString: String)
-scautable(
-  Seq(ScauTest(1, "one"), ScauTest(2, "two")),
-  true
-).toString()
+scautable.desktopShow(
+  Seq(
+    ScauTest(1, "one"), ScauTest(2, "two")
+  )
+)
 ```
+

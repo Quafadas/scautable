@@ -1,6 +1,6 @@
 
 import $ivy.`com.github.lolgab::mill-crossplatform::0.2.4`
-import $ivy.`io.github.quafadas::millSite::0.0.12`
+import $ivy.`io.github.quafadas::millSite::0.0.15`
 import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
 
 import de.tobiasroeser.mill.vcs.version._
@@ -72,84 +72,5 @@ object site extends SiteModule {
   def scalaVersion = scautable.jvm.scalaVersion
 
   override def moduleDeps = Seq(scautable.jvm)
-
-    private def fixAssets(docFile: os.Path) = {
-    if (docFile.ext == "md") {
-      val fixyFixy = os.read(docFile).replace("../_assets/", "")
-      os.write.over(docFile, fixyFixy.getBytes())
-    }
-  }
-
-
-  override def docOnlyGen: T[QuickChange] = T {
-    val md = mdoc().path
-    val origDocs = mdocSourceDir().path
-    val javadocDir = T.dest / "javadoc"
-    os.makeDir.all(javadocDir)
-    val combinedStaticDir = T.dest / "static"
-    os.makeDir.all(combinedStaticDir)
-
-    // copy mdoccd files in
-    for {
-      aDoc <- os.walk(md)
-      rel = (combinedStaticDir / aDoc.subRelativeTo(md))
-    } {
-      // println(rel)
-      os.copy.over(aDoc, rel)
-      fixAssets(rel) // pure filth, report as bug?
-    }
-
-    // copy all other doc files
-    for {
-      aDoc <- os.walk(origDocs)
-      rel = (combinedStaticDir / aDoc.subRelativeTo(mdocDir));
-      if !os.exists(rel)
-    } {
-      os.copy(aDoc, rel)
-      // fixAssets(rel) // pure filth, report as bug?
-    }
-
-    // if (os.exists(assetDir)) {
-    //   os.copy(assetDir, javadocDir, mergeFolders = true, replaceExisting = true)
-    // }
-
-    val compileCp = compileCpArg
-    val options = Seq(
-      "-d",
-      javadocDir.toNIO.toString,
-      "-siteroot",
-      combinedStaticDir.toNIO.toString
-    )
-
-    val localCp = Lib
-      .findSourceFiles(Seq(fakeSource().classes), Seq("tasty"))
-      .map(_.toString()) // fake api to skip potentially slow doc generation
-
-    zincWorker()
-      .worker()
-      .docJar(
-        scalaVersion(),
-        scalaOrganization(),
-        scalaDocClasspath(),
-        scalacPluginClasspath(),
-        options ++ compileCpArg() ++ scalaDocOptions()
-          ++ localCp
-      ) match {
-      case true =>
-        Result.Success(
-          QuickChange(
-            os.walk(javadocDir / "docs")
-              .filter(os.isFile)
-              .map(PathRef(_))
-              .toSeq,
-            PathRef(javadocDir, true)
-          )
-        )
-      case false =>
-        Result.Failure(
-          s"""Documentation generatation failed. Cause could include be no sources files in : ${sources()} or no doc files in ${docSources()}, or an error message printed above... """
-        )
-    }
-  }
 
 }
