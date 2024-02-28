@@ -2,8 +2,7 @@ package io.github.quafadas.scautable
 
 trait PlatformSpecific {
 
-  /**
-    * With scaladoc
+  /** With scaladoc
     */
   def shouldTotallyAppearInDocs(): Unit = ()
 
