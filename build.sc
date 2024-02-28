@@ -37,7 +37,7 @@ trait Common extends ScalaModule with PublishModule {
 }
 
 trait CommonJS extends ScalaJSModule {
-  def scalaJSVersion = "1.14.0"
+  def scalaJSVersion = "1.15.0"
 }
 trait CommonTests extends TestModule.Munit {
   def ivyDeps = super.ivyDeps() ++ Agg(
