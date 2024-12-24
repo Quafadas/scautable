@@ -16,6 +16,13 @@ scautable(
   Seq(ScauTest(1, "one"), ScauTest(2, "two")),
   true
 ).toString()
+
+val table = Seq(ScauTest(1, "one"), ScauTest(2, "two"), ScauTest(3, "booyakashaha!"))
+
+scautable.consoleFormat(table)
+
+scautable.printlnConsole(table)
+
 ```
 
 On the JVM in particular, the ability to pop it open in the browser, see and search the actual data... can be useful. Particularly if you're working with a lot of messy, csv data for example.
@@ -32,6 +39,11 @@ Will pop open a browser... using https://datatables.net
 ![desktop](../_assets/desktop.png)
 
 And your case classes are now easily visible and searchable.
+
+```scala
+
+
+```
 
 # Scala JS
 
