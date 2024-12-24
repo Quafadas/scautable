@@ -9,6 +9,33 @@ class MySuite extends munit.FunSuite {
 
   case class ScauTest(anInt: Int, aString: String)
 
+  test("console") {
+    case class ScauTest(anInt: Int, aString: String)
+    val start    = ScauTest(1, "2")
+    val start2   = ScauTest(2, "booyakashah")
+    val startSeq = Seq(start, start2)
+    val console  = scautable.consoleFormat(startSeq)
+    assertEquals(
+      console,
+      s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n|1|    2|booyakashah|\n+-+-----+-----------+"""
+    )
+  }
+
+  test("console_2") {
+    case class ScauTest(anInt: Int, aString: String)
+    val start    = ScauTest(1, "2")
+    val start2   = ScauTest(2, "booyakashah")
+    val start3   = ScauTest(3, "boo")
+    val start4   = ScauTest(4, "booy")
+    val startSeq = Seq(start, start2, start3, start4)
+    val console  = scautable.consoleFormat(startSeq)
+    scautable.printlnConsole(startSeq)
+    assertEquals(
+      console,
+      s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n|1|    2|booyakashah|\n|2|    3|        boo|\n|3|    4|       booy|\n+-+-----+-----------+"""
+    )
+  }
+
   test("one row") {
     val start    = ScauTest(1, "2")
     val startSeq = start
