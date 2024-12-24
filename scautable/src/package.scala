@@ -17,19 +17,13 @@ object scautable extends PlatformSpecific {
   def consoleFormat(table: Seq[Product]) = table match {
     case Seq() => ""
     case _ =>
-      val indexLen  = table.length.toString.length
-      val headers   = table.head.productElementNames.toList
-      val sizes     = for (row <- table) yield (for (cell <- row.productIterator.toSeq) yield if (cell == null) 0 else cell.toString.length)
-      val headSizes = for (i <- headers) yield headers.toString()
-
-      val colSizes = for ((col, header) <- sizes.transpose.zip(headers)) yield Seq(header.toString().length(), col.max).max
-
+      val indexLen          = table.length.toString.length
+      val headers           = table.head.productElementNames.toList
+      val sizes             = for (row <- table) yield (for (cell <- row.productIterator.toSeq) yield if (cell == null) 0 else cell.toString.length)
+      val headSizes         = for (i <- headers) yield headers.toString()
+      val colSizes          = for ((col, header) <- sizes.transpose.zip(headers)) yield Seq(header.toString().length(), col.max).max
       val colSizesWithIndex = indexLen +: colSizes
-
-      val rows = for ((row, i) <- table.zipWithIndex) yield formatRow(i +: row.productIterator.toSeq, colSizesWithIndex)
-
-      println(colSizes)
-      println(colSizesWithIndex)
+      val rows              = for ((row, i) <- table.zipWithIndex) yield formatRow(i +: row.productIterator.toSeq, colSizesWithIndex)
 
       formatHeader("" +: headers, colSizesWithIndex) ++ formatRows(rowSeparator(colSizesWithIndex), rows)
   }
