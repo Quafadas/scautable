@@ -1,6 +1,5 @@
-
 import $ivy.`com.github.lolgab::mill-crossplatform::0.2.4`
-import $ivy.`io.github.quafadas::millSite::0.0.19`
+import $ivy.`io.github.quafadas:millSite_mill0.12_2.13:0.0.38`
 import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
 
 import de.tobiasroeser.mill.vcs.version._
@@ -12,12 +11,12 @@ import mill._, scalalib._, publish._
 
 import mill.api.Result
 
-trait Common extends ScalaModule  with PublishModule {
-  def scalaVersion = "3.3.1"
+trait Common extends ScalaModule with PublishModule {
+  def scalaVersion = "3.3.4"
 
   override def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"com.lihaoyi::scalatags::0.12.0",
-    ivy"com.lihaoyi::os-lib:0.9.1"
+    ivy"com.lihaoyi::scalatags::0.13.1",
+    ivy"com.lihaoyi::os-lib:0.11.3"
   )
 
   def publishVersion = VcsVersion.vcsState().format()
@@ -28,8 +27,7 @@ trait Common extends ScalaModule  with PublishModule {
       organization = "io.github.quafadas",
       url = "https://github.com/Quafadas/scautable",
       licenses = Seq(License.`Apache-2.0`),
-      versionControl =
-        VersionControl.github("quafadas", "scautable"),
+      versionControl = VersionControl.github("quafadas", "scautable"),
       developers = Seq(
         Developer("quafadas", "Simon Parten", "https://github.com/quafadas")
       )
@@ -39,14 +37,16 @@ trait Common extends ScalaModule  with PublishModule {
 }
 
 trait CommonJS extends ScalaJSModule {
-  def scalaJSVersion = "1.14.0"
+  def scalaJSVersion = "1.17.0"
+  def ivyDeps = super.ivyDeps() ++ Agg(
+    ivy"com.raquo::laminar::17.2.0"
+  )
 }
 trait CommonTests extends TestModule.Munit {
   def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"org.scalameta::munit::1.0.0-M10"
+    ivy"org.scalameta::munit::1.0.3"
   )
 }
-
 
 object scautable extends CrossPlatform {
   trait Shared extends CrossPlatformScalaModule with Common {
