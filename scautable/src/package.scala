@@ -14,16 +14,16 @@ import fansi.Str
 object scautable extends PlatformSpecific {
 
   private val colours = List(
-    fansi.Color.Red,
     fansi.Color.Green,
-    fansi.Color.Yellow,
+    fansi.Color.White,
+    fansi.Color.Red,
     fansi.Color.Blue,
     fansi.Color.Magenta,
     fansi.Color.Cyan,
     fansi.Color.White,
-    fansi.Color.LightGreen,
-    fansi.Color.LightYellow,
-    fansi.Color.LightRed
+    fansi.Color.Green,
+    fansi.Color.Magenta,
+    fansi.Color.White
   )
 
   def makeFancy(s: String, i: Int): Str =
