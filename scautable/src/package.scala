@@ -7,10 +7,51 @@ import scala.compiletime.summonInline
 import java.time.LocalDate
 import scalatags.Text.TypedTag
 
-/**
-  * This is a simple library to render a scala case class as an html table. It assumes the presence of a [[HtmlTableRender]] instance for each type in the case class.
+/** This is a simple library to render a scala case class as an html table. It assumes the presence of a [[HtmlTableRender]] instance for each type in
+  * the case class.
   */
 object scautable extends PlatformSpecific {
+
+  def printlnConsole(table: Seq[Product]) = println(consoleFormat(table))
+
+  def consoleFormat(table: Seq[Product]) = table match {
+    case Seq() => ""
+    case _ =>
+      val indexLen  = table.length.toString.length
+      val headers   = table.head.productElementNames.toList
+      val sizes     = for (row <- table) yield (for (cell <- row.productIterator.toSeq) yield if (cell == null) 0 else cell.toString.length)
+      val headSizes = for (i <- headers) yield headers.toString()
+
+      val colSizes = for ((col, header) <- sizes.transpose.zip(headers)) yield Seq(header.toString().length(), col.max).max
+
+      val colSizesWithIndex = indexLen +: colSizes
+
+      val rows = for ((row, i) <- table.zipWithIndex) yield formatRow(i +: row.productIterator.toSeq, colSizesWithIndex)
+
+      println(colSizes)
+      println(colSizesWithIndex)
+
+      formatHeader("" +: headers, colSizesWithIndex) ++ formatRows(rowSeparator(colSizesWithIndex), rows)
+  }
+
+  private def formatRows(rowSeparator: String, rows: Seq[String]): String = (rowSeparator ::
+    rows.head ::
+    rowSeparator ::
+    rows.tail.toList :::
+    rowSeparator ::
+    List()).mkString("\n")
+
+  private def formatRow(row: Seq[Any], colSizes: Seq[Int]) = {
+    val cells = (for ((item, size) <- row.zip(colSizes)) yield if (size == 0) "" else ("%" + size + "s").format(item))
+    cells.mkString("|", "|", "|")
+  }
+
+  private def formatHeader(row: Seq[String], colSizes: Seq[Int]) = {
+    val cells = (for ((item, size) <- row.zip(colSizes)) yield if (size == 0) "" else ("%" + size + "s").format(item))
+    cells.mkString("|", "|", "|") + "\n"
+  }
+
+  private def rowSeparator(colSizes: Seq[Int]) = colSizes map { "-" * _ } mkString ("+", "+", "+")
 
   // Aggressively copy-pasta-d from here; https://blog.philipp-martini.de/blog/magic-mirror-scala3/
   protected inline def getTypeclassInstances[A <: Tuple]: List[HtmlTableRender[Any]] =
@@ -110,9 +151,8 @@ object scautable extends PlatformSpecific {
     }
   }
 
-  /**
-  * Implement this trait for any type you want to render as part of an html table. See the concrete examples below.
-  */
+  /** Implement this trait for any type you want to render as part of an html table. See the concrete examples below.
+    */
   trait HtmlTableRender[A] {
     def tableRow(a: A): scalatags.Text.TypedTag[String]    = ???
     def tableCell(a: A): scalatags.Text.TypedTag[String]   = ???
@@ -175,24 +215,24 @@ object scautable extends PlatformSpecific {
     )
   }
 
-  given optT[A](using inner : HtmlTableRender[A]) : HtmlTableRender[Option[A]]= new HtmlTableRender[Option[A]] {
+  given optT[A](using inner: HtmlTableRender[A]): HtmlTableRender[Option[A]] = new HtmlTableRender[Option[A]] {
     override def tableCell(a: Option[A]) =
       a match
-        case None => td("")
+        case None           => td("")
         case Some(aContent) => inner.tableCell(aContent)
   }
 
-  given seqT[A](using inner : HtmlTableRender[A]) : HtmlTableRender[Seq[A]]= new HtmlTableRender[Seq[A]] {
+  given seqT[A](using inner: HtmlTableRender[A]): HtmlTableRender[Seq[A]] = new HtmlTableRender[Seq[A]] {
     override def tableCell(a: Seq[A]) =
       if (a.isEmpty)
         td()
       else
         a.head match {
           case p: Product =>
-            val i = summon[HtmlTableRender[A]]
+            val i      = summon[HtmlTableRender[A]]
             val h      = p.productElementNames.toList
             val header = tr(h.map(th(_)))
-            val rows = a.map(in => i.tableRow(in))
+            val rows   = a.map(in => i.tableRow(in))
             td(table(thead(header), tbody(rows)))
           case _ =>
             val cells = a.map(in => tr(inner.tableCell(in)))
@@ -248,23 +288,24 @@ object scautable extends PlatformSpecific {
       }
     }
 
-    /**
-      * Render a sequence of unknown type as an html table
+    /** Render a sequence of unknown type as an html table
       *
-      * @param a - A sequence of unknown type you wish to render as an html table
-      * @param addHeader - If true, add a header row to the table
-      * @param tableDeriveInstance - An instance of HtmlTableRender for the type `A`
+      * @param a
+      *   \- A sequence of unknown type you wish to render as an html table
+      * @param addHeader
+      *   \- If true, add a header row to the table
+      * @param tableDeriveInstance
+      *   \- An instance of HtmlTableRender for the type `A`
       */
-  def apply[A <: Product](a: Seq[A], addHeader:Boolean = true)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
+  def apply[A <: Product](a: Seq[A], addHeader: Boolean = true)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
     val h      = a.head.productElementNames.toList
     val header = tr(h.map(th(_)))
     val rows   = for (r <- a) yield { tableDeriveInstance.tableRow(r) }
-    if(addHeader) {
+    if (addHeader) {
       table(thead(header), tbody(rows), id := "scautable", cls := "display")
     } else
       table(thead(header), tbody(rows))
 
-
-  def apply[A <: Product](a: A, addHeader:Boolean)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
+  def apply[A <: Product](a: A, addHeader: Boolean)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
     apply(Seq(a), addHeader)
 }
