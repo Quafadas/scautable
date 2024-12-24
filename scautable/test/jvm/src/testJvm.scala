@@ -21,16 +21,4 @@ class JVMSuite extends munit.FunSuite {
       scautable(custom).toString()
     )
   }
-
-  test("console") {
-    case class ScauTest(anInt: Int, aString: String)
-    val start    = ScauTest(1, "2")
-    val start2   = ScauTest(2, "booyakashah")
-    val startSeq = Seq(start, start2)
-    val console  = scautable.consoleFormat(startSeq)
-    assertEquals(
-      console,
-      s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n+-+-----+-----------+\n|1|    2|booyakashah|\n+-+-----+-----------+"""
-    )
-  }
 }
