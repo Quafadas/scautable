@@ -6,15 +6,33 @@ import scala.compiletime.constValue
 import scala.compiletime.summonInline
 import java.time.LocalDate
 import scalatags.Text.TypedTag
+import fansi.Str
 
 /** This is a simple library to render a scala case class as an html table. It assumes the presence of a [[HtmlTableRender]] instance for each type in
   * the case class.
   */
 object scautable extends PlatformSpecific {
 
-  def printlnConsole(table: Seq[Product]) = println(consoleFormat(table))
+  private val colours = List(
+    fansi.Color.Red,
+    fansi.Color.Green,
+    fansi.Color.Yellow,
+    fansi.Color.Blue,
+    fansi.Color.Magenta,
+    fansi.Color.Cyan,
+    fansi.Color.White,
+    fansi.Color.LightGreen,
+    fansi.Color.LightYellow,
+    fansi.Color.LightRed
+  )
 
-  def consoleFormat(table: Seq[Product]) = table match {
+  def makeFancy(s: String, i: Int): Str =
+    val idx = i % colours.length
+    colours(idx)(s)
+
+  def printlnConsole(table: Seq[Product], fancy: Boolean = false) = println(consoleFormat(table, fancy))
+
+  def consoleFormat(table: Seq[Product], fancy: Boolean = false) = table match {
     case Seq() => ""
     case _ =>
       val indexLen          = table.length.toString.length
@@ -23,9 +41,20 @@ object scautable extends PlatformSpecific {
       val headSizes         = for (i <- headers) yield headers.toString()
       val colSizes          = for ((col, header) <- sizes.transpose.zip(headers)) yield Seq(header.toString().length(), col.max).max
       val colSizesWithIndex = indexLen +: colSizes
-      val rows              = for ((row, i) <- table.zipWithIndex) yield formatRow(i +: row.productIterator.toSeq, colSizesWithIndex)
+      val rows =
+        for ((row, i) <- table.zipWithIndex)
+          yield
+            if (fancy)
+              formatFancyRow((i +: row.productIterator.toSeq).zipWithIndex, colSizesWithIndex)
+            else
+              formatRow(i +: row.productIterator.toSeq, colSizesWithIndex)
 
-      formatHeader("" +: headers, colSizesWithIndex) ++ formatRows(rowSeparator(colSizesWithIndex), rows)
+      if (fancy) {
+        formatFancyHeader((Str("") +: headers.map(Str(_))).zipWithIndex, colSizesWithIndex) ++ formatRows(rowSeparator(colSizesWithIndex), rows)
+      } else {
+        formatHeader("" +: headers, colSizesWithIndex) ++ formatRows(rowSeparator(colSizesWithIndex), rows)
+      }
+
   }
 
   private def formatRows(rowSeparator: String, rows: Seq[String]): String = (rowSeparator ::
@@ -34,9 +63,33 @@ object scautable extends PlatformSpecific {
     rowSeparator ::
     List()).mkString("\n")
 
+  private def formatFancyRows(rowSeparator: Str, rows: Seq[String]): String = (rowSeparator ::
+    rows.head ::
+    rows.tail.toList :::
+    rowSeparator ::
+    List()).mkString("\n")
+
   private def formatRow(row: Seq[Any], colSizes: Seq[Int]) = {
     val cells = (for ((item, size) <- row.zip(colSizes)) yield if (size == 0) "" else ("%" + size + "s").format(item))
     cells.mkString("|", "|", "|")
+  }
+
+  private def formatFancyRow(row: Seq[(Any, Int)], colSizes: Seq[Int]) = {
+    val cells = (for ((item, size) <- row.zip(colSizes)) yield
+      val raw = if (size == 0) "" else ("%" + size + "s").format(item._1)
+      makeFancy(raw, item._2)
+    )
+
+    cells.mkString("|", "|", "|")
+  }
+
+  private def formatFancyHeader(row: Seq[(Str, Int)], colSizes: Seq[Int]) = {
+    val cells = (for ((item, size) <- row.zip(colSizes)) yield
+      val raw = if (size == 0) "" else ("%" + size + "s").format(item._1)
+      makeFancy(raw, item._2)
+    )
+
+    cells.mkString("|", "|", "|") + "\n"
   }
 
   private def formatHeader(row: Seq[String], colSizes: Seq[Int]) = {
