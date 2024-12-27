@@ -40,8 +40,6 @@ class JVMSuite extends munit.FunSuite {
     println(c.col1)
 
     val csv = CSV.readCsvAsNamedTupleType("C:\\temp\\scautable\\simple.csv")
-
-    ("a", "b").withNames[NamedTuple.Names[csv]]
     println(csv)
     println(csv.col1)
     // println(csv)

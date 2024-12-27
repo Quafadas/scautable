@@ -4,10 +4,30 @@ import scala.quoted.*
 import scala.io.Source
 import scala.annotation.experimental
 import NamedTuple.withNames
-import scala.NamedTuple
+import scala.NamedTuple.NamedTuple
 
 @experimental
 object CSV:
+
+  class FileLineIterator[N <: Tuple, V <: Tuple](filePath: String) extends Iterator[NamedTuple[N, V]] {
+    def getFilePath: String  = filePath
+    private val source       = Source.fromFile(filePath)
+    private val lineIterator = source.getLines()
+    private var lineNumber   = 0
+
+    override def hasNext: Boolean = {
+      val hasMore = lineIterator.hasNext
+      if (!hasMore) source.close() // Close the file when done
+      hasMore
+    }
+
+    override def next(): NamedTuple[N, V] = {
+      if (!hasNext) throw new NoSuchElementException("No more lines")
+      ???
+      // (lineNumber, lineIterator.next()) // Return line number and line content
+    }
+  }
+
   transparent inline def readCsvAsNamedTupleType[T](inline path: String) = ${ readCsvAsNamedTupleTypeImpl2('path) }
 
   def readCsvAsNamedTupleTypeImpl2(pathExpr: Expr[String])(using Quotes) = {
@@ -107,12 +127,19 @@ object CSV:
     // val n1 = ("col1", "col2").withNames[("col1", "col2")]
     // Expr(
     //   n1
+
     // )
     tupleExpr2 match
       case '{ $tup: t } =>
         // val tupleExpr  = Expr.ofTupleFromSeq(headers.map(Expr(_)))
         // val tuple2Exrp = Expr(Tuple2("1", "2"))
+        given IteratorToExpr[K, V: Type: ToExpr]: ToExpr[FileLineIterator[K, V]] with
+          def apply(opt: FileLineIterator[K, V])(using Quotes): Expr[FileLineIterator[K, V]] =
+            '{ FileLineIterator[K, V](${ Expr(opt.getFilePath) }) }
 
-        '{ NamedTuple.build[t & Tuple]()($tup) }
+        val itr = new FileLineIterator[t & Tuple, Tuple](path)
+
+        Expr(itr)
+      // '{ NamedTuple.build[t & Tuple]()($tup) }
       case _ => report.throwError(s"Could not summon Type for type: ${typeTuple.show}")
   }
