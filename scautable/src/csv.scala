@@ -54,9 +54,9 @@ object CSV:
     // TypeRepr.of[Tuple]
     // Generate the NamedTuple expression
     val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-    // val headersExpr2 = Expr.ofTuple(headerTup)
+    // val headersExpr2 = Expr.ofTuple(headerTuple)
 
-    // println(s"headers: ${typ}")
+    // // println(s"headers: ${typ}")
 
     // '{
     //   val t = $tupleExpr2
@@ -104,15 +104,15 @@ object CSV:
     //       case Some(x) => '{ Some[T](${ Expr(x) }) }
     //       case None    => '{ None }
 
-    val n1 = ("col1", "col2").withNames[("col1", "col2")]
-    Expr(
-      n1
-    )
-    // tupleExpr2 match
-    //   case '{ $tup: t } =>
-    //     val tupleExpr  = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-    //     val tuple2Exrp = Expr(Tuple2("1", "2"))
+    // val n1 = ("col1", "col2").withNames[("col1", "col2")]
+    // Expr(
+    //   n1
+    // )
+    tupleExpr2 match
+      case '{ $tup: t } =>
+        // val tupleExpr  = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+        // val tuple2Exrp = Expr(Tuple2("1", "2"))
 
-    //   // '{ NamedTuple.build[t & Tuple]()($tuple2Exrp.asInstanceOf) }
-    //   case _ => report.throwError(s"Could not summon Type for type: ${typeTuple.show}")
+        '{ NamedTuple.build[t & Tuple]()($tup) }
+      case _ => report.throwError(s"Could not summon Type for type: ${typeTuple.show}")
   }

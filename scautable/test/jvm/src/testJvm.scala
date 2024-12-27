@@ -28,8 +28,8 @@ class JVMSuite extends munit.FunSuite {
 
   test("csv") {
 
-    val tupleExample  = (col1 = "a", col2 = "b")
-    val tupleExample2 = NamedTuple.build[("col1", "col2")]()(("a", "b"))
+    val tupleExample                                = (col1 = "a", col2 = "b")
+    val tupleExample2: (col1: String, col2: String) = NamedTuple.build[("col1", "col2")]()(("a", "b"))
 
     val c = ("a", "b").withNames[("col1", "col2")]
 
@@ -40,8 +40,10 @@ class JVMSuite extends munit.FunSuite {
     println(c.col1)
 
     val csv = CSV.readCsvAsNamedTupleType("C:\\temp\\scautable\\simple.csv")
+
+    ("a", "b").withNames[NamedTuple.Names[csv]]
     println(csv)
-    // println(csv.col1)
+    println(csv.col1)
     // println(csv)
     // val a = NamedTuple.build[csv.type]()[Tuple2[String, String]]("a", "b")
     // val a = NamedTuple.build[csv.TYPE]()[Tuple2[String, String]]("a", "b")
