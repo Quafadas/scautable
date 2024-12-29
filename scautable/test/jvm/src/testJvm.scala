@@ -6,19 +6,19 @@ import java.time.LocalDate
 import scala.annotation.experimental
 import NamedTuple.*
 import CSV.*
+import ColumnTypes.*
 
 @experimental
-class JVMSuite extends munit.FunSuite {
+class JVMSuite extends munit.FunSuite:
 
   import scautable.*
-  import scautable.{given}
+  import scautable.given
 
   test("extendable") {
-    given dateT: HtmlTableRender[LocalDate] = new HtmlTableRender[LocalDate] {
+    given dateT: HtmlTableRender[LocalDate] = new HtmlTableRender[LocalDate]:
       override def tableCell(a: LocalDate) = td(
         s"$a"
       )
-    }
     case class Customize(t: LocalDate, i: Int)
     val custom = Seq(Customize(LocalDate.of(2025, 1, 1), 1))
     assertEquals(
@@ -29,23 +29,46 @@ class JVMSuite extends munit.FunSuite {
 
   test("csv") {
 
-    val tupleExample: (col1: String, col2: String)  = (col1 = "a", col2 = "b")
-    val tupleExample2: (col1: String, col2: String) = NamedTuple.build[("col1", "col2")]()(("a", "b"))
+    // val tupleExample: (col1: String, col2: String, col3: String) = (col1 = "1", col2 = "2", col3 = "three")
+    // val tupleExample2: (col1: String, col2: String)              = NamedTuple.build[("col1", "col2")]()(("a", "b"))
 
-    val c = ("a", "b").withNames[("col1", "col2")]
+    // val c = ("a", "b").withNames[("col1", "col2")]
 
-    val itr = List(tupleExample2, tupleExample, c).iterator
-    println(itr.map(_.col1).toArray.mkString(","))
+    // val temp = tupleExample.col1.toInt
+    // println(temp)
 
-    println(tupleExample.col1)
-    println(tupleExample2.col2)
-    println(c.col1)
+    // val itr = List(tupleExample2, tupleExample, c).iterator
+    // // println(itr.map(_.col1).toArray.mkString(","))
 
-    val csv = CSV.readCsvAsNamedTupleType("C:\\temp\\scautable\\simple.csv")
+    // println(tupleExample.col1)
+    // println(tupleExample2.col2)
+    // println(c.col1)
+
+    val csv: CsvIterator[("col1", "col2")] = CSV.readCsvAsNamedTupleType("/Users//simon//Code//scautable//simple.csv")
+
+    val newItr: CsvIterator[("col1", "col2")] = csv.copy()
     // println(csv.drop(1).toArray.mkString("\n"))
     // csv.toList.map(x => x.col1)
-    val values = csv.drop(1).toArray
-    println(values.map(_.col1.toInt).mkString(","))
+    println(csv.headers)
+    println(csv.headerIndex("col2"))
+
+    val col1 = csv.column(x => x.col1.toInt)
+
+    println(col1.toArray.mkString(","))
+
+    val values = csv
+      .drop(1)
+      .map { x =>
+        x.toTuple
+          .copy(_1 = x.col1 + "heeelllo", _2 = x.col2.toInt)
+          .withNames[csv.COLUMNS]
+      }
+      .toArray
+    println(values.mkString("\n"))
+
+    println(newItr.toArray.mkString("\n"))
+
+    // println(values.map(_.col1.toInt).mkString(","))
 
     // println(Seq(csv).pt)
     // println(csv.col1)
@@ -54,4 +77,4 @@ class JVMSuite extends munit.FunSuite {
     // val a = NamedTuple.build[csv.TYPE]()[Tuple2[String, String]]("a", "b")
 
   }
-}
+end JVMSuite
