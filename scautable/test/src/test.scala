@@ -28,8 +28,7 @@ class MySuite extends munit.FunSuite {
     val start3   = ScauTest(3, "boo")
     val start4   = ScauTest(4, "booy")
     val startSeq = Seq(start, start2, start3, start4)
-    val console  = scautable.consoleFormat(startSeq, false)
-    scautable.printlnConsole(startSeq, false)
+    val console  = scautable.consoleFormat(startSeq, false)    
     assertEquals(
       console,
       s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n|1|    2|booyakashah|\n|2|    3|        boo|\n|3|    4|       booy|\n+-+-----+-----------+"""

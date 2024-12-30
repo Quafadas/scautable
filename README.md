@@ -42,3 +42,13 @@ See tests;
 - Extension is through the type system, have a look at the JVM tests for an example if writing a given for your own custom type
 - As I don't _really_ understand how it works, it's unlikely to get extended further...
 - Extending it further is probably a really bad idea anyway
+
+
+
+    // TODO: Docs
+
+    // TODO: Sources : URL, pwd, resource
+
+    // TODO: Sample (graduated)
+
+    // TODO : Desktop show
