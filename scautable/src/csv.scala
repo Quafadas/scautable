@@ -7,6 +7,8 @@ import NamedTuple.withNames
 import scala.NamedTuple.*
 import scala.collection.immutable.Stream.Empty
 import scala.deriving.Mirror
+import scala.io.BufferedSource
+import scala.util.Using.Manager.Resource
 
 @experimental
 object CSV:
@@ -21,7 +23,7 @@ object CSV:
   end IteratorToExpr2
 
   extension [K <: Tuple](csvItr: CsvIterator[K])
-    def column[A](fct: (tup: NamedTuple.NamedTuple[K, K]) => A) =
+    def mapRows[A](fct: (tup: NamedTuple.NamedTuple[K, K]) => A) =
       val itr: Iterator[NamedTuple[K & Tuple, K & Tuple]] =
         csvItr.copy()
       itr.drop(1).map(fct)
@@ -29,10 +31,10 @@ object CSV:
   end extension
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
-    inline def consolePrint(headers: List[String]) =
+    inline def consolePrint(headers: List[String], fansi: Boolean = true) =
       // val headers = nt.names
       val values = nt.map(_.toTuple)
-      scautable.consoleFormat(values, true, headers.toList)
+      scautable.consoleFormat(values, fansi, headers)
 
     end consolePrint
   end extension
@@ -40,6 +42,11 @@ object CSV:
   case class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, K & Tuple]]:
 
     type COLUMNS = K
+
+
+    type isColumn[A] = K match
+      case A *: t => true
+      case _ => false
 
     def getFilePath: String = filePath
     private val source = Source.fromFile(filePath)
@@ -72,9 +79,65 @@ object CSV:
     end next
   end CsvIterator
 
-  transparent inline def readCsvAsNamedTupleType[T](inline path: String) = ${ readCsvAsNamedTupleTypeImpl2('path) }
+  transparent inline def url[T](inline path: String) = ${ readCsvFromUrl('path) }
 
-  def readCsvAsNamedTupleTypeImpl2(pathExpr: Expr[String])(using Quotes) =
+  transparent inline def pwd[T](inline path: String) = ${ readCsvFromCurrentDir('path) }
+
+  transparent inline def absolutePath[T](inline path: String) = ${ readCsvAbolsutePath('path) }
+
+  // TODO : I can't figure out how to refactor the common code inside the contraints of metaprogamming... 4 laterz.
+
+  def readCsvFromUrl(pathExpr: Expr[String])(using Quotes) =
+    import quotes.reflect.*    
+
+    report.warning("This method saves the CSV to a local file and opens it. This is a security risk, a performance risk and a lots of things risk. Use at your own risk and no where near something you care about.")
+    val source = Source.fromURL(pathExpr.valueOrAbort)    
+    val tmpPath = os.temp(dir = os.pwd, prefix = "temp_csv_", suffix = ".csv")
+    os.write.over(tmpPath, source.toArray.mkString)
+
+    println(tmpPath.toString())
+
+    val headerLine =
+      try Source.fromFile(tmpPath.toString()).getLines().next()
+      finally source.close()
+
+    val headers = headerLine.split(",").toList
+    val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+
+    tupleExpr2 match
+      case '{ $tup: t } =>
+        val itr = new CsvIterator[t](tmpPath.toString())
+        // '{ NamedTuple.build[t & Tuple]()($tup) }
+        Expr(itr)
+      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
+    end match
+
+  end readCsvFromUrl
+
+  def readCsvFromCurrentDir(pathExpr: Expr[String])(using Quotes) =
+    import quotes.reflect.*
+
+    val path = os.pwd / pathExpr.valueOrAbort
+
+    val source = Source.fromFile(path.toString)
+    val headerLine =
+      try source.getLines().next()
+      finally source.close()
+
+    val headers = headerLine.split(",").toList
+    val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+
+    tupleExpr2 match
+      case '{ $tup: t } =>
+        val itr = new CsvIterator[t](path.toString)
+        // '{ NamedTuple.build[t & Tuple]()($tup) }
+        Expr(itr)
+      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
+    end match
+
+  end readCsvFromCurrentDir
+
+  def readCsvAbolsutePath(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
@@ -94,5 +157,5 @@ object CSV:
         Expr(itr)
       case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
     end match
-  end readCsvAsNamedTupleTypeImpl2
+  end readCsvAbolsutePath
 end CSV
