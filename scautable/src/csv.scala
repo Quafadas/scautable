@@ -9,6 +9,7 @@ import scala.collection.immutable.Stream.Empty
 import scala.deriving.Mirror
 import scala.io.BufferedSource
 import scala.util.Using.Manager.Resource
+import scala.compiletime.constValue
 
 @experimental
 object CSV:
@@ -44,9 +45,40 @@ object CSV:
     type COLUMNS = K
 
 
-    type isColumn[A] = K match
-      case A *: t => true
+  // type TupleOfInts[T <: Tuple] <: Boolean = T match
+  //   case EmptyTuple  => true // Base case: Empty tuple is valid
+  //   case Int *: tail => TupleOfInts[tail] // Recursive case: Head is Int, check the tail
+  //   case _           => false // If any element is not an Int, return false
+
+  // opaque type Tensor = (NArray[Double], Tuple)
+  // object Tensor:
+  //   def apply[T <: Tuple](a: NArray[Double], b: T)(using ev: TupleOfInts[T] =:= true): Tensor = (a, b)
+  // end Tensor
+
+    type IsColumn[StrConst <: String, T] = T match
+      case EmptyTuple => false
+      case (head *: tail) => IsMatch[StrConst, head] match
+        case true => true
+        case false => IsColumn[StrConst, tail]
       case _ => false
+
+    type IsMatch[A <: String, B <: String] = B match
+      case A => true
+      case _ => false
+
+    def column[S <: String, A](fct: String => A = identity)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S])= {
+      val idx = headerIndex(s.value)
+      val itr: Iterator[NamedTuple[K & Tuple, K & Tuple]] =
+        this.copy()
+      itr.drop(1).map(x => fct(x.toTuple.productElement(idx).asInstanceOf[String]))
+    }
+
+    def column[S <: String](using ev: IsColumn[S, K] =:= true, s: ValueOf[S])= {
+      val idx = headerIndex(s.value)
+      val itr: Iterator[NamedTuple[K & Tuple, K & Tuple]] =
+        this.copy()
+      itr.drop(1).map(x => x.toTuple.productElement(idx).asInstanceOf[String])
+    }
 
     def getFilePath: String = filePath
     private val source = Source.fromFile(filePath)
@@ -88,10 +120,10 @@ object CSV:
   // TODO : I can't figure out how to refactor the common code inside the contraints of metaprogamming... 4 laterz.
 
   def readCsvFromUrl(pathExpr: Expr[String])(using Quotes) =
-    import quotes.reflect.*    
+    import quotes.reflect.*
 
     report.warning("This method saves the CSV to a local file and opens it. This is a security risk, a performance risk and a lots of things risk. Use at your own risk and no where near something you care about.")
-    val source = Source.fromURL(pathExpr.valueOrAbort)    
+    val source = Source.fromURL(pathExpr.valueOrAbort)
     val tmpPath = os.temp(dir = os.pwd, prefix = "temp_csv_", suffix = ".csv")
     os.write.over(tmpPath, source.toArray.mkString)
 

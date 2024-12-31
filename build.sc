@@ -67,16 +67,16 @@ object scautable extends CrossPlatform {
 
       def buildInfoPackageName: String = "io.github.quafadas.scautable"
 
-      
+
       override def generatedSources: T[Seq[PathRef]] = T{
-        val resourceDir = resources().map(_.path).zipWithIndex.map{case (str, i) => s"""final val resourceDir$i = \"\"\"$str\"\"\"""" }.mkString("\n\t")
+        val resourceDir = resources().map(_.path).zipWithIndex.map{case (str, i) => s"""final val resourceDir$i = \"\"\"$str${java.io.File.separator}\"\"\""""  }.mkString("\n\t")
         val fileName = "BuildInfo.scala"
         val code = s"""
 
 package io.github.quafadas.scautable
 
-/** 
-Resources are not available at compile time. This is a workaround to get the path to the resource directory, (allowing unit testing of a macro based on a local file).  
+/**
+Resources are not available at compile time. This is a workaround to get the path to the resource directory, (allowing unit testing of a macro based on a local file).
 */
 
 object Generated {$resourceDir
@@ -86,7 +86,7 @@ object Generated {$resourceDir
         os.write(dest , code)
         Seq(PathRef(dest))
 
-      } 
+      }
 
     }
   }
