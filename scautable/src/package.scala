@@ -309,40 +309,40 @@ object scautable extends PlatformSpecific {
     tr(elemLabels.map(th(_)))
 
   protected inline def deriveCaseClass[A](using m: Mirror.ProductOf[A]) =
-    new HtmlTableRender[A] {
+  new HtmlTableRender[A] {
 
-      override def tableHeader(a: A) =
-        val elemLabels = getElemLabels[m.MirroredElemLabels]
-        tr(elemLabels.map(th(_)))
+    override def tableHeader(a: A) =
+      val elemLabels = getElemLabels[m.MirroredElemLabels]
+      tr(elemLabels.map(th(_)))
 
-      override def tableCell(a: A) = ???
+    override def tableCell(a: A) = ???
 
-      override def tableRow(a: A) = {
-        val elemLabels    = getElemLabels[m.MirroredElemLabels]
-        val elemInstances = getTypeclassInstances[m.MirroredElemTypes]
-        val elems =
-          a.asInstanceOf[Product].productIterator // every case class implements scala.Product, we can safely cast here
-        val elemCells = elems
-          .zip(elemInstances)
-          .map { (elem, instance) =>
-            instance.tableCell(elem)
-          }
-          .toList
-        tr(
-          elemCells
-        )
-      }
+    override def tableRow(a: A) = {
+      val elemLabels    = getElemLabels[m.MirroredElemLabels]
+      val elemInstances = getTypeclassInstances[m.MirroredElemTypes]
+      val elems =
+        a.asInstanceOf[Product].productIterator // every case class implements scala.Product, we can safely cast here
+      val elemCells = elems
+        .zip(elemInstances)
+        .map { (elem, instance) =>
+          instance.tableCell(elem)
+        }
+        .toList
+      tr(
+        elemCells
+      )
     }
+  }
 
-    /** Render a sequence of unknown type as an html table
-      *
-      * @param a
-      *   \- A sequence of unknown type you wish to render as an html table
-      * @param addHeader
-      *   \- If true, add a header row to the table
-      * @param tableDeriveInstance
-      *   \- An instance of HtmlTableRender for the type `A`
-      */
+  /** Render a sequence of unknown type as an html table
+    *
+    * @param a
+    *   \- A sequence of unknown type you wish to render as an html table
+    * @param addHeader
+    *   \- If true, add a header row to the table
+    * @param tableDeriveInstance
+    *   \- An instance of HtmlTableRender for the type `A`
+    */
   def apply[A <: Product](a: Seq[A], addHeader: Boolean = true)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
     val h      = a.head.productElementNames.toList
     val header = tr(h.map(th(_)))
