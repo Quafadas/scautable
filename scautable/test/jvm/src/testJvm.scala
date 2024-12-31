@@ -143,6 +143,9 @@ class CSVSuite extends munit.FunSuite:
 +-+----+----+----+""".trim()
     )
 
+    val titanic = CSV.absolutePath(Generated.resourceDir0 + "titanic.csv").drop(1).toArray
+    assert(titanic.length == 891)
+
   }
 
   test("header indexes") {
