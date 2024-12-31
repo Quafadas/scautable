@@ -14,6 +14,9 @@ import NamedTuple.*
   */
 object scautable extends PlatformSpecific:
 
+  extension(s : Seq[Product])
+    def consoleShow: String = consoleFormat(s)
+
   private val colours = List(
     fansi.Color.Green,
     fansi.Color.White,
