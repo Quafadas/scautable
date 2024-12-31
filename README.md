@@ -47,8 +47,6 @@ See tests;
 
     // TODO: Docs
 
-    // TODO: Sources : URL, pwd, resource
-
     // TODO: Sample (graduated)
 
     // TODO : Desktop show

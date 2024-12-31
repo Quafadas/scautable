@@ -23,7 +23,7 @@ trait Common extends ScalaModule with PublishModule {
   )
 
   def ammoniteVersion                        = "3.0.0"
-  override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-experimental", "-language:experimental.namedTuples")
+  override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-experimental", "-language:experimental.namedTuples", "-Xmax-inlines", "128")
 
   def publishVersion = VcsVersion.vcsState().format()
 
