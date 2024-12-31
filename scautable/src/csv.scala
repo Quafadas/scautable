@@ -17,7 +17,7 @@ import scala.compiletime.ops.int.*
 object CSV:
   type Concat[X <: String, Y <: Tuple] = X *: Y
 
-  type IsColumn[StrConst <: String, T] = T match
+  type IsColumn[StrConst <: String, T <: Tuple] = T match
     case EmptyTuple => false
     case (head *: tail) => IsMatch[StrConst, head] match
       case true => true
@@ -27,6 +27,40 @@ object CSV:
   type IsMatch[A <: String, B <: String] = B match
     case A => true
     case _ => false
+
+  type ReReverseXLL[t] = Size[t] match
+    case 0 => EmptyTuple
+    case 1 => t
+    case 2 => t
+    case 3 => t
+    case 4 => t
+    case 5 => t
+    case 6 => t
+    case 7 => t
+    case 8 => t
+    case 9 => t
+    case 10 => t
+    case 11 => t
+    case 12 => t
+    case 13 => t
+    case 14 => t
+    case 15 => t
+    case 16 => t
+    case 17 => t
+    case 18 => t
+    case 19 => t
+    case 20 => t
+    case 21 => t
+    case 22 => t
+    case _ => ReverseTuple[t]
+
+  type ReverseTuple[T <: Tuple] <: Tuple = T match
+    case EmptyTuple => EmptyTuple
+    case x *: xs => ReverseTuple[xs] *: x
+
+  type Size[T] <: Int = T match
+    case EmptyTuple => 0
+    case x *: xs => 1 + Size[xs]
 
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
     inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A) =
@@ -56,9 +90,27 @@ object CSV:
               val mapped = fct(tup(idx).asInstanceOf[String])
 
               val interm = headTup.toTuple.init :* mapped :* tailTup.toTuple
-              interm.withNames[K]
+              interm.withNames[K & Tuple]
       }
 
+  end extension
+  extension [K, V, K1 <: Tuple & K, V1 <: Tuple & K](itr: Iterator[NamedTuple[K1, V1 ]])
+    inline def column[S <: String, A](fct: String => A = identity)(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[A] = {
+      column[S](using ev, s).map(fct)
+    }
+
+    inline def column[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[String]= {
+      val headers = constValueTuple[K1].toList.map(_.toString())
+      /**
+        * Aaahhhh... apparently, TupleXXL is in reverse order!
+        */
+      val headers2 = if headers.size > 22 then headers.reverse else headers
+
+      val idx = headers2.indexOf(s.value)
+      itr.map(x =>
+        x.toTuple(idx).asInstanceOf[String]
+      )
+    }
 
 
 
@@ -67,9 +119,7 @@ object CSV:
 
   extension [K <: Tuple](csvItr: CsvIterator[K])
     def mapRows[A](fct: (tup: NamedTuple.NamedTuple[K, K]) => A) =
-      val itr: Iterator[NamedTuple[K & Tuple, K & Tuple]] =
-        csvItr.copy()
-      itr.drop(1).map(fct)
+      csvItr.drop(1).map(fct)
 
     // def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, K]) => A) =
 
@@ -81,15 +131,15 @@ object CSV:
 
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
-    inline def consolePrint(headers: List[String], fansi: Boolean = true) =
-      // val headers = nt.names
+    inline def consolePrint(headers: Option[List[String]] = None, fansi: Boolean = true) =
+      val foundHeaders = constValueTuple[K].toList.map(_.toString())
       val values = nt.map(_.toTuple)
-      scautable.consoleFormat(values, fansi, headers)
+      scautable.consoleFormat(values, fansi, headers.getOrElse(foundHeaders))
 
     end consolePrint
   end extension
 
-  case class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, K & Tuple]]:
+  class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, K & Tuple]]:
 
     type COLUMNS = K
 
@@ -119,55 +169,71 @@ object CSV:
 
     // TODO:  I wish I could get this to work.
 
-    inline def mapColumn[S <: String, A](fct: String => A)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S]):Iterator[NamedTuple[K & Tuple, Tuple]] = {
+    // inline def mapColumn[S <: String, A](fct: String => A)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S]):Iterator[NamedTuple[K & Tuple, Tuple]] = {
 
-      val idx = headerIndex(s.value)
-      val size = headers.size
-      val parent = this
-      ???
-      // attempt2
-      // new CsvIterator[K & Tuple](filePath) {
-      //   override def next(): NamedTuple[K & Tuple, K & Tuple] = {
-      //     val tup = parent.next()
-      //     val (headTup, tailTup) =  tup.splitAt(idx)
-      //     val mapped = fct(tup(idx).asInstanceOf[String])
-      //     val newTup = headTup.init *: tailTup.tail
-      //     newTup
-      //   }
-      // }
+    //   val idx = headerIndex(s.value)
+    //   val size = headers.size
+    //   val parent = this
+    //   ???
+    //   // attempt2
+    //   // new CsvIterator[K & Tuple](filePath) {
+    //   //   override def next(): NamedTuple[K & Tuple, K & Tuple] = {
+    //   //     val tup = parent.next()
+    //   //     val (headTup, tailTup) =  tup.splitAt(idx)
+    //   //     val mapped = fct(tup(idx).asInstanceOf[String])
+    //   //     val newTup = headTup.init *: tailTup.tail
+    //   //     newTup
+    //   //   }
+    //   // }
 
-      //. attempt 1
-      //   row =>
-      //     val tup = row.toTuple
+    //   //. attempt 1
+    //   //   row =>
+    //   //     val tup = row.toTuple
 
-      //     val mapped = fct(tup(idx).asInstanceOf[String])
+    //   //     val mapped = fct(tup(idx).asInstanceOf[String])
 
-      //       val (headTup, tailTup) =  tup.splitAt(idx)
-      //       val newTup = headTup.init *: mapped *: tailTup.tail
-      //       newTup.withNames[K & Tuple]
-      // ).asInstanceOf[Iterator[NamedTuple[K & Tuple, K & Tuple]]]
+    //   //       val (headTup, tailTup) =  tup.splitAt(idx)
+    //   //       val newTup = headTup.init *: mapped *: tailTup.tail
+    //   //       newTup.withNames[K & Tuple]
+    //   // ).asInstanceOf[Iterator[NamedTuple[K & Tuple, K & Tuple]]]
 
-    }
+    // }
 
-    inline def column[S <: String, A](fct: String => A = identity)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Iterator[A] = {
-      column[S](using ev, s).map(fct)
-    }
+    // inline def column[S <: String, A](fct: String => A = identity)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Iterator[A] = {
+    //   column[S](using ev, s).map(fct)
+    // }
 
-    inline def column[S <: String](using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Iterator[String]= {
-      val idx = headerIndex(s.value)
-      val itr: Iterator[NamedTuple[K & Tuple, K & Tuple]] =
-        this.copy()
-      itr.drop(1).map(x => x.toTuple.productElement(idx).asInstanceOf[String])
-    }
+    // inline def column[S <: String](using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Iterator[String]= {
+    //   val idx = headerIndex(s.value)
+    //   val itr: Iterator[NamedTuple[K & Tuple, K & Tuple]] =
+    //     this.copy()
+    //   itr.map(x => x.toTuple.productElement(idx).asInstanceOf[String])
+    // }
 
     def getFilePath: String = filePath
     lazy private val source = Source.fromFile(filePath)
     lazy private val lineIterator = source.getLines()
-    lazy val headers = Source.fromFile(filePath).getLines().next().split(",").toList // done on instatiation
+    lazy val headers = CSVParser.parseLine((Source.fromFile(filePath).getLines().next()))
     lazy val headersTuple =
       listToTuple(headers)
 
-    inline def headerIndex(s: String) = headers.zipWithIndex.find(_._1 == s).get._2
+    // println("headers in CsvIterator")
+    // println(headers.mkString(","))
+    // println("tuple")
+    // println(headersTuple.toString)
+
+    inline def headerIndex(s: String) =
+      headers.zipWithIndex.find(_._1 == s).get._2
+
+    /**
+      * Here be dragons, in Tuple Land, Tuple XXL is reversed, creating a discontinuity. Small tuples start at 1, big tuples start the other end.
+      *
+      * @return
+      */
+    inline def headerIndex[S <: String & Singleton] =
+      val headers2 = if headers.size > 22 then headers.reverse else headers
+      headers.indexOf(constValue[S].toString)
+
     inline override def hasNext: Boolean =
       val hasMore = lineIterator.hasNext
       if !hasMore then source.close() // Close the file when done
@@ -176,6 +242,7 @@ object CSV:
 
     private def listToTuple(list: List[String]): Tuple = list match
       case Nil    => EmptyTuple
+      // case h :: t => listToTuple(t) :* h
       case h :: t => h *: listToTuple(t)
 
     inline override def next(): NamedTuple[K & Tuple, K & Tuple] =
@@ -264,6 +331,7 @@ object CSV:
     val headers = headerLine.split(",").toList
     val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
 
+
     tupleExpr2 match
       case '{ $tup: t } =>
         val itr = new CsvIterator[t](tmpPath.toString())
@@ -310,9 +378,18 @@ object CSV:
     val headers = headerLine.split(",").toList
     val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
 
+
+    // println(s"Read headers in macro : size ${headers.size}")
+    // println(headers.mkString(","))
+    // println(tupleExpr2.show)
+
     tupleExpr2 match
       case '{ $tup: t } =>
+
+
         val itr = new CsvIterator[t](path)
+        // println("tup")
+        // println(tup)
         // '{ NamedTuple.build[t & Tuple]()($tup) }
         Expr(itr)
       case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
