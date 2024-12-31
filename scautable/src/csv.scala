@@ -9,7 +9,6 @@ import scala.collection.immutable.Stream.Empty
 import scala.deriving.Mirror
 import scala.io.BufferedSource
 import scala.util.Using.Manager.Resource
-import scala.compiletime.constValue
 
 @experimental
 object CSV:
@@ -44,17 +43,6 @@ object CSV:
 
     type COLUMNS = K
 
-
-  // type TupleOfInts[T <: Tuple] <: Boolean = T match
-  //   case EmptyTuple  => true // Base case: Empty tuple is valid
-  //   case Int *: tail => TupleOfInts[tail] // Recursive case: Head is Int, check the tail
-  //   case _           => false // If any element is not an Int, return false
-
-  // opaque type Tensor = (NArray[Double], Tuple)
-  // object Tensor:
-  //   def apply[T <: Tuple](a: NArray[Double], b: T)(using ev: TupleOfInts[T] =:= true): Tensor = (a, b)
-  // end Tensor
-
     type IsColumn[StrConst <: String, T] = T match
       case EmptyTuple => false
       case (head *: tail) => IsMatch[StrConst, head] match
@@ -66,14 +54,11 @@ object CSV:
       case A => true
       case _ => false
 
-    def column[S <: String, A](fct: String => A = identity)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S])= {
-      val idx = headerIndex(s.value)
-      val itr: Iterator[NamedTuple[K & Tuple, K & Tuple]] =
-        this.copy()
-      itr.drop(1).map(x => fct(x.toTuple.productElement(idx).asInstanceOf[String]))
+    def column[S <: String, A](fct: String => A = identity)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Iterator[A] = {
+      column[S](using ev, s).map(fct)
     }
 
-    def column[S <: String](using ev: IsColumn[S, K] =:= true, s: ValueOf[S])= {
+    def column[S <: String](using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Iterator[String]= {
       val idx = headerIndex(s.value)
       val itr: Iterator[NamedTuple[K & Tuple, K & Tuple]] =
         this.copy()
