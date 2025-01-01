@@ -7,6 +7,7 @@ import java.time.LocalDate
 import scala.annotation.experimental
 import NamedTuple.*
 import CSV.*
+import scala.compiletime.ops.int.S
 
 @experimental
 class CSVSuite extends munit.FunSuite:
@@ -29,6 +30,7 @@ class CSVSuite extends munit.FunSuite:
 
   test("csv from resource compiles and typechecks") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 +"simple.csv")
+
     val titanic: CsvIterator[("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked")] = CSV.absolutePath(Generated.resourceDir0 + "titanic.csv")
     // val wide = CSV.absolutePath(Generated.resourceDir0 + "wide.csv")
   }
@@ -52,6 +54,17 @@ class CSVSuite extends munit.FunSuite:
     assert(
       !compileErrors("csv.column[\"notcol\"]").isEmpty()
     )
+  }
+
+  test("drop column") {
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+
+    val dropped: Iterator[("col1", "col3")] = csv.drop(1).dropColumn["col2"]
+    val out = dropped.toArray
+    println(out.mkString(","))
+    assertEquals(out.head, ("2", "7"))
+    assertEquals(out.tail.head, ("4", "8"))
+    assertEquals(out.last, ("6", "9"))
   }
 
   test("wide load") {
@@ -120,13 +133,25 @@ class CSVSuite extends munit.FunSuite:
     // println(data.toArray.consolePrint())
   }
 
-  test("map column".ignore) {
-    val csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+  test("rename column") {
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
-    val mapCol2 = csv.drop(1).mapColumn["col3", Int, csv.COLUMNS](_.toInt)
+    val renamed: Iterator[(col1 : "col1", col2Renamed : "col2", col3 : "col3")]= csv.drop(1).renameColumn["col2", "col2Renamed"]
+    val out = renamed.toArray
+    assertEquals(out.head.col2Renamed, "2")
+    assertEquals(out.tail.head.col2Renamed, "4")
+    assertEquals(out.last.col2Renamed, "6")
+  }
 
+  test("map column".only) {
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
-    // mapCol2.tapEach(println).toArray
+    def mapCol2 = csv.drop(1).mapColumn["col2", Int](_.toInt)
+
+    // println(mapCol2.toArray.mkString(","))
+    // val result = mapCol2.toArray
+    // result.tapEach(println)
+    // assertEquals(result.toArray.head.col2, 2)
 
   }
 
