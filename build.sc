@@ -21,8 +21,6 @@ trait Common extends ScalaModule with PublishModule {
     ivy"com.lihaoyi::os-lib:0.11.3",
     ivy"com.lihaoyi::fansi::0.5.0"
   )
-
-  def ammoniteVersion                        = "3.0.0"
   override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-experimental", "-language:experimental.namedTuples", "-Xmax-inlines", "128")
 
   def publishVersion = VcsVersion.vcsState().format()

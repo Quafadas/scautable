@@ -11,11 +11,15 @@ import scala.io.BufferedSource
 import scala.util.Using.Manager.Resource
 import scala.compiletime.*
 import scala.compiletime.ops.int.*
+import fansi.Str
+import scala.collection.View.FlatMap
 
 
 @experimental
 object CSV:
   type Concat[X <: String, Y <: Tuple] = X *: Y
+
+  type ConcatSingle[X, A] = X *: A *: EmptyTuple
 
   type IsColumn[StrConst <: String, T <: Tuple] = T match
     case EmptyTuple => false
@@ -24,9 +28,53 @@ object CSV:
       case false => IsColumn[StrConst, tail]
     case _ => false
 
+  type Tail[T <: Tuple, S <: String] <: Tuple = T match
+    case EmptyTuple => EmptyTuple
+    case head *: tail =>
+      IsMatch[S, head] match
+        case true => EmptyTuple
+        case false => Tail[tail, S]
+
+  type ReplaceOneName[T <: Tuple, Head <: Tuple,  StrConst <: String, A <: String] <: Tuple = T match
+    case EmptyTuple => EmptyTuple
+    case x *: xs => IsMatch[StrConst, x] match
+      case true => Head *: A *: xs
+      case false =>
+        Head match
+          case EmptyTuple => ReplaceOneName[xs, x, StrConst, A]
+          case _ => ReplaceOneName[xs, x *: Head, StrConst, A]
+
+
+  type ReplaceOneType[T <: Tuple, StrConst <: String, A] = DropAfterName[T, StrConst] match
+    case EmptyTuple => EmptyTuple
+    case x *: xs => x *: xs *: A
+
+
+  // match
+  //   case EmptyTuple => T *: A *: StrConst *:  EmptyTuple
+  //   case x *: xs => T *: A *: xs *: EmptyTuple
+  //   case _ => EmptyTuple
+    // DropAfterName[T, StrConst] *: A *: Tail[T, StrConst] match
+    //   case EmptyTuple => EmptyTuple
+    //   case x *: xs => x *: xs
+
+  type DropAfterName[T , StrConst <: String] = T match
+    case EmptyTuple => EmptyTuple
+    case (head *: tail) => IsMatch[StrConst, head] match
+      case true => EmptyTuple
+      case false => head *: DropAfterName[tail, StrConst]
+
+  type DropOneName[T, StrConst <: String]= T match
+    case EmptyTuple => EmptyTuple
+      case (head *: tail) => IsMatch[StrConst, head] match
+        case true => DropOneName[tail, StrConst]
+        case false => head *: DropOneName[tail , StrConst]
+
   type IsMatch[A <: String, B <: String] = B match
     case A => true
     case _ => false
+
+
 
   type ReReverseXLL[t] = Size[t] match
     case 0 => EmptyTuple
@@ -69,32 +117,45 @@ object CSV:
           (fct(tup) *: tup.toTuple).withNames[Concat[S, K]]
       }
 
-    inline def mapColumn[S <: String, A, HEADERS <: Tuple](fct: String => A)(using ev: IsColumn[S, HEADERS] =:= true, s: ValueOf[S]) =
-      val headers = constValueTuple[HEADERS].toList.map(_.toString())
+  end extension
+  extension [K, V, K1 <: Tuple & K, V1 <: Tuple & K](itr: Iterator[NamedTuple[K1, V1]])
+
+    inline def renameColumn[From <: String, To <: String](using ev: IsColumn[From, K1] =:= true, FROM: ValueOf[From], TO: ValueOf[To])= {
+        val headers = constValueTuple[K1].toList.map(_.toString())
+        val idx = headers.indexOf(FROM.value)
+        if(idx == -1) ???
+        itr.map{_.withNames[ReplaceOneName[K1, EmptyTuple, From, To]]}
+    }
+
+
+    inline def mapColumn[S <: String, A](fct: String => A)(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S])= {
+      val headers = constValueTuple[K1].toList.map(_.toString())
+
+      // val arg = constValueTuple[IsColumn["col1", ("col1", "col2", "col3")] & Tuple]
+      // println(arg)
+      /**
+        * Aaahhhh... apparently, TupleXXL is in reverse order!
+        */
+      val headers2 = if headers.size > 22 then headers.reverse else headers
+      println(headers)
       val idx = headers.indexOf(s.value)
       if(idx == -1) ???
-
-      // def reduce(t : Tuple): Tuple = t.toList.zipWithIndex match
-      //   case EmptyTuple => EmptyTuple
-      //   case h *: t => h match
-      //     case _: String => fct(t.productElement(idx).asInstanceOf[String]) *: reduce(t)
-      //     case _ => h *: reduce(t)
-
-
-      // type Typ =
-      throw new Exception("Not implemented")
+      // val col = itr.column[S].map(fct)
+      // dropColumn[S]
+      // addColumn[S]
       itr.map{
-        tup =>
-          tup.splitAt(idx) match
-            case (headTup, tailTup) =>
-              val mapped = fct(tup(idx).asInstanceOf[String])
-
-              val interm = headTup.toTuple.init :* mapped :* tailTup.toTuple
-              interm.withNames[K & Tuple]
+        (x: NamedTuple[K1, V1]) =>
+          val tup = x.toTuple
+          val mapped = fct(tup(idx).asInstanceOf[String])
+          val (head, tail) = x.toTuple.splitAt(idx)
+          (head ++ mapped *: tail.tail) //.withNames[ReplaceOneName[K1, S, A] & Tuple].asInstanceOf[ReplaceOneType[V1, S, A] & Tuple]
+          // head match
+          //   case x: EmptyTuple => ??? //(mapped *: tail).asInstanceOf[SplitAtAddJoin[V, S, A]]//.withNames[SplitAtAddJoin[K, S, A]]//.asInstanceOf[SplitAtAddJoin[V, S, A]]
+          //   case _ =>
+          // head.init ++ tail
       }
+    }
 
-  end extension
-  extension [K, V, K1 <: Tuple & K, V1 <: Tuple & K](itr: Iterator[NamedTuple[K1, V1 ]])
     inline def column[S <: String, A](fct: String => A = identity)(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[A] = {
       column[S](using ev, s).map(fct)
     }
@@ -114,6 +175,24 @@ object CSV:
 
 
 
+    inline def dropColumn[S <: String & Singleton](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[DropOneName[V1, S]] =
+      val headers = constValueTuple[K1].toList.map(_.toString())
+      /**
+        * Aaahhhh... apparently, TupleXXL is in reverse order!
+        */
+      val headers2 = if headers.size > 22 then headers.reverse else headers
+      val idx = headers2.indexOf(s.value)
+
+      itr.map{
+        (x: NamedTuple[K1, V1]) =>
+
+        // val hmmm = x.toTuple.productIterator
+        val (head, tail) = x.toTuple.splitAt(idx)
+        head.init match
+          case x: EmptyTuple => tail.withNames[DropOneName[K, S] & Tuple].asInstanceOf[DropOneName[V1, S] & Tuple]
+          case _ => (head.init *: tail).withNames[DropOneName[K, S] & Tuple].asInstanceOf[DropOneName[V1, S] & Tuple]
+        // head.init ++ tail
+      }
   end extension
 
 
