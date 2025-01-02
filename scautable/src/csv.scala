@@ -53,6 +53,15 @@ object CSV:
           case false =>
             typeHead *: ReplaceOneTypeAtName[nameTail, StrConst, typeTail, A]
 
+  type DropOneTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple] <: Tuple = (N, T) match
+    case (EmptyTuple, _) => EmptyTuple
+    case (_, EmptyTuple) => EmptyTuple
+    case (nameHead *: nameTail, typeHead *: typeTail) =>
+      IsMatch[nameHead, StrConst] match
+          case true => typeTail
+          case false =>
+            typeHead *: DropOneTypeAtName[nameTail, StrConst, typeTail]
+
   type GetTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple] = (N, T) match
     case (EmptyTuple, _) => EmptyTuple
     case (_, EmptyTuple) => EmptyTuple
@@ -68,7 +77,7 @@ object CSV:
       case true => EmptyTuple
       case false => head *: DropAfterName[tail, StrConst]
 
-  type DropOneName[T, StrConst <: String]= T match
+  type DropOneName[T, StrConst <: String] <: Tuple = T match
     case EmptyTuple => EmptyTuple
       case (head *: tail) => IsMatch[StrConst, head] match
         case true => DropOneName[tail, StrConst]
@@ -78,6 +87,14 @@ object CSV:
     case A => true
     case _ => false
 
+
+  type StringifyTuple[T >: Tuple] <: Tuple = T match
+    case EmptyTuple => EmptyTuple
+    case head *: tail => (head : String) *: StringifyTuple[tail]
+
+  type StringyTuple[T <: Tuple] <: Tuple = T match
+    case EmptyTuple => EmptyTuple
+    case head *: tail =>  String *: StringyTuple[tail]
 
 
   type ReReverseXLL[t] = Size[t] match
@@ -140,24 +157,16 @@ object CSV:
       /**
         * Aaahhhh... apparently, TupleXXL is in reverse order!
         */
-      type OUT = ReplaceOneTypeAtName[K1, S, V1, A]
-
       val headers2 = if headers.size > 22 then headers.reverse else headers
       val idx = headers.indexOf(s.value)
       if(idx == -1) ???
       itr.map{
-        (x: NamedTuple[K1, V1]) =>
+        (x
+        : NamedTuple[K1, V1]) =>
           val tup = x.toTuple
-          println(tup)
-          println(tup(idx))
           val typ = tup(idx).asInstanceOf[GetTypeAtName[K1, S, V1]]
-          println(typ)
           val mapped = fct(typ)
-          println(mapped)
           val (head, tail) = x.toTuple.splitAt(idx)
-          println(head)
-          println(tail)
-
           (head ++ mapped *: tail.tail).withNames[K1].asInstanceOf[NamedTuple[K1,ReplaceOneTypeAtName[K1,  S, V1, A]]]
       }
     }
@@ -177,7 +186,7 @@ object CSV:
 
 
 
-    inline def dropColumn[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[DropOneName[V1, S]] =
+    inline def dropColumn[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]] =
       val headers = constValueTuple[K1].toList.map(_.toString())
       /**
         * Aaahhhh... apparently, TupleXXL is in reverse order!
@@ -185,14 +194,16 @@ object CSV:
       val headers2 = if headers.size > 22 then headers.reverse else headers
       val idx = headers2.indexOf(s.value)
 
+      type RemoveMe = GetTypeAtName[K1, S, V1]
+
       itr.map{
         (x: NamedTuple[K1, V1]) =>
 
         // val hmmm = x.toTuple.productIterator
         val (head, tail) = x.toTuple.splitAt(idx)
-        head.init match
-          case x: EmptyTuple => tail.withNames[DropOneName[K, S] & Tuple].asInstanceOf[DropOneName[V1, S] & Tuple]
-          case _ => (head.init *: tail).withNames[DropOneName[K, S] & Tuple].asInstanceOf[DropOneName[V1, S] & Tuple]
+        head match
+          case x: EmptyTuple => tail.tail.withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]]
+          case _ => (head ++ tail.tail).withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]]
         // head.init ++ tail
       }
   end extension
@@ -213,7 +224,7 @@ object CSV:
     end consolePrint
   end extension
 
-  case class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, K & Tuple]]:
+  case class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple] ]]:
     type COLUMNS = K
 
     def getFilePath: String = filePath
@@ -247,12 +258,12 @@ object CSV:
       case Nil    => EmptyTuple
       case h :: t => h *: listToTuple(t)
 
-    inline override def next(): NamedTuple[K & Tuple, K & Tuple] =
+    inline override def next() =
       if !hasNext then throw new NoSuchElementException("No more lines")
       end if
       val str = lineIterator.next()
       val splitted = CSVParser.parseLine(str)
-      val tuple = listToTuple(splitted).asInstanceOf[K & Tuple]
+      val tuple = listToTuple(splitted).asInstanceOf[StringyTuple[K & Tuple]]
       NamedTuple.build[K & Tuple]()(tuple)
     end next
 
@@ -398,11 +409,7 @@ object CSV:
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
-
-    println(path)
-
     val resourcePath = this.getClass.getClassLoader.getResource(path)
-    println(resourcePath)
     if (resourcePath == null) {
       report.throwError(s"Resource not found: $path")
     }
