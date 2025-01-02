@@ -53,6 +53,15 @@ object CSV:
           case false =>
             typeHead *: ReplaceOneTypeAtName[nameTail, StrConst, typeTail, A]
 
+  type GetTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple] = (T, N) match
+    case (EmptyTuple, _) => EmptyTuple
+    case (_, EmptyTuple) => EmptyTuple
+    case (nameHead *: nameTail, typeHead *: typeTail) =>
+      IsMatch[nameHead, StrConst] match
+          case true => typeHead
+          case false =>
+            GetTypeAtName[nameTail, StrConst, typeTail]
+
   type DropAfterName[T , StrConst <: String] = T match
     case EmptyTuple => EmptyTuple
     case (head *: tail) => IsMatch[StrConst, head] match
@@ -124,11 +133,10 @@ object CSV:
       itr.map(_.asInstanceOf[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]])
     }
 
-    inline def mapColumn[S <: String, B, A](fct: B => A)(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]]= {
+    inline def mapColumn[S <: String, A](fct: GetTypeAtName[K1, S, V1] => A)(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]]= {
       import scala.compiletime.ops.string.*
       val headers = constValueTuple[K1].toList.map(_.toString())
-      type temp = "TEMP_COLUMN"
-      val tmp = summonInline[ValueOf[temp]]
+
       /**
         * Aaahhhh... apparently, TupleXXL is in reverse order!
         */
@@ -138,7 +146,7 @@ object CSV:
       itr.map{
         (x: NamedTuple[K1, V1]) =>
           val tup = x.toTuple
-          val mapped = fct(tup(idx).asInstanceOf[B])
+          val mapped = fct(tup(idx).asInstanceOf[GetTypeAtName[K1, S, V1]])
           val (head, tail) = x.toTuple.splitAt(idx)
           (head ++ mapped *: tail.tail).withNames[K1].asInstanceOf[NamedTuple[K1,ReplaceOneTypeAtName[K1,  S, V1, A]]]
       }
@@ -184,10 +192,10 @@ object CSV:
   end extension
 
 
-  extension [K <: Tuple](csvItr: CsvIterator[K])
-    def mapRows[A](fct: (tup: NamedTuple.NamedTuple[K, K]) => A) =
-      csvItr.drop(1).map(fct)
-  end extension
+  // extension [K <: Tuple](csvItr: CsvIterator[K])
+  //   def mapRows[A](fct: (tup: NamedTuple.NamedTuple[K, K]) => A) =
+  //     csvItr.drop(1).map(fct)
+  // end extension
 
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
@@ -199,9 +207,9 @@ object CSV:
     end consolePrint
   end extension
 
-  class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, K & Tuple]]:
-
+  case class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, K & Tuple]]:
     type COLUMNS = K
+
     def getFilePath: String = filePath
     lazy private val source = Source.fromFile(filePath)
     lazy private val lineIterator = source.getLines()
@@ -241,6 +249,8 @@ object CSV:
       val tuple = listToTuple(splitted).asInstanceOf[K & Tuple]
       NamedTuple.build[K & Tuple]()(tuple)
     end next
+
+    next() // drop the headers
   end CsvIterator
 
   /**
@@ -298,6 +308,8 @@ object CSV:
 
   transparent inline def pwd[T](inline path: String) = ${ readCsvFromCurrentDir('path) }
 
+  transparent inline def resource[T](inline path: String) = ${ readCsvResource('path) }
+
   transparent inline def absolutePath[T](inline path: String) = ${ readCsvAbolsutePath('path) }
 
   // TODO : I can't figure out how to refactor the common code inside the contraints of metaprogamming... 4 laterz.
@@ -309,8 +321,6 @@ object CSV:
     val source = Source.fromURL(pathExpr.valueOrAbort)
     val tmpPath = os.temp(dir = os.pwd, prefix = "temp_csv_", suffix = ".csv")
     os.write.over(tmpPath, source.toArray.mkString)
-
-    println(tmpPath.toString())
 
     val headerLine =
       try Source.fromFile(tmpPath.toString()).getLines().next()
@@ -377,4 +387,31 @@ object CSV:
       case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
     end match
   end readCsvAbolsutePath
+
+  def readCsvResource(pathExpr: Expr[String])(using Quotes) =
+    import quotes.reflect.*
+
+    val path = pathExpr.valueOrAbort
+
+    val source = Source.fromResource(path)
+
+    // val source = Source.fromFile(path)
+    val headerLine =
+      try source.getLines().next()
+      finally source.close()
+
+    val headers = headerLine.split(",").toList
+    val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+    tupleExpr2 match
+      case '{ $tup: t } =>
+
+
+        val itr = new CsvIterator[t](path)
+        // println("tup")
+        // println(tup)
+        // '{ NamedTuple.build[t & Tuple]()($tup) }
+        Expr(itr)
+      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
+    end match
+
 end CSV
