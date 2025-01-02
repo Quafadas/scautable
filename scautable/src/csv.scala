@@ -44,11 +44,31 @@ object CSV:
           case EmptyTuple => ReplaceOneName[xs, x, StrConst, A]
           case _ => ReplaceOneName[xs, x *: Head, StrConst, A]
 
+  // type ReplaceOneType[T <: Tuple, Head <: Tuple, StrConst <: String, A] <: Tuple = T match
+  //   case EmptyTuple => Head
+  //   case (name *: typ *: EmptyTuple) *: tail =>
+  //     IsMatch[StrConst, name] match
+  //       case true => Head *: (name *: A) *: tail
+  //       case false =>
+  //         ReplaceOneType[
+  //           tail,
+  //           Head *: (name *: typ),
+  //           StrConst,
+  //           A
+  //         ]
 
-  type ReplaceOneType[T <: Tuple, StrConst <: String, A] = DropAfterName[T, StrConst] match
-    case EmptyTuple => EmptyTuple
-    case x *: xs => x *: xs *: A
+  // type InputTuple = ("col1" *: Int *: EmptyTuple) *: ("col2" *: String) *: EmptyTuple
 
+  // type Result = ReplaceOneType[InputTuple, EmptyTuple, "col1", Boolean]
+
+  type ReplaceOneTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple, Head <: Tuple, A] <: Tuple = (T, N) match
+    case (EmptyTuple, _) => EmptyTuple
+    case (_, EmptyTuple) => EmptyTuple
+    case (nameHead *: nameTail, typeHead *: typeTail) =>
+      IsMatch[nameHead, StrConst] match
+          case true => A *: typeTail
+          case false =>
+            typeHead *: ReplaceOneTypeAtName[nameTail, StrConst, typeTail, Head, A]
 
   // match
   //   case EmptyTuple => T *: A *: StrConst *:  EmptyTuple
@@ -110,14 +130,14 @@ object CSV:
     case EmptyTuple => 0
     case x *: xs => 1 + Size[xs]
 
-  extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
-    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A) =
-      itr.map{
-        (tup: NamedTuple[K, V]) =>
-          (fct(tup) *: tup.toTuple).withNames[Concat[S, K]]
-      }
+  // extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
+  //   inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A) =
+  //     itr.map{
+  //       (tup: NamedTuple[K, V]) =>
+  //         (fct(tup) *: tup.toTuple).withNames[Concat[S, K]]
+  //     }
 
-  end extension
+  // end extension
   extension [K, V, K1 <: Tuple & K, V1 <: Tuple & K](itr: Iterator[NamedTuple[K1, V1]])
 
     inline def renameColumn[From <: String, To <: String](using ev: IsColumn[From, K1] =:= true, FROM: ValueOf[From], TO: ValueOf[To])= {
@@ -127,32 +147,31 @@ object CSV:
         itr.map{_.withNames[ReplaceOneName[K1, EmptyTuple, From, To]]}
     }
 
+    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K1, V1]) => A) =
+      itr.map{
+        (tup: NamedTuple[K1, V1]) =>
+          (fct(tup) *: tup.toTuple).withNames[Concat[S, K1]]
+      }
 
-    inline def mapColumn[S <: String, A](fct: String => A)(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S])= {
+
+
+    inline def mapColumn[S <: String, B, A](fct: B => A)(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S])= {
+      import scala.compiletime.ops.string.*
       val headers = constValueTuple[K1].toList.map(_.toString())
-
-      // val arg = constValueTuple[IsColumn["col1", ("col1", "col2", "col3")] & Tuple]
-      // println(arg)
+      type temp = "TEMP_COLUMN"
+      val tmp = summonInline[ValueOf[temp]]
       /**
         * Aaahhhh... apparently, TupleXXL is in reverse order!
         */
       val headers2 = if headers.size > 22 then headers.reverse else headers
-      println(headers)
       val idx = headers.indexOf(s.value)
       if(idx == -1) ???
-      // val col = itr.column[S].map(fct)
-      // dropColumn[S]
-      // addColumn[S]
       itr.map{
         (x: NamedTuple[K1, V1]) =>
           val tup = x.toTuple
-          val mapped = fct(tup(idx).asInstanceOf[String])
+          val mapped = fct(tup(idx).asInstanceOf[B])
           val (head, tail) = x.toTuple.splitAt(idx)
-          (head ++ mapped *: tail.tail) //.withNames[ReplaceOneName[K1, S, A] & Tuple].asInstanceOf[ReplaceOneType[V1, S, A] & Tuple]
-          // head match
-          //   case x: EmptyTuple => ??? //(mapped *: tail).asInstanceOf[SplitAtAddJoin[V, S, A]]//.withNames[SplitAtAddJoin[K, S, A]]//.asInstanceOf[SplitAtAddJoin[V, S, A]]
-          //   case _ =>
-          // head.init ++ tail
+          (head ++ mapped *: tail.tail).withNames[K1].asInstanceOf[NamedTuple[K1,ReplaceOneTypeAtName[K1,  S, V1, EmptyTuple, A]]]
       }
     }
 
@@ -175,7 +194,7 @@ object CSV:
 
 
 
-    inline def dropColumn[S <: String & Singleton](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[DropOneName[V1, S]] =
+    inline def dropColumn[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[DropOneName[V1, S]] =
       val headers = constValueTuple[K1].toList.map(_.toString())
       /**
         * Aaahhhh... apparently, TupleXXL is in reverse order!
