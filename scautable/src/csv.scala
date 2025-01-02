@@ -314,7 +314,7 @@ object CSV:
 
   // TODO : I can't figure out how to refactor the common code inside the contraints of metaprogamming... 4 laterz.
 
-  def readCsvFromUrl(pathExpr: Expr[String])(using Quotes) =
+  private def readCsvFromUrl(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
 
     report.warning("This method saves the CSV to a local file and opens it. This is a security risk, a performance risk and a lots of things risk. Use at your own risk and no where near something you care about.")
@@ -340,7 +340,7 @@ object CSV:
 
   end readCsvFromUrl
 
-  def readCsvFromCurrentDir(pathExpr: Expr[String])(using Quotes) =
+  private def readCsvFromCurrentDir(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
 
     val path = os.pwd / pathExpr.valueOrAbort
@@ -388,10 +388,18 @@ object CSV:
     end match
   end readCsvAbolsutePath
 
-  def readCsvResource(pathExpr: Expr[String])(using Quotes) =
+  private def readCsvResource(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
+
+    println(path)
+
+    val resourcePath = this.getClass.getClassLoader.getResource(path)
+    println(resourcePath)
+    if (resourcePath == null) {
+      report.throwError(s"Resource not found: $path")
+    }
 
     val source = Source.fromResource(path)
 
@@ -406,7 +414,7 @@ object CSV:
       case '{ $tup: t } =>
 
 
-        val itr = new CsvIterator[t](path)
+        val itr = new CsvIterator[t](resourcePath.getPath.toString())
         // println("tup")
         // println(tup)
         // '{ NamedTuple.build[t & Tuple]()($tup) }
