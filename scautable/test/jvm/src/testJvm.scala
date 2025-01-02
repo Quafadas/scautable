@@ -143,15 +143,18 @@ class CSVSuite extends munit.FunSuite:
     assertEquals(out.last.col2Renamed, "6")
   }
 
-  test("map column".only) {
+  test("map column") {
     def csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    def csvDrop1 = csv.drop(1)
 
-    def mapCol2 = csv.drop(1).mapColumn["col2", Int](_.toInt)
+    def mapCol2 = csv.drop(1).mapColumn["col2", String, Int](_.toInt)
 
-    // println(mapCol2.toArray.mkString(","))
-    // val result = mapCol2.toArray
-    // result.tapEach(println)
-    // assertEquals(result.toArray.head.col2, 2)
+    println(mapCol2.toArray.mkString(","))
+    val result = mapCol2.toArray
+    result.tapEach(println)
+    assertEquals(result.toArray.head.col2, 2)
+    assertEquals(result.toArray.tail.head.col2, 4)
+    assertEquals(result.toArray.last.col2, 6)
 
   }
 
