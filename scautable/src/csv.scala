@@ -44,7 +44,7 @@ object CSV:
           case EmptyTuple => ReplaceOneName[xs, x, StrConst, A]
           case _ => ReplaceOneName[xs, x *: Head, StrConst, A]
 
-  type ReplaceOneTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple, A] <: Tuple = (T, N) match
+  type ReplaceOneTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple, A] <: Tuple = (N, T) match
     case (EmptyTuple, _) => EmptyTuple
     case (_, EmptyTuple) => EmptyTuple
     case (nameHead *: nameTail, typeHead *: typeTail) =>
@@ -53,7 +53,7 @@ object CSV:
           case false =>
             typeHead *: ReplaceOneTypeAtName[nameTail, StrConst, typeTail, A]
 
-  type GetTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple] = (T, N) match
+  type GetTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple] = (N, T) match
     case (EmptyTuple, _) => EmptyTuple
     case (_, EmptyTuple) => EmptyTuple
     case (nameHead *: nameTail, typeHead *: typeTail) =>
@@ -140,23 +140,29 @@ object CSV:
       /**
         * Aaahhhh... apparently, TupleXXL is in reverse order!
         */
+      type OUT = ReplaceOneTypeAtName[K1, S, V1, A]
+
       val headers2 = if headers.size > 22 then headers.reverse else headers
       val idx = headers.indexOf(s.value)
       if(idx == -1) ???
       itr.map{
         (x: NamedTuple[K1, V1]) =>
           val tup = x.toTuple
-          val mapped = fct(tup(idx).asInstanceOf[GetTypeAtName[K1, S, V1]])
+          println(tup)
+          println(tup(idx))
+          val typ = tup(idx).asInstanceOf[GetTypeAtName[K1, S, V1]]
+          println(typ)
+          val mapped = fct(typ)
+          println(mapped)
           val (head, tail) = x.toTuple.splitAt(idx)
+          println(head)
+          println(tail)
+
           (head ++ mapped *: tail.tail).withNames[K1].asInstanceOf[NamedTuple[K1,ReplaceOneTypeAtName[K1,  S, V1, A]]]
       }
     }
 
-    inline def column[S <: String, A](fct: String => A = identity)(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[A] = {
-      column[S](using ev, s).map(fct)
-    }
-
-    inline def column[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[String]= {
+    inline def column[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[GetTypeAtName[K1, S, V1]] = {
       val headers = constValueTuple[K1].toList.map(_.toString())
       /**
         * Aaahhhh... apparently, TupleXXL is in reverse order!
@@ -165,7 +171,7 @@ object CSV:
 
       val idx = headers2.indexOf(s.value)
       itr.map(x =>
-        x.toTuple(idx).asInstanceOf[String]
+        x.toTuple(idx).asInstanceOf[GetTypeAtName[K1, S, V1]]
       )
     }
 
