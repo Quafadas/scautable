@@ -143,6 +143,16 @@ class CSVSuite extends munit.FunSuite:
     assertEquals(out.last.col2Renamed, "6")
   }
 
+  test("force column type") {
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+
+    val renamed: Iterator[(col1 : "col1", col2Renamed : String, col3 : "col3")]= csv.drop(1).renameColumn["col2", "col2Renamed"].forceColumnType["col2Renamed", String]
+    val out = renamed.toArray
+    assertEquals(out.head.col2Renamed, "2")
+    assertEquals(out.tail.head.col2Renamed, "4")
+    assertEquals(out.last.col2Renamed, "6")
+  }
+
   test("map column") {
     def csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
     def csvDrop1 = csv.drop(1)

@@ -61,14 +61,14 @@ object CSV:
 
   // type Result = ReplaceOneType[InputTuple, EmptyTuple, "col1", Boolean]
 
-  type ReplaceOneTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple, Head <: Tuple, A] <: Tuple = (T, N) match
+  type ReplaceOneTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple, A] <: Tuple = (T, N) match
     case (EmptyTuple, _) => EmptyTuple
     case (_, EmptyTuple) => EmptyTuple
     case (nameHead *: nameTail, typeHead *: typeTail) =>
       IsMatch[nameHead, StrConst] match
           case true => A *: typeTail
           case false =>
-            typeHead *: ReplaceOneTypeAtName[nameTail, StrConst, typeTail, Head, A]
+            typeHead *: ReplaceOneTypeAtName[nameTail, StrConst, typeTail, A]
 
   // match
   //   case EmptyTuple => T *: A *: StrConst *:  EmptyTuple
@@ -153,9 +153,11 @@ object CSV:
           (fct(tup) *: tup.toTuple).withNames[Concat[S, K1]]
       }
 
+    inline def forceColumnType[S <: String, A] = {
+      itr.map(_.asInstanceOf[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]])
+    }
 
-
-    inline def mapColumn[S <: String, B, A](fct: B => A)(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S])= {
+    inline def mapColumn[S <: String, B, A](fct: B => A)(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]]= {
       import scala.compiletime.ops.string.*
       val headers = constValueTuple[K1].toList.map(_.toString())
       type temp = "TEMP_COLUMN"
@@ -171,7 +173,7 @@ object CSV:
           val tup = x.toTuple
           val mapped = fct(tup(idx).asInstanceOf[B])
           val (head, tail) = x.toTuple.splitAt(idx)
-          (head ++ mapped *: tail.tail).withNames[K1].asInstanceOf[NamedTuple[K1,ReplaceOneTypeAtName[K1,  S, V1, EmptyTuple, A]]]
+          (head ++ mapped *: tail.tail).withNames[K1].asInstanceOf[NamedTuple[K1,ReplaceOneTypeAtName[K1,  S, V1, A]]]
       }
     }
 
