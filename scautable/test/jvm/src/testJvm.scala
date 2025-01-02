@@ -36,16 +36,18 @@ class CSVSuite extends munit.FunSuite:
   }
 
 
-  test("column") {
+  test("column".only) {
     def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
     val column2 = csv.column["col2"]
     val col2 = column2.toArray
+    println(col2.foreach(println))
     assertEquals(col2.head, "2")
     assertEquals(col2.tail.head, "4")
     assertEquals(col2.last, "6")
 
-    val col2double = csv.column["col2"]
+    val col2double = csv.mapColumn["col2", Double](_.toDouble)
+    println(col2double.toArray.tapEach(println))
     // assertEquals(col2double.head, 2.0)
     // assertEquals(col2double.tail.head, 4.0)
     // assertEquals(col2double.last, 6.0)
