@@ -44,23 +44,6 @@ object CSV:
           case EmptyTuple => ReplaceOneName[xs, x, StrConst, A]
           case _ => ReplaceOneName[xs, x *: Head, StrConst, A]
 
-  // type ReplaceOneType[T <: Tuple, Head <: Tuple, StrConst <: String, A] <: Tuple = T match
-  //   case EmptyTuple => Head
-  //   case (name *: typ *: EmptyTuple) *: tail =>
-  //     IsMatch[StrConst, name] match
-  //       case true => Head *: (name *: A) *: tail
-  //       case false =>
-  //         ReplaceOneType[
-  //           tail,
-  //           Head *: (name *: typ),
-  //           StrConst,
-  //           A
-  //         ]
-
-  // type InputTuple = ("col1" *: Int *: EmptyTuple) *: ("col2" *: String) *: EmptyTuple
-
-  // type Result = ReplaceOneType[InputTuple, EmptyTuple, "col1", Boolean]
-
   type ReplaceOneTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple, A] <: Tuple = (T, N) match
     case (EmptyTuple, _) => EmptyTuple
     case (_, EmptyTuple) => EmptyTuple
@@ -69,14 +52,6 @@ object CSV:
           case true => A *: typeTail
           case false =>
             typeHead *: ReplaceOneTypeAtName[nameTail, StrConst, typeTail, A]
-
-  // match
-  //   case EmptyTuple => T *: A *: StrConst *:  EmptyTuple
-  //   case x *: xs => T *: A *: xs *: EmptyTuple
-  //   case _ => EmptyTuple
-    // DropAfterName[T, StrConst] *: A *: Tail[T, StrConst] match
-    //   case EmptyTuple => EmptyTuple
-    //   case x *: xs => x *: xs
 
   type DropAfterName[T , StrConst <: String] = T match
     case EmptyTuple => EmptyTuple
@@ -130,14 +105,6 @@ object CSV:
     case EmptyTuple => 0
     case x *: xs => 1 + Size[xs]
 
-  // extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
-  //   inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A) =
-  //     itr.map{
-  //       (tup: NamedTuple[K, V]) =>
-  //         (fct(tup) *: tup.toTuple).withNames[Concat[S, K]]
-  //     }
-
-  // end extension
   extension [K, V, K1 <: Tuple & K, V1 <: Tuple & K](itr: Iterator[NamedTuple[K1, V1]])
 
     inline def renameColumn[From <: String, To <: String](using ev: IsColumn[From, K1] =:= true, FROM: ValueOf[From], TO: ValueOf[To])= {
@@ -220,13 +187,6 @@ object CSV:
   extension [K <: Tuple](csvItr: CsvIterator[K])
     def mapRows[A](fct: (tup: NamedTuple.NamedTuple[K, K]) => A) =
       csvItr.drop(1).map(fct)
-
-    // def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, K]) => A) =
-
-    //   val itr: Iterator[NamedTuple[K & Tuple, K & Tuple]] = csvItr.copy()
-    //   val csvItr2 = csvItr.copy().map((x: NamedTuple[K & Tuple, K & Tuple]) => (fct(x) *: x.toTuple ).withNames[Concat[S, K & Tuple] & Tuple])
-    //   csvItr2
-
   end extension
 
 
@@ -242,74 +202,6 @@ object CSV:
   class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, K & Tuple]]:
 
     type COLUMNS = K
-
-    // type ZipWithIndex[T <: Tuple] <: Tuple = T match
-    //   case EmptyTuple => EmptyTuple
-    //   case x *: xs => (x, ValueOf[Size[xs]]) *: ZipWithIndex[xs]
-
-    // type IndexOf[A, T <: Tuple, N <: 0] <: Int = T match
-    //   case EmptyTuple => 0
-    //   case head *: tail => head match
-    //     case A => N
-    //     case _ => IndexOf[tail, A, N+1]
-
-
-    // type Size[T] <: Int = T match
-    //   case EmptyTuple => 0
-    //   case x *: xs => 1 + Size[xs]
-
-    // type AreAllColumns[Strs <: Tuple, T] = Strs match
-    //   case EmptyTuple => true
-    //   case (head *: tail) => IsColumn[head, T] match
-    //     case true => AreAllColumns[tail, T]
-    //     case false => false
-    //   case _ => false
-
-
-
-    // TODO:  I wish I could get this to work.
-
-    // inline def mapColumn[S <: String, A](fct: String => A)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S]):Iterator[NamedTuple[K & Tuple, Tuple]] = {
-
-    //   val idx = headerIndex(s.value)
-    //   val size = headers.size
-    //   val parent = this
-    //   ???
-    //   // attempt2
-    //   // new CsvIterator[K & Tuple](filePath) {
-    //   //   override def next(): NamedTuple[K & Tuple, K & Tuple] = {
-    //   //     val tup = parent.next()
-    //   //     val (headTup, tailTup) =  tup.splitAt(idx)
-    //   //     val mapped = fct(tup(idx).asInstanceOf[String])
-    //   //     val newTup = headTup.init *: tailTup.tail
-    //   //     newTup
-    //   //   }
-    //   // }
-
-    //   //. attempt 1
-    //   //   row =>
-    //   //     val tup = row.toTuple
-
-    //   //     val mapped = fct(tup(idx).asInstanceOf[String])
-
-    //   //       val (headTup, tailTup) =  tup.splitAt(idx)
-    //   //       val newTup = headTup.init *: mapped *: tailTup.tail
-    //   //       newTup.withNames[K & Tuple]
-    //   // ).asInstanceOf[Iterator[NamedTuple[K & Tuple, K & Tuple]]]
-
-    // }
-
-    // inline def column[S <: String, A](fct: String => A = identity)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Iterator[A] = {
-    //   column[S](using ev, s).map(fct)
-    // }
-
-    // inline def column[S <: String](using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Iterator[String]= {
-    //   val idx = headerIndex(s.value)
-    //   val itr: Iterator[NamedTuple[K & Tuple, K & Tuple]] =
-    //     this.copy()
-    //   itr.map(x => x.toTuple.productElement(idx).asInstanceOf[String])
-    // }
-
     def getFilePath: String = filePath
     lazy private val source = Source.fromFile(filePath)
     lazy private val lineIterator = source.getLines()
@@ -317,16 +209,13 @@ object CSV:
     lazy val headersTuple =
       listToTuple(headers)
 
-    // println("headers in CsvIterator")
-    // println(headers.mkString(","))
-    // println("tuple")
-    // println(headersTuple.toString)
-
     inline def headerIndex(s: String) =
       headers.zipWithIndex.find(_._1 == s).get._2
 
     /**
       * Here be dragons, in Tuple Land, Tuple XXL is reversed, creating a discontinuity. Small tuples start at 1, big tuples start the other end.
+      *
+      * Apparently fixed in 3.6.3
       *
       * @return
       */
@@ -336,13 +225,12 @@ object CSV:
 
     inline override def hasNext: Boolean =
       val hasMore = lineIterator.hasNext
-      if !hasMore then source.close() // Close the file when done
+      if !hasMore then source.close()
       hasMore
     end hasNext
 
     private def listToTuple(list: List[String]): Tuple = list match
       case Nil    => EmptyTuple
-      // case h :: t => listToTuple(t) :* h
       case h :: t => h *: listToTuple(t)
 
     inline override def next(): NamedTuple[K & Tuple, K & Tuple] =
@@ -477,12 +365,6 @@ object CSV:
 
     val headers = headerLine.split(",").toList
     val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-
-
-    // println(s"Read headers in macro : size ${headers.size}")
-    // println(headers.mkString(","))
-    // println(tupleExpr2.show)
-
     tupleExpr2 match
       case '{ $tup: t } =>
 
