@@ -65,6 +65,7 @@ private def readCsvResource(pathExpr: Expr[String])(using Quotes) =
 
 ```
 
+
 ## Usage
 
 Here's a [scastie](https://scastie.scala-lang.org/Quafadas/2JoRN3v8SHK63uTYGtKdlw/17) to a scastie which does some manipulation on the Titanic dataset.
