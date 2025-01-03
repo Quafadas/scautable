@@ -191,22 +191,12 @@ object CSV:
 
       itr.map{
         (x: NamedTuple[K1, V1]) =>
-
-        // val hmmm = x.toTuple.productIterator
-        val (head, tail) = x.toTuple.splitAt(idx)
-        head match
-          case x: EmptyTuple => tail.tail.withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]]
-          case _ => (head ++ tail.tail).withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]]
-        // head.init ++ tail
+          val (head, tail) = x.toTuple.splitAt(idx)
+          head match
+            case x: EmptyTuple => tail.tail.withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]]
+            case _ => (head ++ tail.tail).withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]]
       }
   end extension
-
-
-  // extension [K <: Tuple](csvItr: CsvIterator[K])
-  //   def mapRows[A](fct: (tup: NamedTuple.NamedTuple[K, K]) => A) =
-  //     csvItr.drop(1).map(fct)
-  // end extension
-
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
 
