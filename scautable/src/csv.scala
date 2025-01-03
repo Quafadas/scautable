@@ -35,14 +35,12 @@ object CSV:
         case true => EmptyTuple
         case false => Tail[tail, S]
 
-  type ReplaceOneName[T <: Tuple, Head <: Tuple,  StrConst <: String, A <: String] <: Tuple = T match
+  type ReplaceOneName[T <: Tuple, StrConst <: String, A <: String] <: Tuple = T match
     case EmptyTuple => EmptyTuple
-    case x *: xs => IsMatch[StrConst, x] match
-      case true => Head *: A *: xs
-      case false =>
-        Head match
-          case EmptyTuple => ReplaceOneName[xs, x, StrConst, A]
-          case _ => ReplaceOneName[xs, x *: Head, StrConst, A]
+    case nameHead *: nameTail =>
+      IsMatch[nameHead, StrConst] match
+        case true => A *: nameTail
+        case false => nameHead *: ReplaceOneName[nameTail, StrConst, A]
 
   type ReplaceOneTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple, A] <: Tuple = (N, T) match
     case (EmptyTuple, _) => EmptyTuple
@@ -134,10 +132,7 @@ object CSV:
   extension [K, V, K1 <: Tuple & K, V1 <: Tuple & K](itr: Iterator[NamedTuple[K1, V1]])
 
     inline def renameColumn[From <: String, To <: String](using ev: IsColumn[From, K1] =:= true, FROM: ValueOf[From], TO: ValueOf[To])= {
-        val headers = constValueTuple[K1].toList.map(_.toString())
-        val idx = headers.indexOf(FROM.value)
-        if(idx == -1) ???
-        itr.map{_.withNames[ReplaceOneName[K1, EmptyTuple, From, To]]}
+        itr.map{_.withNames[ReplaceOneName[K1, From, To]].asInstanceOf[NamedTuple[ReplaceOneName[K1, From, To], V1]]}
     }
 
     inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K1, V1]) => A) =
@@ -227,7 +222,7 @@ object CSV:
     end consoleFormatNt
   end extension
 
-  case class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple] ]]:
+  class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple] ]]:
     type COLUMNS = K
 
     def getFilePath: String = filePath
