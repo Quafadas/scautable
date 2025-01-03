@@ -100,4 +100,4 @@ They are cheap to create - I normally switch to `val` after a call to `toList` o
 
 ### Example
 
-Here's a [scastie](https://scastie.scala-lang.org/Quafadas/2JoRN3v8SHK63uTYGtKdlw/17) to a scastie which does some manipulation on the Titanic dataset.
+Here's a [scastie](https://scastie.scala-lang.org/Quafadas/2JoRN3v8SHK63uTYGtKdlw/25) to a scastie which does some manipulation on the Titanic dataset.
