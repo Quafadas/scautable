@@ -40,11 +40,11 @@ We expose a small number of "column" methods, which allow coumn manipulation. Th
 ```scala mdoc sc:nocompile
 import io.github.quafadas.table.*
 
-def typeSperiment: Iterator[(col1 : Double, col2: Boolean, col3: String)] = csv
+def experiment: Iterator[(col1 : Double, col2: Boolean, col3: String)] = csv
   .mapColumn["col1", Double](_.toDouble)
   .mapColumn["col2", Boolean](_.toInt > 3)
 
-println(typeSperiment.toArray.consoleFormatNt(fansi = false))
+println(experiment.toArray.consoleFormatNt(fansi = false))
 
 ```
 Note, that one cannot make column name typos - the compiler will catch them. If you try to map a column which doesn't exist, the compiler will complain.
@@ -52,16 +52,16 @@ Note, that one cannot make column name typos - the compiler will catch them. If 
 We'll leave out explicit type ascriptions for the rest of the examples.
 
 ```scala mdoc:fail sc:nocompile
- def nope = typeSperiment.mapColumn["not_col1", Double](_.toDouble)
+ def nope = experiment.mapColumn["not_col1", Double](_.toDouble)
 
 ```
 
 ### Column Operations
 
-
+[[io.github.quafadas.scautable.CSV]] and look at the extension methods
 
 ```scala mdoc sc:nocompile
-def colmanipuluation = typeSperiment
+def colmanipuluation = experiment
   .dropColumn["col2"]
   .addColumn["col4", Double](x => x.col1 * 2 + x.col3.toDouble)
   .renameColumn["col4", "col4_renamed"]
@@ -75,7 +75,9 @@ println(colmanipuluation.column["col4_renamed"].foldLeft(0.0)(_ + _))
 
 ### Accumulating, slicing etc
 
-We can now delegate all this, to the standard library now. In my mind, there are more or less two ways of going about this. I'm usually working in the small , so I materialise the iterator early and treat it as a list.
+We can delegate all such concerns, to the standard library in the usual way - as we have everything in side the type system!
+
+In my mind, there are more or less two ways of going about this. I'm usually working in the small , so I materialise the iterator early and treat it as a list.
 
 ```scala mdoc sc:nocompile
 val asList = colmanipuluation.toList
@@ -89,7 +91,11 @@ Otherwise, we can use fold and friends to achieve similar over the `Iterator` (i
 println(colmanipuluation.filter(_.col4_renamed > 20).foldLeft(0.0)(_ + _.col4_renamed))
 ```
 
+### Why are the iterators `def`?
 
+Because if you make them `val` and try to read them a second time, you'll get a `StreamClosedException` or something similar.
+
+They are cheap to create - I normally switch to `val` after a call to `toList` or similar.
 
 
 
