@@ -52,10 +52,6 @@ See tests;
 - As I don't _really_ understand how it works, it's unlikely to get extended further...
 - Extending it further is probably a really bad idea anyway
 
+// TODO: Docs
 
-
-    // TODO: Docs
-
-    // TODO: Sample (graduated)
-
-    // TODO : Desktop show
+// TODO: Sample (graduated)
