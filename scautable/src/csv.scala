@@ -332,7 +332,7 @@ object CSV:
   private def readCsvFromUrl(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
 
-    report.warning("This method saves the CSV to a local file and opens it. This is a security risk, a performance risk and a lots of things risk. Use at your own risk and no where near something you care about.")
+    report.warning("This method saves the CSV to a local temp file and opens it. There may be performance implications - it is recommended to use one of the other methods where possible.")
     val source = Source.fromURL(pathExpr.valueOrAbort)
     val tmpPath = os.temp(dir = os.pwd, prefix = "temp_csv_", suffix = ".csv")
     os.write.over(tmpPath, source.toArray.mkString)
@@ -411,10 +411,7 @@ object CSV:
     if (resourcePath == null) {
       report.throwError(s"Resource not found: $path")
     }
-
     val source = Source.fromResource(path)
-
-    // val source = Source.fromFile(path)
     val headerLine =
       try source.getLines().next()
       finally source.close()
