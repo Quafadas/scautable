@@ -8,7 +8,7 @@ Our first move, is to tell the compiler, where the file may be found. `CSV.resou
 
 `CsvIterator` extends iterator.
 
-```scala mdoc
+```scala sc:nocompile mdoc
 import io.github.quafadas.table.*
 
 def csv : CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
