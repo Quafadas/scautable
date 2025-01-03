@@ -98,4 +98,6 @@ Because if you make them `val` and try to read them a second time, you'll get a 
 They are cheap to create - I normally switch to `val` after a call to `toList` or similar.
 
 
+### Example
 
+Here's a [scastie](https://scastie.scala-lang.org/Quafadas/2JoRN3v8SHK63uTYGtKdlw/17) to a scastie which does some manipulation on the Titanic dataset.
