@@ -14,7 +14,7 @@ class MySuite extends munit.FunSuite {
     val start    = ScauTest(1, "2")
     val start2   = ScauTest(2, "booyakashah")
     val startSeq = Seq(start, start2)
-    val console  = scautable.consoleFormat(startSeq, false)
+    val console  = scautable.consoleFormat_(startSeq, false)
     assertEquals(
       console,
       s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n|1|    2|booyakashah|\n+-+-----+-----------+"""
@@ -28,8 +28,7 @@ class MySuite extends munit.FunSuite {
     val start3   = ScauTest(3, "boo")
     val start4   = ScauTest(4, "booy")
     val startSeq = Seq(start, start2, start3, start4)
-    val console  = scautable.consoleFormat(startSeq, false)
-    scautable.printlnConsole(startSeq, false)
+    val console  = scautable.consoleFormat_(startSeq, false)
     assertEquals(
       console,
       s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n|1|    2|booyakashah|\n|2|    3|        boo|\n|3|    4|       booy|\n+-+-----+-----------+"""
@@ -88,6 +87,17 @@ class MySuite extends munit.FunSuite {
     val startSeq = Seq(EasyTypes("hi", 1, 2, 3.1, false))
     assertEquals(
       """<table id="scautable" class="display"><thead><tr><th>s</th><th>i</th><th>l</th><th>d</th><th>b</th></tr></thead><tbody><tr><td>hi</td><td>1</td><td>2</td><td>3.1</td><td>false</td></tr></tbody></table>""",
+      scautable(startSeq).toString()
+    )
+  }
+  test("enums") {
+    enum Env:
+      case Prod, Dev, Test
+
+    case class EasyTypes(s: String, i: Env)
+    val startSeq = Seq(EasyTypes("hi", Env.Dev))
+    assertEquals(
+      """<table id="scautable" class="display"><thead><tr><th>s</th><th>i</th></tr></thead><tbody><tr><td>hi</td><td>Dev</td></tr></tbody></table>""",
       scautable(startSeq).toString()
     )
   }

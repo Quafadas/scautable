@@ -1,7 +1,9 @@
 import $ivy.`com.github.lolgab::mill-crossplatform::0.2.4`
 import $ivy.`io.github.quafadas:millSite_mill0.12_2.13:0.0.38`
 import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
+import $ivy.`com.lihaoyi::mill-contrib-buildinfo:`
 
+import mill.contrib.buildinfo.BuildInfo
 import de.tobiasroeser.mill.vcs.version._
 import com.github.lolgab.mill.crossplatform._
 import mill._, mill.scalalib._, mill.scalajslib._, mill.scalanativelib._
@@ -19,8 +21,7 @@ trait Common extends ScalaModule with PublishModule {
     ivy"com.lihaoyi::os-lib:0.11.3",
     ivy"com.lihaoyi::fansi::0.5.0"
   )
-
-  def ammoniteVersion = "3.0.0"
+  override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-experimental", "-language:experimental.namedTuples", "-Xmax-inlines", "128")
 
   def publishVersion = VcsVersion.vcsState().format()
 
@@ -60,7 +61,32 @@ object scautable extends CrossPlatform {
   }
   object jvm extends Shared {
     // jvm specific settings here
-    object test extends ScalaTests with SharedTests
+    object test extends ScalaTests with SharedTests with BuildInfo {
+
+      def buildInfoPackageName: String = "io.github.quafadas.scautable"
+
+
+      override def generatedSources: T[Seq[PathRef]] = T{
+        val resourceDir = resources().map(_.path).zipWithIndex.map{case (str, i) => s"""final val resourceDir$i = \"\"\"$str${java.io.File.separator}\"\"\""""  }.mkString("\n\t")
+        val fileName = "BuildInfo.scala"
+        val code = s"""
+
+package io.github.quafadas.scautable
+
+/**
+Resources are not available at compile time. This is a workaround to get the path to the resource directory, (allowing unit testing of a macro based on a local file).
+*/
+
+object Generated {$resourceDir
+}
+"""
+        val dest = T.ctx().dest / "BuildInfo.scala"
+        os.write(dest , code)
+        Seq(PathRef(dest))
+
+      }
+
+    }
   }
   object js extends Shared with CommonJS {
     // js specific settings here
@@ -72,6 +98,8 @@ object scautable extends CrossPlatform {
 object site extends SiteModule {
 
   def scalaVersion = scautable.jvm.scalaVersion
+
+  override def scalacOptions: T[Seq[String]] =  super.scalacOptions() ++  scautable.jvm.scalacOptions()
 
   override def moduleDeps = Seq(scautable.jvm)
 
