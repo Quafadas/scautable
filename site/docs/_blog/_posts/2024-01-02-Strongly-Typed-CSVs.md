@@ -68,7 +68,7 @@ private def readCsvResource(pathExpr: Expr[String])(using Quotes) =
 
 ## Usage
 
-Here's a [scastie](https://scastie.scala-lang.org/Quafadas/2JoRN3v8SHK63uTYGtKdlw/17) to a scastie which does some manipulation on the Titanic dataset.
+Here's a [scastie](https://scastie.scala-lang.org/Quafadas/2JoRN3v8SHK63uTYGtKdlw/26) to a scastie which does some manipulation on the Titanic dataset.
 
 It showcases the basic idea, that we can manipulation the named tuples during the iteration and data gathering stage, and then wheel in the stdlib to do much of the heavy lifting.
 
