@@ -17,6 +17,7 @@ import scala.compiletime.constValueTuple
 object scautable extends PlatformSpecific:
 
   extension(s : Seq[Product])
+    def consoleFormat(fancy: Boolean): String = consoleFormat_(s, fancy)
     def consoleFormat: String = consoleFormat_(s, true)
 
   private val colours = List(
