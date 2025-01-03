@@ -27,6 +27,15 @@ We're going to write a macro which satisfies this code;
 ```scala sc:nocompile
 def csv : CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 ```
-CSV iterator will look like this;
+CSV iterator extends iterator;
+
+```scala sc:nocompile
+ class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K, Tuple[String]]]
+```
+The above is "type pseudo code", it wouldn't compile, but it conveys the idea. Our actual code is likely... messier.
+
+
+
+
 
 

@@ -170,7 +170,6 @@ class CSVSuite extends munit.FunSuite:
 
   test("map column") {
     def csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
-    def csvDrop1 = csv
 
     def mapCol2 = csv.mapColumn["col2", Int]((s: String) => s.toInt)
     val result = mapCol2.toArray
@@ -183,6 +182,27 @@ class CSVSuite extends munit.FunSuite:
     assertEquals(result2.head, 2)
     assertEquals(result2.tail.head, 4)
     assertEquals(result2.last, 6)
+
+  }
+
+  test("compose column operations 1") {
+
+    /**
+      * If this compiles, then hopefully we have borked the typelevel bookkeeping
+      */
+
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+
+    def composed = csv
+      .mapColumn["col2", Int]((s: String) => s.toInt)
+      .addColumn["col2Times10", Int](_.col2 * 10)
+      .dropColumn["col1"]
+      .renameColumn["col3", "col3_renamed"]
+      .mapColumn["col3_renamed", Int]((s: String) => s.toInt)
+      .addColumn["argy", Double](_.col2Times10 * 2.0)
+      .dropColumn["col2Times10"]
+    val result = composed.toArray.map(_.col3_renamed)
+    val result2 = composed.toArray.map(_.argy)
 
   }
 
