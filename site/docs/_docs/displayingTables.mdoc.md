@@ -1,3 +1,6 @@
+---
+title: Displaying Tables
+---
 
 
 ```scala
@@ -8,27 +11,21 @@
 
 # Elevator Pitch
 
-```scala mdoc
-import io.github.quafadas.scautable.{*, given}
+```scala
+import io.github.quafadas.table.*
 
 case class ScauTest(anInt: Int, aString: String)
-scautable(
-  Seq(ScauTest(1, "one"), ScauTest(2, "two")),
-  true
-).toString()
 
 val table = Seq(ScauTest(1, "one"), ScauTest(2, "two"), ScauTest(3, "booyakashaha!"))
 
-scautable.consoleFormat(table)
-
-scautable.printlnConsole(table)
+println(table.consoleFormat(fancy = false))
 
 ```
 
 On the JVM in particular, the ability to pop it open in the browser, see and search the actual data... can be useful. Particularly if you're working with a lot of messy, csv data for example.
 
 ```scala
-import io.github.quafadas.scautable.{*, given}
+import io.github.quafadas.table.*
 
 case class ScauTest(anInt: Int, aString: String)
 val soComplex = Seq(ScauTest(1, "one"), ScauTest(2, "two"))

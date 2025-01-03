@@ -99,6 +99,8 @@ object site extends SiteModule {
 
   def scalaVersion = scautable.jvm.scalaVersion
 
+  override def scalacOptions: T[Seq[String]] =  super.scalacOptions() ++  scautable.jvm.scalacOptions()
+
   override def moduleDeps = Seq(scautable.jvm)
 
 }
