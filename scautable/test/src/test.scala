@@ -90,6 +90,17 @@ class MySuite extends munit.FunSuite {
       scautable(startSeq).toString()
     )
   }
+  test("enums") {
+    enum Env:
+      case Prod, Dev, Test
+
+    case class EasyTypes(s: String, i: Env)
+    val startSeq = Seq(EasyTypes("hi", Env.Dev))
+    assertEquals(
+      """<table id="scautable" class="display"><thead><tr><th>s</th><th>i</th></tr></thead><tbody><tr><td>hi</td><td>Dev</td></tr></tbody></table>""",
+      scautable(startSeq).toString()
+    )
+  }
 
   test("Seq") {
     case class SeqMe(s: Seq[String])
