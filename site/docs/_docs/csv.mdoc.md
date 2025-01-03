@@ -14,4 +14,6 @@ import io.github.quafadas.table.*
 def csv : CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 def firstRow: Iterator[(col1: String, col2: String, col3: String)] = csv.take(1)
 
+println(firstRow.consoleShow(fancy = false))
+
 ```
