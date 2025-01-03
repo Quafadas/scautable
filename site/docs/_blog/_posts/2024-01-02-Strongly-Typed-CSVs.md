@@ -6,9 +6,9 @@ Title: Strongly Typed CSVs
 
 ## Motivation
 
-I have found myself often disatisfied with the experience of working with CSV files in scala. Which is weird, because it should be something that scala excels at.
+I have found myself often disatisfied with the experience of working with CSV files in scala. Which is a frustrating statement. It _feels_ like something that scala should excel at.
 
-As I tried to analyse _why_, I concluded that scala was great, _if the data model was already known_ and written down. However, when one recieved an essentially random CSV, creating the data model is kind of painful. It was taking too long to deal with that part, and parsing the data, than I was actually undersstanding the data.
+As I tried to analyse _why_, I concluded that scala was great, _if the data model was already known_. However, when one recieved an essentially random CSV, creating the data model is kind of painful. It was taking too long to deal with that part - parsing the data a than I was actually understanding the data.
 
 This library seeks to alter that experience.
 
