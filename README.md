@@ -1,4 +1,6 @@
 
+[docs](http://localhost:3002/docs/index.html)
+
 # SCala AUto TABLE
 
 - Strongly typed compile-time CSV
@@ -7,6 +9,8 @@
 - Searchable, sortable browser GUI for your tables
 
 ## Elevator Pitch
+One line CSV import.
+
 Insta-auto-magically generate a [scalatags](https://github.com/com-lihaoyi/scalatags) table from a `Seq[A]` (case classes).
 
 with scala-cli
@@ -32,7 +36,7 @@ It cross compiles, and gives you back a scalatags table
 
 ## Infrequently Asked Questions
 ### Is this project a good idea
-Unclear. One of it's purposes is to push the boundary of my metaprogramming knowledge. If you use this, it exposes you to the very real risk of frustration to the reality that this is an educational project I run on my own time.
+Unclear. One of it's purposes is to push the boundary of my metaprogramming knowledge. If you use this, it exposes you to the very real risk of the reality that this is an educational project I run on my own time.
 
 ### How does it work
 
@@ -44,13 +48,15 @@ https://blog.philipp-martini.de/blog/magic-mirror-scala3/
 
 ### Limitations
 
-For CSVs, type inference...
-
-See tests;
+For the desktop show part -
 - Formatting is implied by the type. To format your own types, you'll need to write a given for it.
 - Extension is through the type system, have a look at the JVM tests for an example if writing a given for your own custom type
 - As I don't _really_ understand how it works, it's unlikely to get extended further...
 - Extending it further is probably a really bad idea anyway
+
+For the CSV part :
+- It is assumed you have one header row, and that your headers are reasonably representaable by the compiler.
+- As of early 2024 there is a compiler bug that reverses the order of large named tuples. CSV files over 22 might get weird - I don't believe the limitation to be fundaemntal, just need to wait for the fix.
 
 // TODO: Docs
 
