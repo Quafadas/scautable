@@ -214,7 +214,12 @@ object CSV:
 
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
-    inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true) =
+
+    inline def consoleFormatNt: String=
+      consoleFormatNt(None, true)
+    end consoleFormatNt
+
+    inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true): String =
       val foundHeaders = constValueTuple[K].toList.map(_.toString())
       val values = nt.map(_.toTuple)
       scautable.consoleFormat_(values, fansi, headers.getOrElse(foundHeaders))
