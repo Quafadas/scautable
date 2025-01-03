@@ -184,8 +184,6 @@ object CSV:
       )
     }
 
-
-
     inline def dropColumn[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]] =
       val headers = constValueTuple[K1].toList.map(_.toString())
       /**
@@ -216,12 +214,12 @@ object CSV:
 
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
-    inline def consolePrint(headers: Option[List[String]] = None, fansi: Boolean = true) =
+    inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true) =
       val foundHeaders = constValueTuple[K].toList.map(_.toString())
       val values = nt.map(_.toTuple)
-      scautable.consoleFormat(values, fansi, headers.getOrElse(foundHeaders))
+      scautable.consoleFormat_(values, fansi, headers.getOrElse(foundHeaders))
 
-    end consolePrint
+    end consoleFormatNt
   end extension
 
   case class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple] ]]:

@@ -28,6 +28,20 @@ class CSVSuite extends munit.FunSuite:
     )
   }
 
+  test("showable") {
+
+    val nt = Seq(
+      (col1 = "a", col2 = 1, col3 =  2.0),
+      (col1 = "b", col2 =  2,col3 =  3.0),
+      (col1 = "c", col2 =  3,col3 =  4.0)
+    )
+
+    assertEquals(
+      """<table id="scautable" class="display"><thead><tr><th>col1</th><th>col2</th><th>col3</th></tr></thead><tbody><tr><td>a</td><td>1</td><td>2.0</td></tr><tr><td>b</td><td>2</td><td>3.0</td></tr><tr><td>c</td><td>3</td><td>4.0</td></tr></tbody></table>""",
+      scautable.nt(nt).toString()
+    )
+  }
+
   test("csv from resource compiles and typechecks") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 +"simple.csv")
 
@@ -77,7 +91,6 @@ class CSVSuite extends munit.FunSuite:
     def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
     def dropped = csv.dropColumn["col2"].mapColumn["col3", Int](_.toInt)
-    dropped.toArray.tapEach(println)
 
     val out = dropped.column["col3"].toArray
     assertEquals(out.head, 7)
@@ -85,7 +98,6 @@ class CSVSuite extends munit.FunSuite:
     assertEquals(out.last, 9)
 
     val out2 = dropped.column["col1"].toArray
-    println(out2.mkString(","))
     assertEquals(out2.head, "1")
     assertEquals(out2.tail.head, "3")
     assertEquals(out2.last, "5")
@@ -177,7 +189,7 @@ class CSVSuite extends munit.FunSuite:
   test("console print") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
     assertNoDiff(
-      csv.toArray.consolePrint(),
+      csv.toArray.consoleFormatNt(),
       """| |col1|col2|col3|
 +-+----+----+----+
 |0|   1|   2|   7|

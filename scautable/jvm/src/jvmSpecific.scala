@@ -32,11 +32,35 @@ trait PlatformSpecific:
       val runtime = java.lang.Runtime.getRuntime()
       runtime.exec(Array[String](s"""xdg-open $uri]"""))
 
-  def desktopShowNt[K <: Tuple, V <: Tuple](a: Seq[NamedTuple[K, V]])(using
+  inline def desktopShowNt[K <: Tuple, V <: Tuple](a: Seq[NamedTuple[K, V]])(using
       tableDeriveInstance: HtmlTableRender[V]
   ): os.Path =
-    println("Here")
-    desktopShow(a.map(_.toTuple))
+    val asString = scautable.nt(a).toString()
+    val theHtml = raw"""
+<!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+      <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    </head>
+    <body>
+      <div>
+        $asString
+      </div>
+      <script>
+$$(document).ready( function () {
+    $$('#scautable').DataTable({
+    pageLength: 50
+});
+} );
+      </script>
+    </body>
+</html>"""
+    val tempFi = os.temp(theHtml, suffix = ".html", prefix = "plot-", deleteOnExit = false)
+    openBrowserWindow(tempFi.toNIO.toUri())
+    tempFi
   end desktopShowNt
 
   /** Attempts to open a browser window, and display this Seq of `Product` as a table.
@@ -47,7 +71,7 @@ trait PlatformSpecific:
     *   \- summon a HtmlTableRender instance for the case class
     * @return
     */
-  def desktopShow[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]) =
+  inline def desktopShow[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]) =
     val asString = scautable(a).toString()
     val theHtml = raw"""
 <!DOCTYPE html>
@@ -64,7 +88,9 @@ trait PlatformSpecific:
       </div>
       <script>
 $$(document).ready( function () {
-    $$('#scautable').DataTable();
+    $$('#scautable').DataTable({
+    pageLength: 50
+});
 } );
       </script>
     </body>
