@@ -8,6 +8,7 @@ import java.time.LocalDate
 import scalatags.Text.TypedTag
 import fansi.Str
 import NamedTuple.*
+import scala.compiletime.constValueTuple
 
 /** This is a simple library to render a scala case class as an html table. It assumes the presence of a
   * [[HtmlTableRender]] instance for each type in the case class.
@@ -15,7 +16,7 @@ import NamedTuple.*
 object scautable extends PlatformSpecific:
 
   extension(s : Seq[Product])
-    def consoleShow: String = consoleFormat(s)
+    def consoleFormat: String = consoleFormat_(s, true)
 
   private val colours = List(
     fansi.Color.Green,
@@ -35,12 +36,12 @@ object scautable extends PlatformSpecific:
     colours(idx)(s)
   end makeFancy
 
-  def printlnConsole(table: Seq[Product], fancy: Boolean = false) = println(consoleFormat(table, fancy))
+  def printlnConsole_(table: Seq[Product], fancy: Boolean = false) = println(consoleFormat_(table, fancy))
 
-  def consoleFormat(table: Seq[Product], fancy: Boolean = true): String =
-    consoleFormat(table, fancy, table.head.productElementNames.toList)
+  def consoleFormat_(table: Seq[Product], fancy: Boolean = true): String =
+    consoleFormat_(table, fancy, table.head.productElementNames.toList)
 
-  def consoleFormat(table: Seq[Product], fancy: Boolean, headers: List[String]): String = table match
+  def consoleFormat_(table: Seq[Product], fancy: Boolean, headers: List[String]): String = table match
     case Seq() => ""
     case _ =>
       val indexLen = table.length.toString.length
@@ -172,7 +173,6 @@ object scautable extends PlatformSpecific:
       val label = constValue[m.MirroredLabel]
       val elemInstances = getInstances[m.MirroredElemTypes]
       val elemLabels = getElemLabels[m.MirroredElemLabels]
-
       inline m match
         case p: Mirror.ProductOf[A] =>
           val caseClassElements =
@@ -238,6 +238,7 @@ object scautable extends PlatformSpecific:
             prettyElements
           )
   end HtmlTableRender
+
   given stringT: HtmlTableRender[String] = new HtmlTableRender[String]:
     override def tableCell(a: String) = td(a)
 
@@ -251,6 +252,26 @@ object scautable extends PlatformSpecific:
     override def tableCell(a: Double) = td(
       s"$a"
     )
+
+  given enumT[E <: scala.reflect.Enum](using m: Mirror.SumOf[E]): HtmlTableRender[E] = new HtmlTableRender[E]:
+    override def tableCell(a: E) = td(
+      s"${a.toString}"
+    )
+
+
+  given nt[K <: Tuple, N <:Tuple]:HtmlTableRender[NamedTuple[K,N]] = new HtmlTableRender[NamedTuple[K,N]]:
+    override def tableHeader(a: NamedTuple[K, N]): TypedTag[String] =
+      val h = a.toTuple.productElementNames.toList
+      tr(h.map(th(_)))
+    override def tableCell(a: NamedTuple[K,N]) = td(
+      s"$a"
+    )
+
+    override def tableRow(a: NamedTuple[K, N]): TypedTag[String] =
+      val h = a.toTuple.productElementNames.toList
+      val elems = a.toTuple.productIterator.toList
+      val cells = elems.map(e => td(e.toString))
+      tr(cells)
 
   given booleanT: HtmlTableRender[Boolean] = new HtmlTableRender[Boolean]:
     override def tableCell(a: Boolean) = td(
@@ -282,9 +303,19 @@ object scautable extends PlatformSpecific:
     instance.tableRow(a)
 
   protected def deriveTableHeader[A](a: A)(using instance: HtmlTableRender[A]) =
-    println("deriveTableHeader")
     tr(instance.tableRow(a))
   end deriveTableHeader
+
+  // protected inline def getElemLabels[A <: Tuple]: List[String] =
+  //   inline erasedValue[A] match
+  //     case _: EmptyTuple => Nil // stop condition - the tuple is empty
+  //     case _: (head *: tail) => // yes, in scala 3 we can match on tuples head and tail to deconstruct them step by step
+  //       val headElementLabel =
+  //         constValue[head].toString // bring the head label to value space
+  //       val tailElementLabels =
+  //         getElemLabels[tail] // recursive call to get the labels from the tail
+  //       headElementLabel :: tailElementLabels // concat head + tail
+
 
   protected inline def getElemLabels[A <: Tuple]: List[String] =
     inline erasedValue[A] match
@@ -336,10 +367,16 @@ object scautable extends PlatformSpecific:
       * @param tableDeriveInstance
       *   \- An instance of HtmlTableRender for the type `A`
       */
-  def apply[A <: Product](a: Seq[A], addHeader: Boolean = true)(using
+  def apply[A <: Product](a: Seq[A])(using
       tableDeriveInstance: HtmlTableRender[A]
   ): TypedTag[String] =
     val h = a.head.productElementNames.toList
+    apply(a, true, h)
+  end apply
+
+  def apply[A <: Product](a: Seq[A], addHeader: Boolean = true, h: List[String])(using
+      tableDeriveInstance: HtmlTableRender[A]
+  ): TypedTag[String] =
     val header = tr(h.map(th(_)))
     val rows = for (r <- a) yield tableDeriveInstance.tableRow(r)
     if addHeader then table(thead(header), tbody(rows), id := "scautable", cls := "display")
@@ -348,12 +385,13 @@ object scautable extends PlatformSpecific:
   end apply
 
   def apply[A <: Product](a: A, addHeader: Boolean)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
-    apply(Seq(a), addHeader)
+    apply(Seq(a), addHeader, a.productElementNames.toList)
 
-  def apply[K <: Tuple, V <: Tuple](a: Seq[NamedTuple[K, V]], headers: List[String])(using
+  inline def nt[K <: Tuple, V <: Tuple](a: Seq[NamedTuple[K, V]])(using
       tableDeriveInstance: HtmlTableRender[V]
   ): TypedTag[String] =
-    apply(a.map(_.toTuple))
-  end apply
+    val names = constValueTuple[K].toList.map(_.toString())
+    apply(a.map(_.toTuple), true, names)
+
 
 end scautable
