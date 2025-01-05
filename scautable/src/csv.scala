@@ -13,6 +13,8 @@ import scala.compiletime.*
 import scala.compiletime.ops.int.*
 import fansi.Str
 import scala.collection.View.FlatMap
+import io.github.quafadas.scautable.ConsoleFormat.*
+
 
 
 @experimental
@@ -131,17 +133,17 @@ object CSV:
 
   extension [K, V, K1 <: Tuple & K, V1 <: Tuple & K](itr: Iterator[NamedTuple[K1, V1]])
 
-    inline def renameColumn[From <: String, To <: String](using ev: IsColumn[From, K1] =:= true, FROM: ValueOf[From], TO: ValueOf[To])= {
+    inline def renameColumn[From <: String, To <: String](using ev: IsColumn[From, K1] =:= true, FROM: ValueOf[From], TO: ValueOf[To]): Iterator[NamedTuple[ReplaceOneName[K1, From, To], V1]]= {
         itr.map{_.withNames[ReplaceOneName[K1, From, To]].asInstanceOf[NamedTuple[ReplaceOneName[K1, From, To], V1]]}
     }
 
-    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K1, V1]) => A) =
+    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K1, V1]) => A): Iterator[NamedTuple[S *: K1, A *: V1]] =
       itr.map{
         (tup: NamedTuple[K1, V1]) =>
           (fct(tup) *: tup.toTuple).withNames[Concat[S, K1]]
       }
 
-    inline def forceColumnType[S <: String, A] = {
+    inline def forceColumnType[S <: String, A]: Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]] = {
       itr.map(_.asInstanceOf[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]])
     }
 
@@ -200,16 +202,23 @@ object CSV:
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
 
-    inline def consoleFormatNt: String=
-      consoleFormatNt(None, true)
-    end consoleFormatNt
+    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A): Seq[NamedTuple[S *: K, A *: V]] =
+      nt.toIterator.addColumn[S, A](fct).toSeq
 
-    inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true): String =
-      val foundHeaders = constValueTuple[K].toList.map(_.toString())
-      val values = nt.map(_.toTuple)
-      scautable.consoleFormat_(values, fansi, headers.getOrElse(foundHeaders))
+    inline def dropColumn[S <: String](using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Seq[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]] =
+      nt.toIterator.dropColumn[S].toSeq
 
-    end consoleFormatNt
+    inline def mapColumn[S <: String, A](fct: GetTypeAtName[K, S, V] => A)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Seq[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]]= {
+      nt.toIterator.mapColumn[S, A](fct).toSeq
+    }
+    inline def forceColumnType[S <: String, A]: Any = {
+      nt.toIterator.forceColumnType[S, A].toSeq
+    }
+    inline def renameColumn[From <: String, To <: String](using ev: IsColumn[From, K] =:= true, FROM: ValueOf[From], TO: ValueOf[To]): Seq[NamedTuple[ReplaceOneName[K, From, To], V]]= {
+      nt.toIterator.renameColumn[From, To].toSeq
+    }
+
+
   end extension
 
   class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple] ]]:
@@ -242,9 +251,68 @@ object CSV:
       hasMore
     end hasNext
 
-    private def listToTuple(list: List[String]): Tuple = list match
+    private def listToTuple[A](list: List[A]): Tuple = list match
       case Nil    => EmptyTuple
       case h :: t => h *: listToTuple(t)
+
+    def numericTypeTest(sample: Option[Int] = None) =
+      val sampled = sample match
+        case Some(n) =>
+          this.take(n)
+        case None =>
+          this
+      val asList = headers.map(_ => ConversionAcc(0, 0, 0))
+
+      sampled.foldLeft((asList, 0L))( (acc: (List[ConversionAcc], Long), elem: NamedTuple[K & Tuple, StringyTuple[K & Tuple]] ) =>
+
+          val list = elem.toList.asInstanceOf[List[String]].zip(acc._1).map{
+            case (str, acc) =>
+
+              (
+                ConversionAcc(
+                  acc.validInts + str.toIntOption.fold(0)(_ => 1),
+                  acc.validDoubles + str.toDoubleOption.fold(0)(_ => 1),
+                  acc.validLongs + str.toLongOption.fold(0)(_ => 1)
+                )
+              )
+          }
+          (list, acc._2 + 1)
+        )
+
+    inline def formatTypeTest(sample: Option[Int] = None): String =
+      val (asList, n) = numericTypeTest(sample)
+      val intReport = (
+        "int" *: listToTuple({
+          for(acc <- asList ) yield
+            (acc.validInts / n.toDouble).formatAsPercentage
+          }
+        )
+      )
+      val doubleReported =   "doubles" *: listToTuple({
+        for(acc <- asList ) yield
+          (acc.validDoubles / n.toDouble).formatAsPercentage
+      })
+      val longReported = "long" *: listToTuple({
+        for(acc <- asList ) yield
+          (acc.validLongs / n.toDouble).formatAsPercentage
+      })
+      val recommendation = "recommendation" *: listToTuple({
+        for(acc <- asList ) yield
+          recommendConversion(List(acc), n)
+      })
+
+      val ntList = Seq(
+        intReport,
+        doubleReported,
+        longReported,
+        recommendation
+      )
+
+      ConsoleFormat.consoleFormat_(headers = "conversion % to" +: headers, fancy = true, table = ntList )
+
+
+    inline def showTypeTest(sample: Option[Int] = None): Unit  =
+      println(formatTypeTest(sample))
 
     inline override def next() =
       if !hasNext then throw new NoSuchElementException("No more lines")
