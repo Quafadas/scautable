@@ -27,9 +27,12 @@ object ConsoleFormat:
   )
 
   extension[A](a: A)(using numA: Numeric[A])
-    def formatAsPercentage: String =
-      val a100 = BigDecimal(numA.toDouble(a) * 100).setScale(2, BigDecimal.RoundingMode.HALF_UP)
-      f"$a100%.2f%%"
+    inline def formatAsPercentage: String =
+      if (a == 0)
+        "0.00%"
+      else
+        val a100 = BigDecimal(numA.toDouble(a) * 100).setScale(2, BigDecimal.RoundingMode.HALF_UP)
+        f"$a100%.2f%%"
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
 
