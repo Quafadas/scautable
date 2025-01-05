@@ -3,9 +3,7 @@ package io.github.quafadas.scautable
 case class ConversionAcc(validInts: Long, validDoubles: Long, validLongs: Long)
 
 def recommendConversion(acc: List[ConversionAcc], rowCount: Long): String = {
-  def percentage(validCount: Long): Double =
-    if (rowCount == 0) 0.0 else
-    (validCount.toDouble / rowCount) * 100
+  def percentage(validCount: Long): Double = (validCount.toDouble / rowCount) * 100
 
   acc.map { case ConversionAcc(validInts, validDoubles, validLongs) =>
     val intPct = percentage(validInts)
