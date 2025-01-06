@@ -87,6 +87,32 @@ object CSV:
     case A => true
     case _ => false
 
+  type IsNumeric[T] <: Boolean = T match
+    case Int => true
+    case Long => true
+    case Float => true
+    case Double => true
+    case _ => false
+
+  type NumericCols[T <: Tuple] <: Tuple = 
+    T match
+      case EmptyTuple => EmptyTuple
+      case (head *: tail) => IsNumeric[head] match
+        case true => head *: NumericCols[tail]
+        case false => false *: NumericCols[tail]
+
+  type SelectFromTuple[T <: Tuple, Bools <: Tuple] <: Tuple = T match
+    case EmptyTuple => EmptyTuple
+    case (head *: tail) => Bools match
+      case (true *: boolTail) => head *: SelectFromTuple[tail, boolTail]
+      case (false *: boolTail) => SelectFromTuple[tail, boolTail]
+
+  type AllAreColumns[T >: Tuple, K <: Tuple] <: Boolean = T match
+    case EmptyTuple => true
+    case head *: tail => IsColumn[head, K] match
+      case true => AllAreColumns[tail, K]
+      case false => false
+
 
   type StringifyTuple[T >: Tuple] <: Tuple = T match
     case EmptyTuple => EmptyTuple
@@ -166,6 +192,51 @@ object CSV:
           val (head, tail) = x.toTuple.splitAt(idx)
           (head ++ mapped *: tail.tail).withNames[K1].asInstanceOf[NamedTuple[K1,ReplaceOneTypeAtName[K1,  S, V1, A]]]
       }
+    }
+
+    
+    def dropColumnsImpl[T <: Tuple](using Quotes): Expr[Any] = {
+      import quotes.reflect.*
+
+      // Extract the types of the tuple `T`
+      T match 
+        case '[t *: ts] => extractTupleTypes(Type.of[T])
+        case '[EmptyTuple] => Nil
+        case _ => report.throwError("Expected T to be a Tuple")
+      
+        
+
+      // Generate a chain of `.dropColumn[Ti]` calls
+      val dropColumnCalls = tTypes.foldLeft('{ itr }: Expr[Any]) { (acc, tpe) =>
+        '{ $acc.dropColumn[tpe] }
+      }
+
+      dropColumnCalls
+    }
+
+    private def extractTupleTypes[T](using Quotes)(using Type[T]): List[Type[_]] = {
+      import quotes.reflect.*
+      Type.of[T] match {
+        case '[t *: ts] => Type.of[t] :: extractTupleTypes(Type.of[ts])
+        case '[EmptyTuple] => Nil
+        case _ => report.throwError("Expected a tuple type")
+      }
+    }
+    
+
+    
+    inline def dropColumns[T <: Tuple](using ev: AllAreColumns[T, K1] =:= true) = {
+
+      dropColumnsImpl[T, K1]
+
+      // val allCols = constValueTuple[K1].toList.map(_.toString())
+      // val selectedCols = constValueTuple[T].toList.map(_.toString())
+
+      // val setdiff = allCols.diff(selectedCols)
+
+      // itr
+      //   .dropColumn[T1]
+      //   .dropColumn[T2]
     }
 
     inline def column[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[GetTypeAtName[K1, S, V1]] = {
