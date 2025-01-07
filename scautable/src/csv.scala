@@ -19,6 +19,18 @@ import io.github.quafadas.scautable.ConsoleFormat.*
 
 @experimental
 object CSV:
+
+  inline def constValueAll[A]: A = 
+    inline erasedValue[A] match 
+      case _: *:[h, t] => (constValueAll[h] *: constValueAll[t]).asInstanceOf[A]
+      case _: EmptyTuple => EmptyTuple.asInstanceOf[A]
+      case _ => constValue[A]
+
+  
+  private def listToTuple[A](list: List[A]): Tuple = list match
+    case Nil    => EmptyTuple
+    case h :: t => h *: listToTuple(t)
+
   type Concat[X <: String, Y <: Tuple] = X *: Y
 
   type ConcatSingle[X, A] = X *: A *: EmptyTuple
@@ -107,11 +119,20 @@ object CSV:
       case (true *: boolTail) => head *: SelectFromTuple[tail, boolTail]
       case (false *: boolTail) => SelectFromTuple[tail, boolTail]
 
-  type AllAreColumns[T >: Tuple, K <: Tuple] <: Boolean = T match
+  type AllAreColumns[T <: Tuple, K <: Tuple] <: Boolean = T match
     case EmptyTuple => true
     case head *: tail => IsColumn[head, K] match
       case true => AllAreColumns[tail, K]
       case false => false
+
+  type TupleContainsIdx[Search <: Tuple, In <: Tuple ] <: Tuple = Search match
+    case EmptyTuple => EmptyTuple
+    case head *: tail => In match
+      case EmptyTuple => false *: TupleContainsIdx[tail, In]
+      case inHead *: inTail => IsMatch[head, inHead] match
+        case true => true *: TupleContainsIdx[tail, inTail]
+        case false => TupleContainsIdx[tail, inTail]
+    
 
 
   type StringifyTuple[T >: Tuple] <: Tuple = T match
@@ -189,55 +210,26 @@ object CSV:
           val tup = x.toTuple
           val typ = tup(idx).asInstanceOf[GetTypeAtName[K1, S, V1]]
           val mapped = fct(typ)
-          val (head, tail) = x.toTuple.splitAt(idx)
+          val (head, tail) = x.toTuple.splitAt(idx)          
           (head ++ mapped *: tail.tail).withNames[K1].asInstanceOf[NamedTuple[K1,ReplaceOneTypeAtName[K1,  S, V1, A]]]
       }
     }
 
-    
-    def dropColumnsImpl[T <: Tuple](using Quotes): Expr[Any] = {
-      import quotes.reflect.*
+    inline def columns[ST <: Tuple](using ev: AllAreColumns[ST, K1] =:= true) = 
+      val headers = constValueTuple[K1].toList.map(_.toString())
+      val selectedHeaders = constValueTuple[ST].toList.map(_.toString())
+      val idxes = selectedHeaders.map(headers.indexOf(_))      
 
-      // Extract the types of the tuple `T`
-      T match 
-        case '[t *: ts] => extractTupleTypes(Type.of[T])
-        case '[EmptyTuple] => Nil
-        case _ => report.throwError("Expected T to be a Tuple")
-      
-        
-
-      // Generate a chain of `.dropColumn[Ti]` calls
-      val dropColumnCalls = tTypes.foldLeft('{ itr }: Expr[Any]) { (acc, tpe) =>
-        '{ $acc.dropColumn[tpe] }
+      itr.map{
+        (x: NamedTuple[K1, V1]) =>
+          val tuple = x.toTuple
+          
+          val selected = idxes.foldLeft(EmptyTuple: Tuple){
+            (acc, idx) =>
+              tuple(idx) *: acc
+          }
+          selected.withNames[ST].asInstanceOf[NamedTuple[ST, TupleContainsIdx[ST, K1]]]
       }
-
-      dropColumnCalls
-    }
-
-    private def extractTupleTypes[T](using Quotes)(using Type[T]): List[Type[_]] = {
-      import quotes.reflect.*
-      Type.of[T] match {
-        case '[t *: ts] => Type.of[t] :: extractTupleTypes(Type.of[ts])
-        case '[EmptyTuple] => Nil
-        case _ => report.throwError("Expected a tuple type")
-      }
-    }
-    
-
-    
-    inline def dropColumns[T <: Tuple](using ev: AllAreColumns[T, K1] =:= true) = {
-
-      dropColumnsImpl[T, K1]
-
-      // val allCols = constValueTuple[K1].toList.map(_.toString())
-      // val selectedCols = constValueTuple[T].toList.map(_.toString())
-
-      // val setdiff = allCols.diff(selectedCols)
-
-      // itr
-      //   .dropColumn[T1]
-      //   .dropColumn[T2]
-    }
 
     inline def column[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[GetTypeAtName[K1, S, V1]] = {
       val headers = constValueTuple[K1].toList.map(_.toString())
@@ -321,10 +313,6 @@ object CSV:
       if !hasMore then source.close()
       hasMore
     end hasNext
-
-    private def listToTuple[A](list: List[A]): Tuple = list match
-      case Nil    => EmptyTuple
-      case h :: t => h *: listToTuple(t)
 
     def numericTypeTest(sample: Option[Int] = None) =
       val sampled = sample match
