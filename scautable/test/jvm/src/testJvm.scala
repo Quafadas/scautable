@@ -79,6 +79,19 @@ class CSVSuite extends munit.FunSuite:
     )
   }
 
+  test("columns".only) {
+    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+
+    assert(
+      !compileErrors("csv.columns[(\"notcol\")]").isEmpty()
+    )
+    
+    val cols = csv.mapColumn["col1", Int](_.toInt).columns[("col1", "col3")]
+
+    // assert(cols.toArray().head.col1 == 1)
+
+    println(cols.toArray().mkString(","))
+  }
 
   test("column") {
     def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
