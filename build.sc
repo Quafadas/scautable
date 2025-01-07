@@ -48,7 +48,7 @@ trait CommonJS extends ScalaJSModule {
 }
 trait CommonTests extends TestModule.Munit {
   def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"org.scalameta::munit::1.0.3"
+    ivy"org.scalameta::munit::1.0.4"
   )
 }
 
