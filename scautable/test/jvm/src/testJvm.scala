@@ -79,18 +79,29 @@ class CSVSuite extends munit.FunSuite:
     )
   }
 
-  test("columns".only) {
+  test("columns") {
     def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
     assert(
       !compileErrors("csv.columns[(\"notcol\")]").isEmpty()
     )
-    
-    val cols = csv.mapColumn["col1", Int](_.toInt).columns[("col1", "col3")]
 
-    // assert(cols.toArray().head.col1 == 1)
+    def cols = csv.mapColumn["col1", Int](_.toInt)
 
-    println(cols.toArray().mkString(","))
+    assert(cols.toArray().head.col1 == 1)
+    assert(cols.toArray().head.col3 == "7")
+    assert(cols.toArray().last.col1 == 5)
+    assert(cols.toArray().last.col3 == "9")
+
+    def numerics: Iterator[(col1 : Int)] = cols.numericCols
+
+    def numerics2: Iterator[(col1 : Int, col2 : Double)]= cols.mapColumn["col2", Double](_.toDouble).numericCols
+    def numerics3: Iterator[(col1 : Float, col2 : Double)] = numerics2.mapColumn["col1", Float](_.toFloat).numericCols
+    def numerics4: Iterator[(col1 : Option[Int], col2 : Option[Double])] = csv
+      .mapColumn["col2", Option[Double]](_.toDoubleOption)
+      .mapColumn["col1", Option[Int]](_.toIntOption)
+      .numericCols
+    def nonNumeric: Iterator[(col2 : String, col3 : String)] = cols.nonNumericCols
   }
 
   test("column") {
