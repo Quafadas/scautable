@@ -86,7 +86,9 @@ class CSVSuite extends munit.FunSuite:
       !compileErrors("csv.columns[(\"notcol\")]").isEmpty()
     )
 
-    def cols = csv.mapColumn["col1", Int](_.toInt)
+    def cols= csv.mapColumn["col1", Int](_.toInt)
+
+    def selectCols: Iterator[(col1 : Int, col3 : String)]  = cols.columns[("col1", "col3")]
 
     assert(cols.toArray().head.col1 == 1)
     assert(cols.toArray().head.col3 == "7")
@@ -95,7 +97,7 @@ class CSVSuite extends munit.FunSuite:
 
     def numerics: Iterator[(col1 : Int)] = cols.numericCols
 
-    def numerics2: Iterator[(col1 : Int, col2 : Double)]= cols.mapColumn["col2", Double](_.toDouble).numericCols
+    def numerics2: Iterator[(col1 : Int, col2 : Double)] = cols.mapColumn["col2", Double](_.toDouble).numericCols
     def numerics3: Iterator[(col1 : Float, col2 : Double)] = numerics2.mapColumn["col1", Float](_.toFloat).numericCols
     def numerics4: Iterator[(col1 : Option[Int], col2 : Option[Double])] = csv
       .mapColumn["col2", Option[Double]](_.toDoubleOption)
