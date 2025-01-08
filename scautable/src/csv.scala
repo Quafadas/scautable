@@ -15,6 +15,7 @@ import fansi.Str
 import scala.collection.View.FlatMap
 import io.github.quafadas.scautable.ConsoleFormat.*
 
+import scala.math.Fractional.Implicits.*
 
 
 @experimental
@@ -223,27 +224,51 @@ object CSV:
     }
 
     inline def numericCols: Iterator[
-        NamedTuple[
-          SelectFromTuple[K1, NumericColsIdx[V1]],
-          SelectFromTuple[V1, TupleContainsIdx[SelectFromTuple[K1, NumericColsIdx[V1]], K1]]
+        NamedTuple.NamedTuple[
+          io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+            io.github.quafadas.scautable.CSV.TupleContainsIdx[
+              io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+                io.github.quafadas.scautable.CSV.NumericColsIdx[V1]],
+            K1]
+          ],
+          io.github.quafadas.scautable.CSV.SelectFromTuple[V1,
+            io.github.quafadas.scautable.CSV.TupleContainsIdx[
+              io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+                io.github.quafadas.scautable.CSV.NumericColsIdx[V1]],
+            K1]
+          ]
         ]
       ] =
         val ev1 = summonInline[AllAreColumns[SelectFromTuple[K1, NumericColsIdx[V1]], K1] =:= true]
         columns[SelectFromTuple[K1, NumericColsIdx[V1]]](using ev1)
 
     inline def nonNumericCols: Iterator[
-        NamedTuple[
-          SelectFromTuple[K1, Negate[NumericColsIdx[V1]]],
-          SelectFromTuple[V1, TupleContainsIdx[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1]]
+      NamedTuple.NamedTuple[
+        io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+          io.github.quafadas.scautable.CSV.TupleContainsIdx[
+            io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+              io.github.quafadas.scautable.CSV.Negate[
+                io.github.quafadas.scautable.CSV.NumericColsIdx[V1]]
+            ],
+          K1]
+        ],
+        io.github.quafadas.scautable.CSV.SelectFromTuple[V1,
+          io.github.quafadas.scautable.CSV.TupleContainsIdx[
+            io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+              io.github.quafadas.scautable.CSV.Negate[
+                io.github.quafadas.scautable.CSV.NumericColsIdx[V1]]
+            ],
+          K1]
         ]
-      ] =
+      ]
+    ] =
         val ev1 = summonInline[AllAreColumns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1] =:= true]
         columns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]]](using ev1)
 
     inline def columns[ST <: Tuple](using ev: AllAreColumns[ST, K1] =:= true):
       Iterator[
         NamedTuple[
-          ST,
+          SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
           SelectFromTuple[V1, TupleContainsIdx[ST, K1]]
         ]
       ] =
@@ -259,8 +284,39 @@ object CSV:
             (acc, idx) =>
               tuple(idx) *: acc
           }
-          selected.withNames[ST].asInstanceOf[NamedTuple[ST, SelectFromTuple[V1, TupleContainsIdx[ST, K1]]]]
+          selected
+            .withNames[SelectFromTuple[K1, TupleContainsIdx[ST, K1]]]
+            .asInstanceOf[
+              NamedTuple[
+                SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
+                SelectFromTuple[V1, TupleContainsIdx[ST, K1]]
+              ]
+            ]
       }
+
+    inline def numericColSummary[S <: String](using ev: IsColumn[S, K1] =:= true, isNum: IsNumeric[GetTypeAtName[K1, S, V1]] =:= true,  s: ValueOf[S], a: Fractional[GetTypeAtName[K1, S, V1]]) =
+      val numericValues = itr.column[S].toList.asInstanceOf[List[GetTypeAtName[K1, S, V1]]]
+
+      val sortedValues = numericValues.sorted
+      val size = sortedValues.size
+
+      def percentile(p: Double) : Double = {
+        val rank = p * (size - 1)
+        val lower = sortedValues(rank.toInt)
+        val upper = sortedValues(math.ceil(rank).toInt)
+        lower.toDouble + a.minus(upper, lower).toDouble * (rank - rank.toInt)
+      }
+
+      val mean = numericValues.sum / a.fromInt(size)
+      val min = sortedValues.head
+      val max = sortedValues.last
+      val variance = numericValues.map(x => a.minus(x, mean)).map(x => a.times(x, x)).sum / a.fromInt(size)
+
+      val percentiles = List(0.25, 0.5, 0.75).map(percentile)
+
+      val std = math.sqrt(variance.toDouble)
+
+      (mean, std, min, percentiles(0), percentiles(1), percentiles(2), max).withNames[("mean", "std", "min", "25%", "50%", "75%", "max")]
 
 
     inline def column[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[GetTypeAtName[K1, S, V1]] = {
@@ -299,6 +355,15 @@ object CSV:
 
     inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A): Seq[NamedTuple[S *: K, A *: V]] =
       nt.toIterator.addColumn[S, A](fct).toSeq
+
+    inline def columns[ST <: Tuple](using ev: AllAreColumns[ST, K] =:= true):
+      Seq[
+        NamedTuple[
+          SelectFromTuple[K, TupleContainsIdx[ST, K]],
+          SelectFromTuple[V, TupleContainsIdx[ST, K]]
+        ]
+      ] =
+      nt.toIterator.columns[ST](using ev).toSeq
 
     inline def dropColumn[S <: String](using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Seq[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]] =
       nt.toIterator.dropColumn[S].toSeq
