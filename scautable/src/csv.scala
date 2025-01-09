@@ -81,6 +81,10 @@ object CSV:
           case false =>
             typeHead *: DropOneTypeAtName[nameTail, StrConst, typeTail]
 
+  type GetTypesAtNames[N <: Tuple, ForNames <: Tuple, T <: Tuple] <: Tuple = ForNames match
+    case EmptyTuple => EmptyTuple
+    case nameHead *: nameTail => GetTypeAtName[N, nameHead, T] *: GetTypesAtNames[N, nameTail, T]
+
   type GetTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple] = (N, T) match
     case (EmptyTuple, _) => EmptyTuple
     case (_, EmptyTuple) => EmptyTuple
@@ -223,75 +227,108 @@ object CSV:
       }
     }
 
-    inline def numericCols: Iterator[
-        NamedTuple.NamedTuple[
-          io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-            io.github.quafadas.scautable.CSV.TupleContainsIdx[
-              io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-                io.github.quafadas.scautable.CSV.NumericColsIdx[V1]],
-            K1]
-          ],
-          io.github.quafadas.scautable.CSV.SelectFromTuple[V1,
-            io.github.quafadas.scautable.CSV.TupleContainsIdx[
-              io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-                io.github.quafadas.scautable.CSV.NumericColsIdx[V1]],
-            K1]
-          ]
-        ]
-      ] =
-        val ev1 = summonInline[AllAreColumns[SelectFromTuple[K1, NumericColsIdx[V1]], K1] =:= true]
-        columns[SelectFromTuple[K1, NumericColsIdx[V1]]](using ev1)
+    // inline def numericCols: Iterator[
+    //     NamedTuple.NamedTuple[
+    //       io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+    //         io.github.quafadas.scautable.CSV.TupleContainsIdx[
+    //           io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+    //             io.github.quafadas.scautable.CSV.NumericColsIdx[V1]],
+    //         K1]
+    //       ],
+    //       io.github.quafadas.scautable.CSV.SelectFromTuple[V1,
+    //         io.github.quafadas.scautable.CSV.TupleContainsIdx[
+    //           io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+    //             io.github.quafadas.scautable.CSV.NumericColsIdx[V1]],
+    //         K1]
+    //       ]
+    //     ]
+    //   ] =
+    //     val ev1 = summonInline[AllAreColumns[SelectFromTuple[K1, NumericColsIdx[V1]], K1] =:= true]
+    //     columns[SelectFromTuple[K1, NumericColsIdx[V1]]](using ev1)
 
-    inline def nonNumericCols: Iterator[
-      NamedTuple.NamedTuple[
-        io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-          io.github.quafadas.scautable.CSV.TupleContainsIdx[
-            io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-              io.github.quafadas.scautable.CSV.Negate[
-                io.github.quafadas.scautable.CSV.NumericColsIdx[V1]]
-            ],
-          K1]
-        ],
-        io.github.quafadas.scautable.CSV.SelectFromTuple[V1,
-          io.github.quafadas.scautable.CSV.TupleContainsIdx[
-            io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-              io.github.quafadas.scautable.CSV.Negate[
-                io.github.quafadas.scautable.CSV.NumericColsIdx[V1]]
-            ],
-          K1]
-        ]
-      ]
-    ] =
-        val ev1 = summonInline[AllAreColumns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1] =:= true]
-        columns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]]](using ev1)
+    // inline def nonNumericCols: Iterator[
+    //   NamedTuple.NamedTuple[
+    //     io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+    //       io.github.quafadas.scautable.CSV.TupleContainsIdx[
+    //         io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+    //           io.github.quafadas.scautable.CSV.Negate[
+    //             io.github.quafadas.scautable.CSV.NumericColsIdx[V1]]
+    //         ],
+    //       K1]
+    //     ],
+    //     io.github.quafadas.scautable.CSV.SelectFromTuple[V1,
+    //       io.github.quafadas.scautable.CSV.TupleContainsIdx[
+    //         io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
+    //           io.github.quafadas.scautable.CSV.Negate[
+    //             io.github.quafadas.scautable.CSV.NumericColsIdx[V1]]
+    //         ],
+    //       K1]
+    //     ]
+    //   ]
+    // ] =
+    //     val ev1 = summonInline[
+    //       AllAreColumns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1] =:= true
+    //     ]
+    //     columns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]]](using ev1)
+
+    inline def resolve[ST <: Tuple]:SelectFromTuple[K1, TupleContainsIdx[ST, K1]]  = ("Pclass", "Age", "SibSp", "Parch", "Fare").asInstanceOf[SelectFromTuple[K1, TupleContainsIdx[ST, K1]]]
+    inline def resolveT[ST <: Tuple]:GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]] ,V1]  = (1, Some(2.0), 1, 1, 2.0).asInstanceOf[GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]] ,V1]]
+
+    inline def resolveNT[ST <: Tuple]:NamedTuple[
+      SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
+      GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]] ,V1]
+     ] =
+        (1, Some(2.0), 1, 1, 2.0)
+          .withNames[("Pclass", "Age", "SibSp", "Parch", "Fare")]
+          .asInstanceOf[
+            NamedTuple[
+              SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
+              GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]] ,V1]
+          ]
+    ]
+
+
 
     inline def columns[ST <: Tuple](using ev: AllAreColumns[ST, K1] =:= true):
       Iterator[
         NamedTuple[
-          SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
-          SelectFromTuple[V1, TupleContainsIdx[ST, K1]]
-        ]
+                SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
+                GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]] ,V1]
+              ]
       ] =
       val headers = constValueTuple[K1].toList.map(_.toString())
-      val selectedHeaders = constValueTuple[ST].toList.map(_.toString())
-      val idxes = selectedHeaders.map(headers.indexOf(_))
+      // val types  = constValueTuple[SelectFromTuple[V1, TupleContainsIdx[ST, K1]]].toList.map(_.toString())
+      val selectedHeaders = constValueTuple[SelectFromTuple[K1, TupleContainsIdx[ST, K1]]].toList.map(_.toString())
 
-      itr.map{
+      // Preserve the existing column order
+      val idxes = selectedHeaders.map(headers.indexOf(_)).filterNot(_ == -1)
+
+      // println(s"headers $headers")
+      // println(s"selectedHeaders $selectedHeaders")
+      // println(s"idxes $idxes")
+
+      itr.map[NamedTuple[SelectFromTuple[K1, TupleContainsIdx[ST, K1]], GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]]]{
         (x: NamedTuple[K1, V1]) =>
           val tuple = x.toTuple
 
-          val selected = idxes.foldLeft(EmptyTuple: Tuple){
-            (acc, idx) =>
+          // println("in tuple")
+          // println(tuple.toList.mkString(","))
+          val selected: Tuple = idxes.foldRight(EmptyTuple: Tuple){
+            (idx, acc) =>
+              println(tuple(idx))
               tuple(idx) *: acc
           }
-          selected
+
+          val out = selected
             .withNames[SelectFromTuple[K1, TupleContainsIdx[ST, K1]]]
             .asInstanceOf[
               NamedTuple[
                 SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
-                SelectFromTuple[V1, TupleContainsIdx[ST, K1]]
+                GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]] ,V1]
               ]
             ]
+
+          out
       }
 
     inline def numericColSummary[S <: String](using ev: IsColumn[S, K1] =:= true, isNum: IsNumeric[GetTypeAtName[K1, S, V1]] =:= true,  s: ValueOf[S], a: Fractional[GetTypeAtName[K1, S, V1]]) =
@@ -360,7 +397,7 @@ object CSV:
       Seq[
         NamedTuple[
           SelectFromTuple[K, TupleContainsIdx[ST, K]],
-          SelectFromTuple[V, TupleContainsIdx[ST, K]]
+          GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]] ,V]
         ]
       ] =
       nt.toIterator.columns[ST](using ev).toSeq

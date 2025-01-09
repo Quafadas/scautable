@@ -95,15 +95,47 @@ class CSVSuite extends munit.FunSuite:
     assert(cols.toArray().last.col1 == 5)
     assert(cols.toArray().last.col3 == "9")
 
-    def numerics: Iterator[(col1 : Int)] = cols.numericCols
+    // def numerics: Iterator[(col1 : Int)] = cols.numericCols
 
-    def numerics2: Iterator[(col1 : Int, col2 : Double)] = cols.mapColumn["col2", Double](_.toDouble).numericCols
-    def numerics3: Iterator[(col1 : Float, col2 : Double)] = numerics2.mapColumn["col1", Float](_.toFloat).numericCols
-    def numerics4: Iterator[(col1 : Option[Int], col2 : Option[Double])] = csv
-      .mapColumn["col2", Option[Double]](_.toDoubleOption)
-      .mapColumn["col1", Option[Int]](_.toIntOption)
-      .numericCols
-    def nonNumeric: Iterator[(col2 : String, col3 : String)] = cols.nonNumericCols
+    // def numerics2: Iterator[(col1 : Int, col2 : Double)] = cols.mapColumn["col2", Double](_.toDouble).numericCols
+    // def numerics3: Iterator[(col1 : Float, col2 : Double)] = numerics2.mapColumn["col1", Float](_.toFloat).numericCols
+    // def numerics4: Iterator[(col1 : Option[Int], col2 : Option[Double])] = csv
+    //   .mapColumn["col2", Option[Double]](_.toDoubleOption)
+    //   .mapColumn["col1", Option[Int]](_.toIntOption)
+    //   .numericCols
+    // def nonNumeric: Iterator[(col2 : String, col3 : String)] = cols.nonNumericCols
+  }
+
+  test("titanic cols") {
+    enum Gender :
+      case Male, Female
+
+    def titanic = CSV.absolutePath(Generated.resourceDir0 + "titanic.csv")
+    def data = titanic
+      .mapColumn["Sex", Gender]((x: String) => Gender.valueOf(x.capitalize))
+      .dropColumn["PassengerId"]
+      .mapColumn["Age", Option[Double]](_.toDoubleOption)
+      .mapColumn["Survived", Boolean](_ == "1")
+      .mapColumn["Pclass", Int](_.toInt)
+      .mapColumn["SibSp", Int](_.toInt)
+      .mapColumn["Parch", Int](_.toInt)
+      .mapColumn["Fare", Double](_.toDouble)
+
+
+
+      val k: ("Pclass", "Age", "SibSp", "Parch", "Fare") = data.resolve[("Fare", "Pclass", "Age", "SibSp", "Parch")]
+      val kT: (Int, Option[Double], Int, Int, Double) = data.resolveT[("Fare", "Pclass", "Age", "SibSp", "Parch")]
+      val kNT: (Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double) = data.resolveNT[("Fare", "Pclass", "Age", "SibSp", "Parch")]
+      println(Array(kNT).consoleFormatNt)
+
+      val numericols: Array[(Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList.toArray
+
+      val numericols: Array[(Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList.toArray
+
+      // This will fail, if columsn method doesn't return in the right oder.
+
+      println(numericols.consoleFormatNt)
+
   }
 
   test("column") {
