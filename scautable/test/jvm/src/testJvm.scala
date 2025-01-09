@@ -128,9 +128,9 @@ class CSVSuite extends munit.FunSuite:
       val kNT: (Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double) = data.resolveNT[("Fare", "Pclass", "Age", "SibSp", "Parch")]
       println(Array(kNT).consoleFormatNt)
 
-      val numericols: Array[(Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList.toArray
+      val numericols: List[(Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList
 
-      val numericols: Array[(Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList.toArray
+      // val numericols: Array[(Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList.toArray
 
       // This will fail, if columsn method doesn't return in the right oder.
 

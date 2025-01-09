@@ -315,7 +315,7 @@ object CSV:
           // println(tuple.toList.mkString(","))
           val selected: Tuple = idxes.foldRight(EmptyTuple: Tuple){
             (idx, acc) =>
-              println(tuple(idx))
+              // println(tuple(idx))
               tuple(idx) *: acc
           }
 
