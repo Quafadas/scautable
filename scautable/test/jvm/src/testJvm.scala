@@ -126,7 +126,7 @@ class CSVSuite extends munit.FunSuite:
       val k: ("Pclass", "Age", "SibSp", "Parch", "Fare") = data.resolve[("Fare", "Pclass", "Age", "SibSp", "Parch")]
       val kT: (Int, Option[Double], Int, Int, Double) = data.resolveT[("Fare", "Pclass", "Age", "SibSp", "Parch")]
       val kNT: (Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double) = data.resolveNT[("Fare", "Pclass", "Age", "SibSp", "Parch")]
-      println(Array(kNT).consoleFormatNt)
+      // println(Array(kNT).consoleFormatNt)
 
       val numericols: List[(Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList
 
@@ -134,7 +134,7 @@ class CSVSuite extends munit.FunSuite:
 
       // This will fail, if columsn method doesn't return in the right oder.
 
-      println(numericols.consoleFormatNt)
+      // println(numericols.consoleFormatNt)
 
   }
 
