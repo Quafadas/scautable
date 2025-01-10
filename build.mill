@@ -60,6 +60,11 @@ object scautable extends CrossPlatform {
     }
   }
   object jvm extends Shared {
+
+    override def ivyDeps: Target[Agg[Dep]] = super.ivyDeps() ++ Agg(
+      ivy"org.apache.poi:poi:5.4.0",
+      ivy"org.apache.poi:poi-ooxml:5.4.0",
+    )
     // jvm specific settings here
     object test extends ScalaTests with SharedTests with BuildInfo {
 
