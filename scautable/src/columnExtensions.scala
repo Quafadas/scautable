@@ -19,8 +19,13 @@ import scala.math.Fractional.Implicits.*
 import scala.annotation.implicitNotFound
 
 object NamedTupleIteratorExtensions:
+  val rand = new scala.util.Random
 
   extension [K, V, K1 <: Tuple & K, V1 <: Tuple & K](itr: Iterator[NamedTuple[K1, V1]])
+
+    inline def sample(frac: Double, deterministic: Boolean = false): Iterator[NamedTuple[K1, V1]] =
+      if deterministic then itr.zipWithIndex.filter { case (_, idx) => idx % (1 / frac) == 0 }.map(_._1)
+      else itr.filter(_ => rand.nextDouble() < frac)
 
     inline def renameColumn[From <: String, To <: String](using
         @implicitNotFound("Column ${From} not found")

@@ -68,6 +68,19 @@ class CSVSuite extends munit.FunSuite:
     )
   }
 
+  test("sample") {
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "titanic.csv")
+
+    val sample = csv.sample(0.1)
+    assertEqualsDouble(sample.length.toDouble, 89, 30)
+
+    val sampleRand = csv.sample(0.1, true)
+    assertEqualsDouble(sampleRand.length.toDouble, 89, 1)
+
+    assertEquals(csv.sample(1).length, 891)
+
+  }
+
   test("columns") {
     def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
