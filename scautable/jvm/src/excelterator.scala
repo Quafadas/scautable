@@ -2,13 +2,14 @@ package io.github.quafadas.scautable
 
 import scala.io.Source
 import scala.util.Try
+import org.apache.poi.ss.usermodel.{DataFormatter, WorkbookFactory, Row}
 import scala.util.chaining.*
 import scala.util.matching.Regex
 import scala.NamedTuple.*
 import scala.compiletime.*
 import CSV.*
 import ConsoleFormat.*
-import org.apache.poi.ss.usermodel.{DataFormatter, WorkbookFactory, Row}
+
 import java.io.File
 import scala.collection.JavaConverters.*
 import scala.quoted.*
@@ -61,14 +62,11 @@ class ExcelIterator[K](filePath: String, sheetName: String) extends Iterator[Nam
   end sheetIterator
 
   val headers = if sheetIterator.hasNext then sheetIterator.next().cellIterator().asScala.toList.map(_.toString) else List.empty
-  
+
   val headerSet = scala.collection.mutable.Set[String]()
   headers.foreach { header =>
-    if (headerSet.contains(header)) {
-      throw new Excel.BadTableException(s"Duplicate header found: $header, which will not work. ")
-    } else {
-      headerSet.add(header)
-    }
+    if headerSet.contains(header) then throw new Excel.BadTableException(s"Duplicate header found: $header, which will not work. ")
+    else headerSet.add(header)
   }
 
   lazy val headersTuple =
@@ -81,7 +79,8 @@ class ExcelIterator[K](filePath: String, sheetName: String) extends Iterator[Nam
     end if
     val row = sheetIterator.next()
     val cells = row.cellIterator().asScala.toList.map(_.toString)
-    if cells.size != headers.size then throw new Excel.BadTableException(s"Row $debugi has ${cells.size} cells, but the table has ${headers.size} cells. Reading data was terminated")
+    if cells.size != headers.size then
+      throw new Excel.BadTableException(s"Row $debugi has ${cells.size} cells, but the table has ${headers.size} cells. Reading data was terminated")
     end if
     val tuple = listToTuple(cells)
     debugi += 1
