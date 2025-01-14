@@ -38,12 +38,12 @@ object NamedTupleIteratorExtensions:
     inline def forceColumnType[S <: String, A]: Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]] =
       itr.map(_.asInstanceOf[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]])
 
-    inline def mapColumn[S <: String, A](
-        fct: GetTypeAtName[K1, S, V1] => A
-    )(using
+    inline def mapColumn[S <: String, A](using
         @implicitNotFound("Column ${S} not found")
         ev: IsColumn[S, K1] =:= true,
         s: ValueOf[S]
+    )(
+        fct: GetTypeAtName[K1, S, V1] => A
     ): Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]] =
       import scala.compiletime.ops.string.*
       val headers = constValueTuple[K1].toList.map(_.toString())

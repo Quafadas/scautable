@@ -54,6 +54,18 @@ class CSVSuite extends munit.FunSuite:
     assert(
       compileErrors("""csv.toSeq.column["notcol1"]""").contains("""Column ("notcol1" : String) not found""")
     )
+    assert(
+      compileErrors("""csv.column["notcol1"]""").contains("""Column ("notcol1" : String) not found""")
+    )
+    assert(
+      compileErrors("""csv.dropColumn["notcol1"]""").contains("""Column ("notcol1" : String) not found""")
+    )
+    assert(
+      compileErrors("""csv.toSeq.dropColumn["notcol1"]""").contains("""Column ("notcol1" : String) not found""")
+    )
+    assert(
+      compileErrors("""csv.toSeq.mapColumn["notcol1", Int]""").contains("""Column ("notcol1" : String) not found""")
+    )
   }
 
   test("columns") {
