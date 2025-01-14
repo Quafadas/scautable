@@ -15,7 +15,7 @@ class CSVSuite extends munit.FunSuite:
   test("type test") {
     def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
 
-    val tt = csv.headers.zip(csv.numericTypeTest()._1)
+    val tt = csv.headers.zip(csv.numericTypeTest._1)
     assert(tt.length == csv.headers.length)
 
     assert(tt.head._2 == ConversionAcc(3, 3, 3)) // All ints are valid double and long
@@ -25,7 +25,7 @@ class CSVSuite extends munit.FunSuite:
     assert(tt.last._2 == ConversionAcc(0, 0, 0))
 
     assertNoDiff(
-      csv.formatTypeTest(),
+      csv.formatTypeTest,
       """| |conversion % to|   col1|   col2|   col3|  col4|  col5|
 +-+---------------+-------+-------+-------+------+------+
 |0|            int|100.00%|  0.00%|  0.00%|33.33%| 0.00%|
@@ -34,6 +34,11 @@ class CSVSuite extends munit.FunSuite:
 |3| recommendation|    Int| Double|   Long|String|String|
 +-+---------------+-------+-------+-------+------+------+"""
     )
+  }
+
+  test("auto type".only) {
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
+
   }
 
   test("csv from resource compiles and typechecks") {
@@ -66,6 +71,10 @@ class CSVSuite extends munit.FunSuite:
     assert(
       compileErrors("""csv.toSeq.mapColumn["notcol1", Int]""").contains("""Column ("notcol1" : String) not found""")
     )
+    assert(
+      compileErrors("""csv.columns[("col1", "notCol")]""").contains("""Not all columns in (("col1" : String), ("notCol" : String))""")
+    )
+
   }
 
   test("sample") {

@@ -41,59 +41,29 @@ class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, St
     hasMore
   end hasNext
 
-  def numericTypeTest(sample: Option[Int] = None) =
-    val sampled = sample match
-      case Some(n) =>
-        this.take(n)
-      case None =>
-        this
-    val asList = headers.map(_ => ConversionAcc(0, 0, 0))
+  // def numericTypeTest(sample: Option[Int] = None) =
+  //   val sampled = sample match
+  //     case Some(n) =>
+  //       this.take(n)
+  //     case None =>
+  //       this
+  //   val asList = headers.map(_ => ConversionAcc(0, 0, 0))
 
-    sampled.foldLeft((asList, 0L))((acc: (List[ConversionAcc], Long), elem: NamedTuple[K & Tuple, StringyTuple[K & Tuple]]) =>
+  //   sampled.foldLeft((asList, 0L))((acc: (List[ConversionAcc], Long), elem: NamedTuple[K & Tuple, StringyTuple[K & Tuple]]) =>
 
-      val list = elem.toList.asInstanceOf[List[String]].zip(acc._1).map { case (str, acc) =>
+  //     val list = elem.toList.asInstanceOf[List[String]].zip(acc._1).map { case (str, acc) =>
 
-        (
-          ConversionAcc(
-            acc.validInts + str.toIntOption.fold(0)(_ => 1),
-            acc.validDoubles + str.toDoubleOption.fold(0)(_ => 1),
-            acc.validLongs + str.toLongOption.fold(0)(_ => 1)
-          )
-        )
-      }
-      (list, acc._2 + 1)
-    )
-  end numericTypeTest
-
-  inline def formatTypeTest(sample: Option[Int] = None): String =
-    val (asList, n) = numericTypeTest(sample)
-    val intReport = (
-      "int" *: listToTuple(
-        for (acc <- asList) yield (acc.validInts / n.toDouble).formatAsPercentage
-      )
-    )
-    val doubleReported = "doubles" *: listToTuple(
-      for (acc <- asList) yield (acc.validDoubles / n.toDouble).formatAsPercentage
-    )
-    val longReported = "long" *: listToTuple(
-      for (acc <- asList) yield (acc.validLongs / n.toDouble).formatAsPercentage
-    )
-    val recommendation = "recommendation" *: listToTuple(
-      for (acc <- asList) yield recommendConversion(List(acc), n)
-    )
-
-    val ntList = Seq(
-      intReport,
-      doubleReported,
-      longReported,
-      recommendation
-    )
-
-    ConsoleFormat.consoleFormat_(headers = "conversion % to" +: headers, fancy = true, table = ntList)
-  end formatTypeTest
-
-  inline def showTypeTest(sample: Option[Int] = None): Unit =
-    println(formatTypeTest(sample))
+  //       (
+  //         ConversionAcc(
+  //           acc.validInts + str.toIntOption.fold(0)(_ => 1),
+  //           acc.validDoubles + str.toDoubleOption.fold(0)(_ => 1),
+  //           acc.validLongs + str.toLongOption.fold(0)(_ => 1)
+  //         )
+  //       )
+  //     }
+  //     (list, acc._2 + 1)
+  //   )
+  // end numericTypeTest
 
   inline override def next() =
     if !hasNext then throw new NoSuchElementException("No more lines")
