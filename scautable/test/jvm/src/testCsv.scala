@@ -1,33 +1,16 @@
 package io.github.quafadas.scautable
 
-
-import scalatags.Text.all.*
 import java.time.LocalDate
 
 import scala.annotation.experimental
+import io.github.quafadas.table.*
+
 import NamedTuple.*
-import CSV.*
+
 import scala.compiletime.ops.int.S
-import ConsoleFormat.*
 
 @experimental
 class CSVSuite extends munit.FunSuite:
-
-  import scautable.*
-  import scautable.given
-
-  test("extendable") {
-    given dateT: HtmlTableRender[LocalDate] = new HtmlTableRender[LocalDate]:
-      override def tableCell(a: LocalDate) = td(
-        s"$a"
-      )
-    case class Customize(t: LocalDate, i: Int)
-    val custom = Seq(Customize(LocalDate.of(2025, 1, 1), 1))
-    assertEquals(
-      """<table id="scautable" class="display"><thead><tr><th>t</th><th>i</th></tr></thead><tbody><tr><td>2025-01-01</td><td>1</td></tr></tbody></table>""",
-      scautable(custom).toString()
-    )
-  }
 
   test("type test") {
     def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
@@ -35,39 +18,29 @@ class CSVSuite extends munit.FunSuite:
     val tt = csv.headers.zip(csv.numericTypeTest()._1)
     assert(tt.length == csv.headers.length)
 
-    assert(tt.head._2 == ConversionAcc(3,3,3)) // All ints are valid double and long
-    assert(tt(1)._2 == ConversionAcc(0,3,0))
-    assert(tt(2)._2 == ConversionAcc(0,3,3))
-    assert(tt(3)._2 == ConversionAcc(1,1,1))
-    assert(tt.last._2 ==ConversionAcc(0,0,0))
+    assert(tt.head._2 == ConversionAcc(3, 3, 3)) // All ints are valid double and long
+    assert(tt(1)._2 == ConversionAcc(0, 3, 0))
+    assert(tt(2)._2 == ConversionAcc(0, 3, 3))
+    assert(tt(3)._2 == ConversionAcc(1, 1, 1))
+    assert(tt.last._2 == ConversionAcc(0, 0, 0))
 
-    assertNoDiff(csv.formatTypeTest(), """| |conversion % to|   col1|   col2|   col3|  col4|  col5|
+    assertNoDiff(
+      csv.formatTypeTest(),
+      """| |conversion % to|   col1|   col2|   col3|  col4|  col5|
 +-+---------------+-------+-------+-------+------+------+
 |0|            int|100.00%|  0.00%|  0.00%|33.33%| 0.00%|
 |1|        doubles|100.00%|100.00%|100.00%|33.33%| 0.00%|
 |2|           long|100.00%|  0.00%|100.00%|33.33%| 0.00%|
 |3| recommendation|    Int| Double|   Long|String|String|
-+-+---------------+-------+-------+-------+------+------+""")
-  }
-
-  test("showable") {
-
-    val nt = Seq(
-      (col1 = "a", col2 = 1, col3 =  2.0),
-      (col1 = "b", col2 =  2,col3 =  3.0),
-      (col1 = "c", col2 =  3,col3 =  4.0)
-    )
-
-    assertEquals(
-      """<table id="scautable" class="display"><thead><tr><th>col1</th><th>col2</th><th>col3</th></tr></thead><tbody><tr><td>a</td><td>1</td><td>2.0</td></tr><tr><td>b</td><td>2</td><td>3.0</td></tr><tr><td>c</td><td>3</td><td>4.0</td></tr></tbody></table>""",
-      scautable.nt(nt).toString()
++-+---------------+-------+-------+-------+------+------+"""
     )
   }
 
   test("csv from resource compiles and typechecks") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 +"simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
-    val titanic: CsvIterator[("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked")] = CSV.absolutePath(Generated.resourceDir0 + "titanic.csv")
+    val titanic: CsvIterator[("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked")] =
+      CSV.absolutePath(Generated.resourceDir0 + "titanic.csv")
     // val wide = CSV.absolutePath(Generated.resourceDir0 + "wide.csv")
   }
 
@@ -86,9 +59,9 @@ class CSVSuite extends munit.FunSuite:
       !compileErrors("csv.columns[(\"notcol\")]").isEmpty()
     )
 
-    def cols= csv.mapColumn["col1", Int](_.toInt)
+    def cols = csv.mapColumn["col1", Int](_.toInt)
 
-    def selectCols: Iterator[(col1 : Int, col3 : String)]  = cols.columns[("col1", "col3")]
+    def selectCols: Iterator[(col1: Int, col3: String)] = cols.columns[("col1", "col3")]
 
     assert(cols.toArray().head.col1 == 1)
     assert(cols.toArray().head.col3 == "7")
@@ -107,8 +80,9 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("titanic cols") {
-    enum Gender :
+    enum Gender:
       case Male, Female
+    end Gender
 
     def titanic = CSV.absolutePath(Generated.resourceDir0 + "titanic.csv")
     def data = titanic
@@ -121,20 +95,18 @@ class CSVSuite extends munit.FunSuite:
       .mapColumn["Parch", Int](_.toInt)
       .mapColumn["Fare", Double](_.toDouble)
 
+    val k: ("Pclass", "Age", "SibSp", "Parch", "Fare") = data.resolve[("Fare", "Pclass", "Age", "SibSp", "Parch")]
+    val kT: (Int, Option[Double], Int, Int, Double) = data.resolveT[("Fare", "Pclass", "Age", "SibSp", "Parch")]
+    val kNT: (Pclass: Int, Age: Option[Double], SibSp: Int, Parch: Int, Fare: Double) = data.resolveNT[("Fare", "Pclass", "Age", "SibSp", "Parch")]
+    // println(Array(kNT).consoleFormatNt)
 
+    val numericols: List[(Pclass: Int, Age: Option[Double], SibSp: Int, Parch: Int, Fare: Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList
 
-      val k: ("Pclass", "Age", "SibSp", "Parch", "Fare") = data.resolve[("Fare", "Pclass", "Age", "SibSp", "Parch")]
-      val kT: (Int, Option[Double], Int, Int, Double) = data.resolveT[("Fare", "Pclass", "Age", "SibSp", "Parch")]
-      val kNT: (Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double) = data.resolveNT[("Fare", "Pclass", "Age", "SibSp", "Parch")]
-      // println(Array(kNT).consoleFormatNt)
+    // val numericols: Array[(Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList.toArray
 
-      val numericols: List[(Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList
+    // This will fail, if columsn method doesn't return in the right oder.
 
-      // val numericols: Array[(Pclass : Int, Age : Option[Double], SibSp : Int, Parch : Int, Fare : Double)] = data.columns[("Fare", "Pclass", "Age", "SibSp", "Parch")].take(2).toList.toArray
-
-      // This will fail, if columsn method doesn't return in the right oder.
-
-      // println(numericols.consoleFormatNt)
+    // println(numericols.consoleFormatNt)
 
   }
 
@@ -151,7 +123,7 @@ class CSVSuite extends munit.FunSuite:
   test("drop column") {
     def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
-    def csv2: Iterator[(col1 : String, col2 : String, col3 : String)] = csv.take(3)
+    def csv2: Iterator[(col1: String, col2: String, col3: String)] = csv.take(3)
 
     val dropped = csv.dropColumn["col2"]
     val out = dropped.toArray
@@ -185,8 +157,33 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("wide load") {
-    val wide22: CsvIterator[("Column1", "Column2", "Column3", "Column4", "Column5", "Column6", "Column7", "Column8", "Column9", "Column10", "Column11", "Column12", "Column13", "Column14", "Column15", "Column16", "Column17", "Column18", "Column19", "Column20", "Column21", "Column22")]= CSV.absolutePath(Generated.resourceDir0 + "wide22.csv")
-    val wide23= CSV.absolutePath(Generated.resourceDir0 + "wide23.csv")
+    val wide22: CsvIterator[
+      (
+          "Column1",
+          "Column2",
+          "Column3",
+          "Column4",
+          "Column5",
+          "Column6",
+          "Column7",
+          "Column8",
+          "Column9",
+          "Column10",
+          "Column11",
+          "Column12",
+          "Column13",
+          "Column14",
+          "Column15",
+          "Column16",
+          "Column17",
+          "Column18",
+          "Column19",
+          "Column20",
+          "Column21",
+          "Column22"
+      )
+    ] = CSV.absolutePath(Generated.resourceDir0 + "wide22.csv")
+    val wide23 = CSV.absolutePath(Generated.resourceDir0 + "wide23.csv")
     val out: Array[String] = wide22.column["Column21"].toArray
     val out23: Array[String] = wide23.column["Column_21"].toArray
 
@@ -201,16 +198,15 @@ class CSVSuite extends munit.FunSuite:
   test("reading data") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
-    assertEquals(csv.toArray.mkString(","), """(1,2,7),(3,4,8),(5,6,9)"""  )
+    assertEquals(csv.toArray.mkString(","), """(1,2,7),(3,4,8),(5,6,9)""")
   }
 
   test("add columns") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
-    val added: Iterator[(col2Times10: Int, col3Times3 : Int, col1 : String, col2 : String, col3 : String)]= csv
+    val added: Iterator[(col2Times10: Int, col3Times3: Int, col1: String, col2: String, col3: String)] = csv
       .addColumn["col3Times3", Int](_.col3.toInt * 3)
       .addColumn["col2Times10", Int](_.col2.toInt * 10)
-
 
     val again = added.addColumn["col2Times10Times2", Int](_.col2Times10 * 2)
 
@@ -231,7 +227,7 @@ class CSVSuite extends munit.FunSuite:
   test("rename column") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
-    val renamed: Iterator[(col1 : String, col2Renamed : String, col3 : String)]= csv.renameColumn["col2", "col2Renamed"]
+    val renamed: Iterator[(col1: String, col2Renamed: String, col3: String)] = csv.renameColumn["col2", "col2Renamed"]
     val out = renamed.toArray
     assertEquals(out.head.col2Renamed, "2")
     assertEquals(out.tail.head.col2Renamed, "4")
@@ -241,7 +237,7 @@ class CSVSuite extends munit.FunSuite:
   test("force column type") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
-    val renamed: Iterator[(col1 : String, col2Renamed : String, col3 : String)]= csv.renameColumn["col2", "col2Renamed"].forceColumnType["col2Renamed", String]
+    val renamed: Iterator[(col1: String, col2Renamed: String, col3: String)] = csv.renameColumn["col2", "col2Renamed"].forceColumnType["col2Renamed", String]
     val out = renamed.toArray
     assertEquals(out.head.col2Renamed, "2")
     assertEquals(out.tail.head.col2Renamed, "4")
@@ -267,8 +263,7 @@ class CSVSuite extends munit.FunSuite:
 
   test("compose column operations 1") {
 
-    /**
-      * If this compiles, then hopefully we have borked the typelevel bookkeeping
+    /** If this compiles, then hopefully we have borked the typelevel bookkeeping
       */
 
     def csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
@@ -301,8 +296,6 @@ class CSVSuite extends munit.FunSuite:
     val titanic = CSV.absolutePath(Generated.resourceDir0 + "titanic.csv").toArray
     assert(titanic.length == 891)
 
-
-
   }
 
   test("header indexes") {
@@ -315,3 +308,4 @@ class CSVSuite extends munit.FunSuite:
   // test("url") {
   //   val csv = CSV.url("https://raw.githubusercontent.com/datasciencedojo/datasets/refs/heads/master/titanic.csv")
   // }
+end CSVSuite
