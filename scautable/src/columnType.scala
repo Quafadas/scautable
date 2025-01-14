@@ -81,6 +81,11 @@ object ColumnTyped:
         case false =>
           GetTypeAtName[nameTail, StrConst, typeTail]
 
+  type GetNames[N <: Tuple] = N match
+    case (EmptyTuple, _) => EmptyTuple
+    case (nameHead *: typ, tail) =>
+      nameHead *: GetNames[tail]
+
   type DropAfterName[T, StrConst <: String] = T match
     case EmptyTuple => EmptyTuple
     case (head *: tail) =>
