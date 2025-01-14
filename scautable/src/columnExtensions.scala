@@ -10,18 +10,20 @@ import scala.deriving.Mirror
 import scala.io.BufferedSource
 import scala.util.Using.Manager.Resource
 import scala.compiletime.*
-import scala.compiletime.ops.int.*
+import scala.compiletime.ops.int.+
 import fansi.Str
 import scala.collection.View.FlatMap
 import io.github.quafadas.scautable.ConsoleFormat.*
 import ColumnTyped.*
 import scala.math.Fractional.Implicits.*
+import scala.annotation.implicitNotFound
 
 object NamedTupleIteratorExtensions:
 
   extension [K, V, K1 <: Tuple & K, V1 <: Tuple & K](itr: Iterator[NamedTuple[K1, V1]])
 
     inline def renameColumn[From <: String, To <: String](using
+        @implicitNotFound("Column ${From} not found")
         ev: IsColumn[From, K1] =:= true,
         FROM: ValueOf[From],
         TO: ValueOf[To]
@@ -38,7 +40,11 @@ object NamedTupleIteratorExtensions:
 
     inline def mapColumn[S <: String, A](
         fct: GetTypeAtName[K1, S, V1] => A
-    )(using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]] =
+    )(using
+        @implicitNotFound("Column ${S} not found")
+        ev: IsColumn[S, K1] =:= true,
+        s: ValueOf[S]
+    ): Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]] =
       import scala.compiletime.ops.string.*
       val headers = constValueTuple[K1].toList.map(_.toString())
 
@@ -57,69 +63,48 @@ object NamedTupleIteratorExtensions:
       }
     end mapColumn
 
-    // inline def numericCols: Iterator[
-    //     NamedTuple.NamedTuple[
-    //       io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-    //         io.github.quafadas.scautable.CSV.TupleContainsIdx[
-    //           io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-    //             io.github.quafadas.scautable.CSV.NumericColsIdx[V1]],
-    //         K1]
-    //       ],
-    //       io.github.quafadas.scautable.CSV.SelectFromTuple[V1,
-    //         io.github.quafadas.scautable.CSV.TupleContainsIdx[
-    //           io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-    //             io.github.quafadas.scautable.CSV.NumericColsIdx[V1]],
-    //         K1]
+    inline def numericCols: Iterator[
+      NamedTuple[
+        SelectFromTuple[K1, TupleContainsIdx[SelectFromTuple[K1, NumericColsIdx[V1]], K1]],
+        GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[SelectFromTuple[K1, NumericColsIdx[V1]], K1]], V1]
+      ]
+    ] =
+      val ev1 = summonInline[AllAreColumns[SelectFromTuple[K1, NumericColsIdx[V1]], K1] =:= true]
+      columns[SelectFromTuple[K1, NumericColsIdx[V1]]](using ev1)
+    end numericCols
+
+    inline def nonNumericCols: Iterator[
+      NamedTuple[
+        SelectFromTuple[K1, TupleContainsIdx[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1]],
+        GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1]], V1]
+      ]
+    ] =
+      val ev1 = summonInline[
+        AllAreColumns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1] =:= true
+      ]
+      columns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]]](using ev1)
+    end nonNumericCols
+
+    // inline def resolve[ST <: Tuple]: SelectFromTuple[K1, TupleContainsIdx[ST, K1]] =
+    //   ("Pclass", "Age", "SibSp", "Parch", "Fare").asInstanceOf[SelectFromTuple[K1, TupleContainsIdx[ST, K1]]]
+    // inline def resolveT[ST <: Tuple]: GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1] =
+    //   (1, Some(2.0), 1, 1, 2.0).asInstanceOf[GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]]
+
+    // inline def resolveNT[ST <: Tuple]: NamedTuple[
+    //   SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
+    //   GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]
+    // ] =
+    //   (1, Some(2.0), 1, 1, 2.0)
+    //     .withNames[("Pclass", "Age", "SibSp", "Parch", "Fare")]
+    //     .asInstanceOf[
+    //       NamedTuple[
+    //         SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
+    //         GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]
     //       ]
     //     ]
-    //   ] =
-    //     val ev1 = summonInline[AllAreColumns[SelectFromTuple[K1, NumericColsIdx[V1]], K1] =:= true]
-    //     columns[SelectFromTuple[K1, NumericColsIdx[V1]]](using ev1)
-
-    // inline def nonNumericCols: Iterator[
-    //   NamedTuple.NamedTuple[
-    //     io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-    //       io.github.quafadas.scautable.CSV.TupleContainsIdx[
-    //         io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-    //           io.github.quafadas.scautable.CSV.Negate[
-    //             io.github.quafadas.scautable.CSV.NumericColsIdx[V1]]
-    //         ],
-    //       K1]
-    //     ],
-    //     io.github.quafadas.scautable.CSV.SelectFromTuple[V1,
-    //       io.github.quafadas.scautable.CSV.TupleContainsIdx[
-    //         io.github.quafadas.scautable.CSV.SelectFromTuple[K1,
-    //           io.github.quafadas.scautable.CSV.Negate[
-    //             io.github.quafadas.scautable.CSV.NumericColsIdx[V1]]
-    //         ],
-    //       K1]
-    //     ]
-    //   ]
-    // ] =
-    //     val ev1 = summonInline[
-    //       AllAreColumns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1] =:= true
-    //     ]
-    //     columns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]]](using ev1)
-
-    inline def resolve[ST <: Tuple]: SelectFromTuple[K1, TupleContainsIdx[ST, K1]] =
-      ("Pclass", "Age", "SibSp", "Parch", "Fare").asInstanceOf[SelectFromTuple[K1, TupleContainsIdx[ST, K1]]]
-    inline def resolveT[ST <: Tuple]: GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1] =
-      (1, Some(2.0), 1, 1, 2.0).asInstanceOf[GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]]
-
-    inline def resolveNT[ST <: Tuple]: NamedTuple[
-      SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
-      GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]
-    ] =
-      (1, Some(2.0), 1, 1, 2.0)
-        .withNames[("Pclass", "Age", "SibSp", "Parch", "Fare")]
-        .asInstanceOf[
-          NamedTuple[
-            SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
-            GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]
-          ]
-        ]
 
     inline def columns[ST <: Tuple](using
+        @implicitNotFound("Not all columns in ${ST} are present in ${K}")
         ev: AllAreColumns[ST, K1] =:= true
     ): Iterator[
       NamedTuple[
@@ -189,18 +174,23 @@ object NamedTupleIteratorExtensions:
       (mean, std, min, percentiles(0), percentiles(1), percentiles(2), max).withNames[("mean", "std", "min", "25%", "50%", "75%", "max")]
     end numericColSummary
 
-    inline def column[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[GetTypeAtName[K1, S, V1]] =
+    inline def column[S <: String](using
+        @implicitNotFound("Column ${S} not found")
+        ev: IsColumn[S, K1] =:= true,
+        s: ValueOf[S]
+    ): Iterator[GetTypeAtName[K1, S, V1]] =
       val headers = constValueTuple[K1].toList.map(_.toString())
-
-      /** Aaahhhh... apparently, TupleXXL is in reverse order!
-        */
       val headers2 = if headers.size > 22 then headers.reverse else headers
 
       val idx = headers2.indexOf(s.value)
       itr.map(x => x.toTuple(idx).asInstanceOf[GetTypeAtName[K1, S, V1]])
     end column
 
-    inline def dropColumn[S <: String](using ev: IsColumn[S, K1] =:= true, s: ValueOf[S]): Iterator[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]] =
+    inline def dropColumn[S <: String](using
+        @implicitNotFound("Column ${S} not found")
+        ev: IsColumn[S, K1] =:= true,
+        s: ValueOf[S]
+    ): Iterator[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]] =
       val headers = constValueTuple[K1].toList.map(_.toString())
 
       /** Aaahhhh... apparently, TupleXXL is in reverse order!
@@ -222,10 +212,41 @@ object NamedTupleIteratorExtensions:
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
 
+    inline def column[S <: String](using
+        @implicitNotFound("Column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        s: ValueOf[S]
+    ): Seq[GetTypeAtName[K, S, V]] =
+      nt.toIterator.column[S](using ev).toSeq
+    end column
+
     inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A): Seq[NamedTuple[S *: K, A *: V]] =
       nt.toIterator.addColumn[S, A](fct).toSeq
 
+    inline def numericCols: Seq[
+      NamedTuple[
+        SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, NumericColsIdx[V]], K]],
+        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, NumericColsIdx[V]], K]], V]
+      ]
+    ] =
+      val ev1 = summonInline[AllAreColumns[SelectFromTuple[K, NumericColsIdx[V]], K] =:= true]
+      columns[SelectFromTuple[K, NumericColsIdx[V]]](using ev1)
+    end numericCols
+
+    inline def nonNumericCols: Seq[
+      NamedTuple[
+        SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K]],
+        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K]], V]
+      ]
+    ] =
+      val ev1 = summonInline[
+        AllAreColumns[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K] =:= true
+      ]
+      columns[SelectFromTuple[K, Negate[NumericColsIdx[V]]]](using ev1)
+    end nonNumericCols
+
     inline def columns[ST <: Tuple](using
+        @implicitNotFound("Not all columns in ${ST} are present in ${K}")
         ev: AllAreColumns[ST, K] =:= true
     ): Seq[
       NamedTuple[
@@ -235,10 +256,18 @@ object NamedTupleIteratorExtensions:
     ] =
       nt.toIterator.columns[ST](using ev).toSeq
 
-    inline def dropColumn[S <: String](using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Seq[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]] =
+    inline def dropColumn[S <: String](using
+        @implicitNotFound("Column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        s: ValueOf[S]
+    ): Seq[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]] =
       nt.toIterator.dropColumn[S].toSeq
 
-    inline def mapColumn[S <: String, A](fct: GetTypeAtName[K, S, V] => A)(using ev: IsColumn[S, K] =:= true, s: ValueOf[S]): Seq[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]] =
+    inline def mapColumn[S <: String, A](fct: GetTypeAtName[K, S, V] => A)(using
+        @implicitNotFound("Column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        s: ValueOf[S]
+    ): Seq[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]] =
       nt.toIterator.mapColumn[S, A](fct).toSeq
     inline def forceColumnType[S <: String, A]: Any =
       nt.toIterator.forceColumnType[S, A].toSeq
