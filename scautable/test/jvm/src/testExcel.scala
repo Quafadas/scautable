@@ -1,13 +1,12 @@
 package io.github.quafadas.scautable
 
-import scalatags.Text.all.*
+import io.github.quafadas.table.*
 import java.time.LocalDate
 
 import scala.annotation.experimental
 import NamedTuple.*
-import CSV.*
 import scala.compiletime.ops.int.S
-import ConsoleFormat.*
+
 import Excel.BadTableException
 
 @experimental
@@ -23,11 +22,11 @@ class ExcelSuite extends munit.FunSuite:
 
   test("excel provider throws on duplicated header") {
     assert(
-     compileErrors(
+      compileErrors(
         """Excel.absolutePath(Generated.resourceDir0 + "SimpleDup.xlsx", "Sheet1")"""
       ).contains("Duplicate header found: Column 3")
     )
-    
+
   }
 
   test("excel provider compiles but throws on malformed table") {

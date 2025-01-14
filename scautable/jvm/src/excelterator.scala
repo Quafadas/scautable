@@ -9,6 +9,7 @@ import scala.NamedTuple.*
 import scala.compiletime.*
 import CSV.*
 import ConsoleFormat.*
+import ColumnTyped.*
 
 import java.io.File
 import scala.collection.JavaConverters.*

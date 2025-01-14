@@ -8,11 +8,9 @@ import scala.NamedTuple.*
 import scala.compiletime.*
 import CSV.*
 import ConsoleFormat.*
+import ColumnTyped.*
 
-
-
-
-class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple] ]]:
+class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
 
   def getFilePath: String = filePath
@@ -25,8 +23,7 @@ class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, St
   inline def headerIndex(s: String) =
     headers.zipWithIndex.find(_._1 == s).get._2
 
-  /**
-    * Here be dragons, in Tuple Land, Tuple XXL is reversed, creating a discontinuity. Small tuples start at 1, big tuples start the other end.
+  /** Here be dragons, in Tuple Land, Tuple XXL is reversed, creating a discontinuity. Small tuples start at 1, big tuples start the other end.
     *
     * Apparently fixed in 3.6.3
     *
@@ -35,10 +32,12 @@ class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, St
   inline def headerIndex[S <: String & Singleton] =
     val headers2 = if headers.size > 22 then headers.reverse else headers
     headers.indexOf(constValue[S].toString)
+  end headerIndex
 
   inline override def hasNext: Boolean =
     val hasMore = lineIterator.hasNext
     if !hasMore then source.close()
+    end if
     hasMore
   end hasNext
 
@@ -50,43 +49,38 @@ class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, St
         this
     val asList = headers.map(_ => ConversionAcc(0, 0, 0))
 
-    sampled.foldLeft((asList, 0L))( (acc: (List[ConversionAcc], Long), elem: NamedTuple[K & Tuple, StringyTuple[K & Tuple]] ) =>
+    sampled.foldLeft((asList, 0L))((acc: (List[ConversionAcc], Long), elem: NamedTuple[K & Tuple, StringyTuple[K & Tuple]]) =>
 
-        val list = elem.toList.asInstanceOf[List[String]].zip(acc._1).map{
-          case (str, acc) =>
+      val list = elem.toList.asInstanceOf[List[String]].zip(acc._1).map { case (str, acc) =>
 
-            (
-              ConversionAcc(
-                acc.validInts + str.toIntOption.fold(0)(_ => 1),
-                acc.validDoubles + str.toDoubleOption.fold(0)(_ => 1),
-                acc.validLongs + str.toLongOption.fold(0)(_ => 1)
-              )
-            )
-        }
-        (list, acc._2 + 1)
-      )
+        (
+          ConversionAcc(
+            acc.validInts + str.toIntOption.fold(0)(_ => 1),
+            acc.validDoubles + str.toDoubleOption.fold(0)(_ => 1),
+            acc.validLongs + str.toLongOption.fold(0)(_ => 1)
+          )
+        )
+      }
+      (list, acc._2 + 1)
+    )
+  end numericTypeTest
 
   inline def formatTypeTest(sample: Option[Int] = None): String =
     val (asList, n) = numericTypeTest(sample)
     val intReport = (
-      "int" *: listToTuple({
-        for(acc <- asList ) yield
-          (acc.validInts / n.toDouble).formatAsPercentage
-        }
+      "int" *: listToTuple(
+        for (acc <- asList) yield (acc.validInts / n.toDouble).formatAsPercentage
       )
     )
-    val doubleReported =   "doubles" *: listToTuple({
-      for(acc <- asList ) yield
-        (acc.validDoubles / n.toDouble).formatAsPercentage
-    })
-    val longReported = "long" *: listToTuple({
-      for(acc <- asList ) yield
-        (acc.validLongs / n.toDouble).formatAsPercentage
-    })
-    val recommendation = "recommendation" *: listToTuple({
-      for(acc <- asList ) yield
-        recommendConversion(List(acc), n)
-    })
+    val doubleReported = "doubles" *: listToTuple(
+      for (acc <- asList) yield (acc.validDoubles / n.toDouble).formatAsPercentage
+    )
+    val longReported = "long" *: listToTuple(
+      for (acc <- asList) yield (acc.validLongs / n.toDouble).formatAsPercentage
+    )
+    val recommendation = "recommendation" *: listToTuple(
+      for (acc <- asList) yield recommendConversion(List(acc), n)
+    )
 
     val ntList = Seq(
       intReport,
@@ -95,10 +89,10 @@ class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, St
       recommendation
     )
 
-    ConsoleFormat.consoleFormat_(headers = "conversion % to" +: headers, fancy = true, table = ntList )
+    ConsoleFormat.consoleFormat_(headers = "conversion % to" +: headers, fancy = true, table = ntList)
+  end formatTypeTest
 
-
-  inline def showTypeTest(sample: Option[Int] = None): Unit  =
+  inline def showTypeTest(sample: Option[Int] = None): Unit =
     println(formatTypeTest(sample))
 
   inline override def next() =
