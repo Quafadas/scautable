@@ -36,11 +36,6 @@ class CSVSuite extends munit.FunSuite:
     )
   }
 
-  test("auto type".only) {
-    def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
-
-  }
-
   test("csv from resource compiles and typechecks") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
