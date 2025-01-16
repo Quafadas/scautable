@@ -29,6 +29,29 @@ object Excel:
     end apply
   end IteratorToExpr2
 
+  transparent inline def resource[K](filePath: String, sheetName: String) = ${ readExcelResource('filePath, 'sheetName) }
+
+  def readExcelResource(pathExpr: Expr[String], sheetName: Expr[String])(using Quotes) =
+    import quotes.reflect.*
+
+    val path = pathExpr.valueOrAbort
+    val resourcePath = this.getClass.getClassLoader.getResource(path)
+    if resourcePath == null then report.throwError(s"Resource not found: $path")
+    val fullResourceString = resourcePath.toString
+    val headers = ExcelIterator(fullResourceString, sheetName.valueOrAbort).headers
+    val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+    tupleExpr2 match
+      case '{ $tup: t } =>
+
+        val itr = new ExcelIterator[t](fullResourceString, sheetName.valueOrAbort)
+        // println("tup")
+        // println(tup)
+        // '{ NamedTuple.build[t & Tuple]()($tup) }
+        Expr(itr)
+      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
+    end match
+  end readExcelResource
+
   transparent inline def absolutePath[K](filePath: String, sheetName: String) = ${ readExcelAbolsutePath('filePath, 'sheetName) }
 
   def readExcelAbolsutePath(pathExpr: Expr[String], sheetName: Expr[String])(using Quotes) =

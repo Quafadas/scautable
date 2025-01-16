@@ -23,14 +23,7 @@ class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, St
   inline def headerIndex(s: String) =
     headers.zipWithIndex.find(_._1 == s).get._2
 
-  /** Here be dragons, in Tuple Land, Tuple XXL is reversed, creating a discontinuity. Small tuples start at 1, big tuples start the other end.
-    *
-    * Apparently fixed in 3.6.3
-    *
-    * @return
-    */
-  inline def headerIndex[S <: String & Singleton] =
-    val headers2 = if headers.size > 22 then headers.reverse else headers
+  inline def headerIndex[S <: String & Singleton] =    
     headers.indexOf(constValue[S].toString)
   end headerIndex
 
@@ -41,30 +34,6 @@ class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, St
     hasMore
   end hasNext
 
-  // def numericTypeTest(sample: Option[Int] = None) =
-  //   val sampled = sample match
-  //     case Some(n) =>
-  //       this.take(n)
-  //     case None =>
-  //       this
-  //   val asList = headers.map(_ => ConversionAcc(0, 0, 0))
-
-  //   sampled.foldLeft((asList, 0L))((acc: (List[ConversionAcc], Long), elem: NamedTuple[K & Tuple, StringyTuple[K & Tuple]]) =>
-
-  //     val list = elem.toList.asInstanceOf[List[String]].zip(acc._1).map { case (str, acc) =>
-
-  //       (
-  //         ConversionAcc(
-  //           acc.validInts + str.toIntOption.fold(0)(_ => 1),
-  //           acc.validDoubles + str.toDoubleOption.fold(0)(_ => 1),
-  //           acc.validLongs + str.toLongOption.fold(0)(_ => 1)
-  //         )
-  //       )
-  //     }
-  //     (list, acc._2 + 1)
-  //   )
-  // end numericTypeTest
-
   inline override def next() =
     if !hasNext then throw new NoSuchElementException("No more lines")
     end if
@@ -74,5 +43,5 @@ class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, St
     NamedTuple.build[K & Tuple]()(tuple)
   end next
 
-  next() // drop the headers
+  next()
 end CsvIterator

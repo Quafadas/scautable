@@ -1,9 +1,14 @@
+[docs](https://quafadas.github.io/scautable/docs/index.html)
 
-[docs](http://localhost:3002/docs/index.html)
+# Hypothesis: 
+
+That tables are an `Iterator[NamedTuple]`.
+
+I believe kantan.csv followed the same philosophy.
 
 # SCala AUto TABLE
 
-- Strongly typed compile-time CSV
+- Strongly typed, one line compile-time table import from Excel and CSV
 - pretty printing to console for `Product` types
 - Auto-magically generate html tables from case classes
 - Searchable, sortable browser GUI for your tables
