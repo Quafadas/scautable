@@ -12,7 +12,7 @@ import scala.compiletime.ops.int.S
 @experimental
 class CSVSuite extends munit.FunSuite:
 
-  test("type test".only) {
+  test("type test") {
     def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
 
     val tt = csv.headers.zip(csv.numericTypeTest._1)
