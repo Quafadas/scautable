@@ -12,7 +12,7 @@ import scala.compiletime.ops.int.S
 @experimental
 class CSVSuite extends munit.FunSuite:
 
-  test("type test") {
+  test("type test".only) {
     def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
 
     val tt = csv.headers.zip(csv.numericTypeTest._1)
@@ -34,7 +34,14 @@ class CSVSuite extends munit.FunSuite:
 |3| recommendation|    Int| Double|   Long|String|String|
 +-+---------------+-------+-------+-------+------+------+"""
     )
-  }
+
+    assertNoDiff(
+      csv.recommendNumericConversions,
+""".mapColumn["col1", Int](_.toInt)
+.mapColumn["col2", Double](_.toDouble)
+.mapColumn["col3", Long](_.toLong)""".stripMargin
+    )
+  } 
 
   test("csv from resource compiles and typechecks") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")

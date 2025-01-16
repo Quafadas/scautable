@@ -16,3 +16,4 @@ def recommendConversion(acc: List[ConversionAcc], rowCount: Long): String = {
     else "String"
   }.mkString(", ")
 }
+

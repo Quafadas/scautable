@@ -17,6 +17,7 @@ import io.github.quafadas.scautable.ConsoleFormat.*
 import ColumnTyped.*
 import scala.math.Fractional.Implicits.*
 import scala.annotation.implicitNotFound
+import scala.compiletime.ops.int
 
 object NamedTupleIteratorExtensions:
   val rand = new scala.util.Random
@@ -45,6 +46,32 @@ object NamedTupleIteratorExtensions:
 
       }
     end numericTypeTest
+
+    
+    inline def recommendNumericConversions: String = {
+      val (acc, rowCount) = numericTypeTest
+      def percentage(validCount: Long): Double = (validCount.toDouble / rowCount) * 100
+      val headers = constValueTuple[K1].toList.map(_.toString())
+                
+      acc.zip(headers).map { case (ConversionAcc(validInts, validDoubles, validLongs), colName) =>
+        val intPct = percentage(validInts)
+        val longPct = percentage(validLongs)
+        val doublePct = percentage(validDoubles)                              
+        
+        (intPct, longPct, doublePct) match {
+          case (i, l, d) if i >= 75.0 && i >= l && i >= d =>
+            if (i >= 100) s".mapColumn[\"$colName\", Int](_.toInt)"
+            else s".mapColumn[\"$colName\", Option[Int]](_.toIntOption)"
+          case (i, l, d) if l >= 75.0 && l >= d =>
+            if (l >= 100) s".mapColumn[\"$colName\", Long](_.toLong)"
+            else s".mapColumn[\"$colName\", Option[Long]](_.toLongOption)"
+          case (i, l, d) if d >= 75.0 =>
+            if (d >= 100) s".mapColumn[\"$colName\", Double](_.toDouble)"
+            else s".mapColumn[\"$colName\", Option[Double]](_.toDoubleOption)"
+          case _ => ""
+        }
+      }.filter(s => !s.isEmpty).mkString("\n")
+    }
 
     inline def formatTypeTest: String =
       val headers = constValueTuple[K1].toList.map(_.toString())
