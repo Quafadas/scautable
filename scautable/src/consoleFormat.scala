@@ -5,15 +5,17 @@ import scala.NamedTuple.*
 import scala.compiletime.constValueTuple
 import scala.annotation.experimental
 import scala.math.Numeric.Implicits.*
+import fansi.EscapeAttr
 
 @experimental
 object ConsoleFormat:
 
   extension(s : Seq[Product])
-    def consoleFormat(fancy: Boolean): String = consoleFormat_(s, fancy)
-    def consoleFormat: String = consoleFormat_(s, true)
+    inline def consoleFormat(fancy: Boolean): String = consoleFormat_(s, fancy)
+    inline def consoleFormat: String = consoleFormat_(s, true)
+    inline def ptbl : Unit = println(consoleFormat_(s, true))
 
-  private val colours = List(
+  private val colours: List[EscapeAttr] = List(
     fansi.Color.Green,
     fansi.Color.White,
     fansi.Color.Red,
@@ -39,6 +41,8 @@ object ConsoleFormat:
     inline def consoleFormatNt: String=
       consoleFormatNt(None, true)
     end consoleFormatNt
+    
+    inline def ptbl: Unit = println( nt.consoleFormatNt )
 
     inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true): String =
       val foundHeaders = constValueTuple[K].toList.map(_.toString())
