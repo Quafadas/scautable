@@ -163,6 +163,15 @@ class CSVSuite extends munit.FunSuite:
 
   }
 
+  test("easy print") {
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv").toVector
+    csv.ptbln
+
+    val seq2 = Vector((1, 2), (3, 4))
+    seq2.ptbl
+
+  }
+
   test("Drop column, mapColumn, then select another") {
     def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
