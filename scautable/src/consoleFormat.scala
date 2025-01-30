@@ -1,19 +1,22 @@
 package io.github.quafadas.scautable
 
 import fansi.Str
+import scala.NamedTuple
 import scala.NamedTuple.*
 import scala.compiletime.constValueTuple
 import scala.annotation.experimental
 import scala.math.Numeric.Implicits.*
 import fansi.EscapeAttr
+import scala.util.NotGiven
 
 @experimental
 object ConsoleFormat:
 
-  extension(s : Seq[Product])
+  extension (s: Seq[Product])
     inline def consoleFormat(fancy: Boolean): String = consoleFormat_(s, fancy)
     inline def consoleFormat: String = consoleFormat_(s, true)
-    inline def ptbl : Unit = println(consoleFormat_(s, true))
+    inline def ptbl: Unit = println(consoleFormat_(s, true))
+  end extension
 
   private val colours: List[EscapeAttr] = List(
     fansi.Color.Green,
@@ -28,21 +31,21 @@ object ConsoleFormat:
     fansi.Color.White
   )
 
-  extension[A](a: A)(using numA: Numeric[A])
+  extension [A](a: A)(using numA: Numeric[A])
     inline def formatAsPercentage: String =
-      if (a == 0)
-        "0.00%"
+      if a == 0 then "0.00%"
       else
         val a100 = BigDecimal(numA.toDouble(a) * 100).setScale(2, BigDecimal.RoundingMode.HALF_UP)
         f"$a100%.2f%%"
+  end extension
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
 
-    inline def consoleFormatNt: String=
+    inline def consoleFormatNt: String =
       consoleFormatNt(None, true)
     end consoleFormatNt
-    
-    inline def ptbl: Unit = println( nt.consoleFormatNt )
+
+    inline def ptbln: Unit = println(nt.consoleFormatNt)
 
     inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true): String =
       val foundHeaders = constValueTuple[K].toList.map(_.toString())
@@ -131,4 +134,3 @@ object ConsoleFormat:
   inline private def rowSeparator(colSizes: Seq[Int]) = colSizes map { "-" * _ } mkString ("+", "+", "+")
 
 end ConsoleFormat
-
