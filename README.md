@@ -11,38 +11,33 @@
 ## Elevator Pitch
 One line CSV import.
 
-Insta-auto-magically generate a [scalatags](https://github.com/com-lihaoyi/scalatags) table from a `Seq[A]` (case classes).
+```scala
+import io.github.quafadas.table.*
 
-with scala-cli
+def csv : CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+def firstRows: Iterator[(col1: String, col2: String, col3: String)] = csv.take(2)
+
+println(firstRows.toArray.consoleFormatNt(fansi = false))
+// | |col1|col2|col3|
+// +-+----+----+----+
+// |0|   1|   2|   7|
+// |1|   3|   4|   8|
+// +-+----+----+----+
 ```
-//> using lib "io.github.quafadas::scautable:0.0.5"
-@main def testThis =
-  import scautable.{*,given}
-  case class Easy(s: String, d: Double)
-  println(scautable(Seq(Easy("thing", 1.2)))).toString()
-```
 
-![tostring](toString.png)
-### Desktop
-Pimp your html table with [https://datatables.net](datatables.net)
 
-![desktop](desktop.png)
-
-### Almond
-![almond](almond.png)
-
-### Scala JS
-It cross compiles, and gives you back a scalatags table
 
 ## Infrequently Asked Questions
 ### Is this project a good idea
-Unclear. One of it's purposes is to push the boundary of my metaprogramming knowledge. If you use this, it exposes you to the very real risk of the reality that this is an educational project I run on my own time.
+Idea yes - the implementation is somewhat metaprogamming / `.asInstanceOf` heavy.
+
+So unclear. One of it's purposes is to push the boundary of my metaprogramming knowledge. If you use this, it exposes you to the very real risk of the reality that this is an educational project I run on my own time.
 
 ### How does it work
 
-The macro stuff came from smashing my head against chatGPT and a wall. A lot.
+The macro stuff came from coffee and chatGPT. 
 
-The table derivation stuff comes from here;
+The table derivation show from case class stuff comes from here;
 I aggressively copy pasted everything from here and poked it with a sharp stick until it did what I wanted.
 https://blog.philipp-martini.de/blog/magic-mirror-scala3/
 
