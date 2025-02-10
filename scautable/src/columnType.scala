@@ -17,10 +17,6 @@ object ColumnTyped:
     case Nil    => EmptyTuple
     case h :: t => h *: listToTuple(t)
 
-  type ConcatString[X <: String, Y <: Tuple] = X *: Y
-
-  type ConcatSingle[X, A] = X *: A *: EmptyTuple
-
   type Negate[T <: Tuple] <: Tuple = T match
     case EmptyTuple => EmptyTuple
     case (head *: tail) =>
