@@ -237,7 +237,7 @@ class CSVSuite extends munit.FunSuite:
   test("add columns") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
-    val added: Iterator[(col2Times10: Int, col3Times3: Int, col1: String, col2: String, col3: String)] = csv
+    val added = csv
       .addColumn["col3Times3", Int](_.col3.toInt * 3)
       .addColumn["col2Times10", Int](_.col2.toInt * 10)
 

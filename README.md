@@ -1,5 +1,5 @@
 
-[docs](http://localhost:3002/docs/index.html)
+[docs](https://quafadas.github.io/scautable/docs/index.html)
 
 # SCala AUto TABLE
 
@@ -35,7 +35,7 @@ So unclear. One of it's purposes is to push the boundary of my metaprogramming k
 
 ### How does it work
 
-The macro stuff came from coffee and chatGPT. 
+The macro stuff came from coffee and chatGPT.
 
 The table derivation show from case class stuff comes from here;
 I aggressively copy pasted everything from here and poked it with a sharp stick until it did what I wanted.

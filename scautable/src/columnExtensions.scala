@@ -89,9 +89,9 @@ object NamedTupleIteratorExtensions:
     ): Iterator[NamedTuple[ReplaceOneName[K1, From, To], V1]] =
       itr.map(_.withNames[ReplaceOneName[K1, From, To]].asInstanceOf[NamedTuple[ReplaceOneName[K1, From, To], V1]])
 
-    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K1, V1]) => A): Iterator[NamedTuple[S *: K1, A *: V1]] =
+    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K1, V1]) => A): Iterator[NamedTuple[Tuple.Append[K1, S], Tuple.Append[V1, A]]] =
       itr.map { (tup: NamedTuple[K1, V1]) =>
-        (fct(tup) *: tup.toTuple).withNames[ConcatString[S, K1]]
+        (tup.toTuple :* fct(tup)).withNames[Tuple.Append[K1, S]]
       }
 
     inline def forceColumnType[S <: String, A]: Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]] =
@@ -279,7 +279,7 @@ object NamedTupleIteratorExtensions:
       nt.toIterator.column[S](using ev).toSeq
     end column
 
-    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A): Seq[NamedTuple[S *: K, A *: V]] =
+    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A): Seq[NamedTuple[Tuple.Append[K, S], Tuple.Append[V, A]]] =
       nt.toIterator.addColumn[S, A](fct).toSeq
 
     inline def numericCols: Seq[
@@ -328,8 +328,10 @@ object NamedTupleIteratorExtensions:
         s: ValueOf[S]
     ): Seq[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]] =
       nt.toIterator.mapColumn[S, A](fct).toSeq
+
     inline def forceColumnType[S <: String, A]: Any =
       nt.toIterator.forceColumnType[S, A].toSeq
+
     inline def renameColumn[From <: String, To <: String](using
         ev: IsColumn[From, K] =:= true,
         FROM: ValueOf[From],
