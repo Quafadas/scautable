@@ -17,7 +17,7 @@ import io.github.quafadas.table.*
 def csv : CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 def firstRows: Iterator[(col1: String, col2: String, col3: String)] = csv.take(2)
 
-println(firstRows.toArray.consoleFormatNt(fansi = false))
+firstRows.toArray.ptbln
 // | |col1|col2|col3|
 // +-+----+----+----+
 // |0|   1|   2|   7|
