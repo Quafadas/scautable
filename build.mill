@@ -41,7 +41,7 @@ trait Common extends ScalaModule with PublishModule {
 }
 
 trait CommonJS extends ScalaJSModule {
-  def scalaJSVersion = "1.17.0"
+  def scalaJSVersion = "1.18.2"
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"com.raquo::laminar::17.2.0"
   )
