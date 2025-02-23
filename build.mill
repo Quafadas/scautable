@@ -18,7 +18,7 @@ trait Common extends ScalaModule with PublishModule {
 
   override def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"com.lihaoyi::scalatags::0.13.1",
-    ivy"com.lihaoyi::os-lib:0.11.3",
+    ivy"com.lihaoyi::os-lib:0.11.4",
     ivy"com.lihaoyi::fansi::0.5.0"
   )
   override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-experimental", "-language:experimental.namedTuples", "-Xmax-inlines", "128")
