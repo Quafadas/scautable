@@ -11,11 +11,9 @@ import fansi.Str
 import NamedTuple.*
 import scala.compiletime.constValueTuple
 
-/** This is a simple library to render a scala case class as an html table. It assumes the presence of a
-  * [[HtmlTableRender]] instance for each type in the case class.
+/** This is a simple library to render a scala case class as an html table. It assumes the presence of a [[HtmlTableRender]] instance for each type in the case class.
   */
 object scautable extends PlatformSpecific:
-
 
   // Aggressively copy-pasta-d from here; https://blog.philipp-martini.de/blog/magic-mirror-scala3/
   protected inline def getTypeclassInstances[A <: Tuple]: List[HtmlTableRender[Any]] =
@@ -165,12 +163,12 @@ object scautable extends PlatformSpecific:
       s"${a.toString}"
     )
 
-
-  given nt[K <: Tuple, N <:Tuple]:HtmlTableRender[NamedTuple[K,N]] = new HtmlTableRender[NamedTuple[K,N]]:
+  given nt[K <: Tuple, N <: Tuple]: HtmlTableRender[NamedTuple[K, N]] = new HtmlTableRender[NamedTuple[K, N]]:
     override def tableHeader(a: NamedTuple[K, N]): TypedTag[String] =
       val h = a.toTuple.productElementNames.toList
       tr(h.map(th(_)))
-    override def tableCell(a: NamedTuple[K,N]) = td(
+    end tableHeader
+    override def tableCell(a: NamedTuple[K, N]) = td(
       s"$a"
     )
 
@@ -179,6 +177,7 @@ object scautable extends PlatformSpecific:
       val elems = a.toTuple.productIterator.toList
       val cells = elems.map(e => td(e.toString))
       tr(cells)
+    end tableRow
 
   given booleanT: HtmlTableRender[Boolean] = new HtmlTableRender[Boolean]:
     override def tableCell(a: Boolean) = td(
@@ -222,7 +221,6 @@ object scautable extends PlatformSpecific:
   //       val tailElementLabels =
   //         getElemLabels[tail] // recursive call to get the labels from the tail
   //       headElementLabel :: tailElementLabels // concat head + tail
-
 
   protected inline def getElemLabels[A <: Tuple]: List[String] =
     inline erasedValue[A] match
@@ -299,6 +297,6 @@ object scautable extends PlatformSpecific:
   ): TypedTag[String] =
     val names = constValueTuple[K].toList.map(_.toString())
     apply(a.map(_.toTuple), true, names)
-
+  end nt
 
 end scautable

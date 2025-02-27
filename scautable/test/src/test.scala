@@ -2,19 +2,19 @@ package io.github.quafadas.scautable
 
 import scalatags.Text.all.*
 import java.time.LocalDate
-class MySuite extends munit.FunSuite {
+class MySuite extends munit.FunSuite:
 
   import scautable.*
-  import scautable.{given}
+  import scautable.given
 
   case class ScauTest(anInt: Int, aString: String)
 
   test("console") {
     case class ScauTest(anInt: Int, aString: String)
-    val start    = ScauTest(1, "2")
-    val start2   = ScauTest(2, "booyakashah")
+    val start = ScauTest(1, "2")
+    val start2 = ScauTest(2, "booyakashah")
     val startSeq = Seq(start, start2)
-    val console  = ConsoleFormat.consoleFormat_(startSeq, false)
+    val console = ConsoleFormat.consoleFormat_(startSeq, false)
     assertEquals(
       console,
       s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n|1|    2|booyakashah|\n+-+-----+-----------+"""
@@ -23,12 +23,12 @@ class MySuite extends munit.FunSuite {
 
   test("console_2") {
     case class ScauTest(anInt: Int, aString: String)
-    val start    = ScauTest(1, "2")
-    val start2   = ScauTest(2, "booyakashah")
-    val start3   = ScauTest(3, "boo")
-    val start4   = ScauTest(4, "booy")
+    val start = ScauTest(1, "2")
+    val start2 = ScauTest(2, "booyakashah")
+    val start3 = ScauTest(3, "boo")
+    val start4 = ScauTest(4, "booy")
     val startSeq = Seq(start, start2, start3, start4)
-    val console  = ConsoleFormat.consoleFormat_(startSeq, false)
+    val console = ConsoleFormat.consoleFormat_(startSeq, false)
     assertEquals(
       console,
       s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n|1|    2|booyakashah|\n|2|    3|        boo|\n|3|    4|       booy|\n+-+-----+-----------+"""
@@ -51,7 +51,7 @@ class MySuite extends munit.FunSuite {
   // }
 
   test("one row") {
-    val start    = ScauTest(1, "2")
+    val start = ScauTest(1, "2")
     val startSeq = start
     assertEquals(
       """<table id="scautable" class="display"><thead><tr><th>anInt</th><th>aString</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>""",
@@ -59,7 +59,7 @@ class MySuite extends munit.FunSuite {
     )
   }
   test("one row as seq") {
-    val start    = ScauTest(1, "2")
+    val start = ScauTest(1, "2")
     val startSeq = Seq(start)
     assertEquals(
       """<table id="scautable" class="display"><thead><tr><th>anInt</th><th>aString</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>""",
@@ -67,7 +67,7 @@ class MySuite extends munit.FunSuite {
     )
   }
   test("tuple") {
-    val start    = (1, "2")
+    val start = (1, "2")
     val startSeq = Seq(start)
     assertEquals(
       """<table id="scautable" class="display"><thead><tr><th>_1</th><th>_2</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>""",
@@ -75,7 +75,7 @@ class MySuite extends munit.FunSuite {
     )
   }
   test("three rows") {
-    val start    = ScauTest(1, "2")
+    val start = ScauTest(1, "2")
     val startSeq = Seq.fill(3)(start)
     assertEquals(
       """<table id="scautable" class="display"><thead><tr><th>anInt</th><th>aString</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr><tr><td>1</td><td>2</td></tr><tr><td>1</td><td>2</td></tr></tbody></table>""",
@@ -93,6 +93,7 @@ class MySuite extends munit.FunSuite {
   test("enums") {
     enum Env:
       case Prod, Dev, Test
+    end Env
 
     case class EasyTypes(s: String, i: Env)
     val startSeq = Seq(EasyTypes("hi", Env.Dev))
@@ -115,7 +116,7 @@ class MySuite extends munit.FunSuite {
     case class Address(num: Int, street: String)
     case class Person(n: String, age: Int, a: Address)
 
-    val one     = Person("me", 5, Address(0, "happyland"))
+    val one = Person("me", 5, Address(0, "happyland"))
     val listOne = Seq(one)
 
     assertEquals(
@@ -136,7 +137,7 @@ class MySuite extends munit.FunSuite {
   test("optionable") {
     case class Address(num: Int, street: Option[String])
     val testMe = Address(0, None)
-    val t      = scautable(testMe, true)
+    val t = scautable(testMe, true)
     assertEquals(
       """<table id="scautable" class="display"><thead><tr><th>num</th><th>street</th></tr></thead><tbody><tr><td>0</td><td></td></tr></tbody></table>""",
       t.toString()
@@ -148,4 +149,4 @@ class MySuite extends munit.FunSuite {
       scautable(test2, true).toString()
     )
   }
-}
+end MySuite

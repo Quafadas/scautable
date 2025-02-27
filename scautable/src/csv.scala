@@ -92,7 +92,7 @@ object CSV:
   def readCsvAbolsutePath(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
 
-    val path = pathExpr.valueOrAbort    
+    val path = pathExpr.valueOrAbort
 
     val source = Source.fromFile(path)
     val headerLine =

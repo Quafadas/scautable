@@ -10,8 +10,7 @@ import NamedTuple.*
 trait PlatformSpecific:
 
   private def openBrowserWindow(uri: java.net.URI): Unit =
-    if Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE) then
-      Desktop.getDesktop().browse(uri)
+    if Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE) then Desktop.getDesktop().browse(uri)
     else
       /* Hail Mary...
         https://stackoverflow.com/questions/5226212/how-to-open-the-default-webbrowser-using-java

@@ -2,7 +2,7 @@ package io.github.quafadas.scautable
 
 import munit.FunSuite
 
-class StringConversionTests extends FunSuite {
+class StringConversionTests extends FunSuite:
 
   test("recommendConversion should recommend Int when validInts percentage is highest and >= 75%") {
     val acc = List(ConversionAcc(80, 10, 10))
@@ -37,4 +37,4 @@ class StringConversionTests extends FunSuite {
     val rowCount = 100
     assertEquals(recommendConversion(acc, rowCount), "Int, Double, Long")
   }
-}
+end StringConversionTests
