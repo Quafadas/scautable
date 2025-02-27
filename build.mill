@@ -14,11 +14,11 @@ import mill._, scalalib._, publish._
 import mill.api.Result
 
 trait Common extends ScalaModule with PublishModule {
-  def scalaVersion = "3.6.2"
+  def scalaVersion = "3.6.3"
 
   override def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"com.lihaoyi::scalatags::0.13.1",
-    ivy"com.lihaoyi::os-lib:0.11.3",
+    ivy"com.lihaoyi::os-lib:0.11.4",
     ivy"com.lihaoyi::fansi::0.5.0"
   )
   override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-experimental", "-language:experimental.namedTuples", "-Xmax-inlines", "128")
@@ -41,14 +41,14 @@ trait Common extends ScalaModule with PublishModule {
 }
 
 trait CommonJS extends ScalaJSModule {
-  def scalaJSVersion = "1.17.0"
+  def scalaJSVersion = "1.18.2"
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"com.raquo::laminar::17.2.0"
   )
 }
 trait CommonTests extends TestModule.Munit {
   def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"org.scalameta::munit::1.0.3"
+    ivy"org.scalameta::munit::1.0.4"
   )
 }
 
