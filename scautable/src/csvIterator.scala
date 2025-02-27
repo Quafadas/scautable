@@ -10,7 +10,7 @@ import CSV.*
 import ConsoleFormat.*
 import ColumnTyped.*
 
-class CsvIterator[K](filePath: String) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple]]]:
+class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
 
   def getFilePath: String = filePath

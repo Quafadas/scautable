@@ -20,7 +20,7 @@ import scala.math.Fractional.Implicits.*
 @experimental
 object CSV:
 
-  given IteratorToExpr2[K](using ToExpr[String], Type[K]): ToExpr[CsvIterator[K]] with
+  given IteratorToExpr2[K <: Tuple](using ToExpr[String], Type[K]): ToExpr[CsvIterator[K]] with
     def apply(opt: CsvIterator[K])(using Quotes): Expr[CsvIterator[K]] =
       val str = Expr(opt.getFilePath)
       '{
@@ -58,7 +58,7 @@ object CSV:
 
     tupleExpr2 match
       case '{ $tup: t } =>
-        val itr = new CsvIterator[t](tmpPath.toString())
+        val itr = new CsvIterator[t & Tuple](tmpPath.toString())
         // '{ NamedTuple.build[t & Tuple]()($tup) }
         Expr(itr)
       case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
@@ -81,7 +81,7 @@ object CSV:
 
     tupleExpr2 match
       case '{ $tup: t } =>
-        val itr = new CsvIterator[t](path.toString)
+        val itr = new CsvIterator[t & Tuple](path.toString)
         // '{ NamedTuple.build[t & Tuple]()($tup) }
         Expr(itr)
       case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
@@ -92,7 +92,7 @@ object CSV:
   def readCsvAbolsutePath(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
 
-    val path = pathExpr.valueOrAbort
+    val path = pathExpr.valueOrAbort    
 
     val source = Source.fromFile(path)
     val headerLine =
@@ -104,7 +104,7 @@ object CSV:
     tupleExpr2 match
       case '{ $tup: t } =>
 
-        val itr = new CsvIterator[t](path)
+        val itr = new CsvIterator[t & Tuple](path)
         // println("tup")
         // println(tup)
         // '{ NamedTuple.build[t & Tuple]()($tup) }
@@ -130,7 +130,7 @@ object CSV:
     tupleExpr2 match
       case '{ $tup: t } =>
 
-        val itr = new CsvIterator[t](resourcePath.getPath.toString())
+        val itr = new CsvIterator[t & Tuple](resourcePath.getPath.toString())
         // println("tup")
         // println(tup)
         // '{ NamedTuple.build[t & Tuple]()($tup) }

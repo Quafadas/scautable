@@ -21,13 +21,13 @@ import scala.annotation.implicitNotFound
 object NamedTupleIteratorExtensions:
   val rand = new scala.util.Random
 
-  extension [K, V, K1 <: Tuple & K, V1 <: Tuple & K](itr: Iterator[NamedTuple[K1, V1]])
+  extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 
     inline def numericTypeTest: (List[ConversionAcc], Long) =
-      val headers = constValueTuple[K1].toList.map(_.toString())
+      val headers = constValueTuple[K].toList.map(_.toString())
       val headerAcc = headers.map(_ => ConversionAcc(0, 0, 0))
 
-      itr.foldLeft[List[ConversionAcc] *: Long *: EmptyTuple]((headerAcc, 0L)) { case (acc: (List[ConversionAcc], Long), elem: NamedTuple[K1, V1]) =>
+      itr.foldLeft[List[ConversionAcc] *: Long *: EmptyTuple]((headerAcc, 0L)) { case (acc: (List[ConversionAcc], Long), elem: NamedTuple[K, V]) =>
         val list = elem.toList
           .asInstanceOf[List[String]]
           .zip(acc._1)
@@ -47,7 +47,7 @@ object NamedTupleIteratorExtensions:
     end numericTypeTest
 
     inline def formatTypeTest: String =
-      val headers = constValueTuple[K1].toList.map(_.toString())
+      val headers = constValueTuple[K].toList.map(_.toString())
       val (asList, n) = numericTypeTest
       val intReport = (
         "int" *: listToTuple(
@@ -77,35 +77,35 @@ object NamedTupleIteratorExtensions:
     inline def showTypeTest: Unit =
       println(formatTypeTest)
 
-    inline def sample(frac: Double, inline deterministic: Boolean = false): Iterator[NamedTuple[K1, V1]] =
+    inline def sample(frac: Double, inline deterministic: Boolean = false): Iterator[NamedTuple[K, V]] =
       if deterministic then itr.zipWithIndex.filter { case (_, idx) => idx % (1 / frac) == 0 }.map(_._1)
       else itr.filter(_ => rand.nextDouble() < frac)
 
     inline def renameColumn[From <: String, To <: String](using
         @implicitNotFound("Column ${From} not found")
-        ev: IsColumn[From, K1] =:= true,
+        ev: IsColumn[From, K] =:= true,
         FROM: ValueOf[From],
         TO: ValueOf[To]
-    ): Iterator[NamedTuple[ReplaceOneName[K1, From, To], V1]] =
-      itr.map(_.withNames[ReplaceOneName[K1, From, To]].asInstanceOf[NamedTuple[ReplaceOneName[K1, From, To], V1]])
+    ): Iterator[NamedTuple[ReplaceOneName[K, From, To], V]] =
+      itr.map(_.withNames[ReplaceOneName[K, From, To]].asInstanceOf[NamedTuple[ReplaceOneName[K, From, To], V]])
 
-    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K1, V1]) => A): Iterator[NamedTuple[Tuple.Append[K1, S], Tuple.Append[V1, A]]] =
-      itr.map { (tup: NamedTuple[K1, V1]) =>
-        (tup.toTuple :* fct(tup)).withNames[Tuple.Append[K1, S]]
+    inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A): Iterator[NamedTuple[Tuple.Append[K, S], Tuple.Append[V, A]]] =
+      itr.map { (tup: NamedTuple[K, V]) =>
+        (tup.toTuple :* fct(tup)).withNames[Tuple.Append[K, S]]
       }
 
-    inline def forceColumnType[S <: String, A]: Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]] =
-      itr.map(_.asInstanceOf[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]])
+    inline def forceColumnType[S <: String, A]: Iterator[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]] =
+      itr.map(_.asInstanceOf[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]])
 
     inline def mapColumn[S <: String, A](using
         @implicitNotFound("Column ${S} not found")
-        ev: IsColumn[S, K1] =:= true,
+        ev: IsColumn[S, K] =:= true,
         s: ValueOf[S]
     )(
-        fct: GetTypeAtName[K1, S, V1] => A
-    ): Iterator[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]] =
+        fct: GetTypeAtName[K, S, V] => A
+    ): Iterator[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]] =
       import scala.compiletime.ops.string.*
-      val headers = constValueTuple[K1].toList.map(_.toString())
+      val headers = constValueTuple[K].toList.map(_.toString())
 
       /** Aaahhhh... apparently, TupleXXL is in reverse order!
         */
@@ -113,67 +113,67 @@ object NamedTupleIteratorExtensions:
       val idx = headers.indexOf(s.value)
       if idx == -1 then ???
       end if
-      itr.map { (x: NamedTuple[K1, V1]) =>
+      itr.map { (x: NamedTuple[K, V]) =>
         val tup = x.toTuple
-        val typ = tup(idx).asInstanceOf[GetTypeAtName[K1, S, V1]]
+        val typ = tup(idx).asInstanceOf[GetTypeAtName[K, S, V]]
         val mapped = fct(typ)
         val (head, tail) = x.toTuple.splitAt(idx)
-        (head ++ mapped *: tail.tail).withNames[K1].asInstanceOf[NamedTuple[K1, ReplaceOneTypeAtName[K1, S, V1, A]]]
+        (head ++ mapped *: tail.tail).withNames[K].asInstanceOf[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]]
       }
     end mapColumn
 
     inline def numericCols: Iterator[
       NamedTuple[
-        SelectFromTuple[K1, TupleContainsIdx[SelectFromTuple[K1, NumericColsIdx[V1]], K1]],
-        GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[SelectFromTuple[K1, NumericColsIdx[V1]], K1]], V1]
+        SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, NumericColsIdx[V]], K]],
+        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, NumericColsIdx[V]], K]], V]
       ]
     ] =
-      val ev1 = summonInline[AllAreColumns[SelectFromTuple[K1, NumericColsIdx[V1]], K1] =:= true]
-      columns[SelectFromTuple[K1, NumericColsIdx[V1]]](using ev1)
+      val ev1 = summonInline[AllAreColumns[SelectFromTuple[K, NumericColsIdx[V]], K] =:= true]
+      columns[SelectFromTuple[K, NumericColsIdx[V]]](using ev1)
     end numericCols
 
     inline def nonNumericCols: Iterator[
       NamedTuple[
-        SelectFromTuple[K1, TupleContainsIdx[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1]],
-        GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1]], V1]
+        SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K]],
+        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K]], V]
       ]
     ] =
       val ev1 = summonInline[
-        AllAreColumns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]], K1] =:= true
+        AllAreColumns[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K] =:= true
       ]
-      columns[SelectFromTuple[K1, Negate[NumericColsIdx[V1]]]](using ev1)
+      columns[SelectFromTuple[K, Negate[NumericColsIdx[V]]]](using ev1)
     end nonNumericCols
 
-    // inline def resolve[ST <: Tuple]: SelectFromTuple[K1, TupleContainsIdx[ST, K1]] =
-    //   ("Pclass", "Age", "SibSp", "Parch", "Fare").asInstanceOf[SelectFromTuple[K1, TupleContainsIdx[ST, K1]]]
-    // inline def resolveT[ST <: Tuple]: GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1] =
-    //   (1, Some(2.0), 1, 1, 2.0).asInstanceOf[GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]]
+    // inline def resolve[ST <: Tuple]: SelectFromTuple[K, TupleContainsIdx[ST, K]] =
+    //   ("Pclass", "Age", "SibSp", "Parch", "Fare").asInstanceOf[SelectFromTuple[K, TupleContainsIdx[ST, K]]]
+    // inline def resolveT[ST <: Tuple]: GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V] =
+    //   (1, Some(2.0), 1, 1, 2.0).asInstanceOf[GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]]
 
     // inline def resolveNT[ST <: Tuple]: NamedTuple[
-    //   SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
-    //   GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]
+    //   SelectFromTuple[K, TupleContainsIdx[ST, K]],
+    //   GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]
     // ] =
     //   (1, Some(2.0), 1, 1, 2.0)
     //     .withNames[("Pclass", "Age", "SibSp", "Parch", "Fare")]
     //     .asInstanceOf[
     //       NamedTuple[
-    //         SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
-    //         GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]
+    //         SelectFromTuple[K, TupleContainsIdx[ST, K]],
+    //         GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]
     //       ]
     //     ]
 
     inline def columns[ST <: Tuple](using
         @implicitNotFound("Not all columns in ${ST} were found")
-        ev: AllAreColumns[ST, K1] =:= true
+        ev: AllAreColumns[ST, K] =:= true
     ): Iterator[
       NamedTuple[
-        SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
-        GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]
+        SelectFromTuple[K, TupleContainsIdx[ST, K]],
+        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]
       ]
     ] =
-      val headers = constValueTuple[K1].toList.map(_.toString())
-      // val types  = constValueTuple[SelectFromTuple[V1, TupleContainsIdx[ST, K1]]].toList.map(_.toString())
-      val selectedHeaders = constValueTuple[SelectFromTuple[K1, TupleContainsIdx[ST, K1]]].toList.map(_.toString())
+      val headers = constValueTuple[K].toList.map(_.toString())
+      // val types  = constValueTuple[SelectFromTuple[V, TupleContainsIdx[ST, K]]].toList.map(_.toString())
+      val selectedHeaders = constValueTuple[SelectFromTuple[K, TupleContainsIdx[ST, K]]].toList.map(_.toString())
 
       // Preserve the existing column order
       val idxes = selectedHeaders.map(headers.indexOf(_)).filterNot(_ == -1)
@@ -182,7 +182,7 @@ object NamedTupleIteratorExtensions:
       // println(s"selectedHeaders $selectedHeaders")
       // println(s"idxes $idxes")
 
-      itr.map[NamedTuple[SelectFromTuple[K1, TupleContainsIdx[ST, K1]], GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]]] { (x: NamedTuple[K1, V1]) =>
+      itr.map[NamedTuple[SelectFromTuple[K, TupleContainsIdx[ST, K]], GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]]] { (x: NamedTuple[K, V]) =>
         val tuple = x.toTuple
 
         // println("in tuple")
@@ -193,23 +193,23 @@ object NamedTupleIteratorExtensions:
         }
 
         selected
-          .withNames[SelectFromTuple[K1, TupleContainsIdx[ST, K1]]]
+          .withNames[SelectFromTuple[K, TupleContainsIdx[ST, K]]]
           .asInstanceOf[
             NamedTuple[
-              SelectFromTuple[K1, TupleContainsIdx[ST, K1]],
-              GetTypesAtNames[K1, SelectFromTuple[K1, TupleContainsIdx[ST, K1]], V1]
+              SelectFromTuple[K, TupleContainsIdx[ST, K]],
+              GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]
             ]
           ]
       }
     end columns
 
     inline def numericColSummary[S <: String](using
-        ev: IsColumn[S, K1] =:= true,
-        isNum: IsNumeric[GetTypeAtName[K1, S, V1]] =:= true,
+        ev: IsColumn[S, K] =:= true,
+        isNum: IsNumeric[GetTypeAtName[K, S, V]] =:= true,
         s: ValueOf[S],
-        a: Fractional[GetTypeAtName[K1, S, V1]]
+        a: Fractional[GetTypeAtName[K, S, V]]
     ) =
-      val numericValues = itr.column[S].toList.asInstanceOf[List[GetTypeAtName[K1, S, V1]]]
+      val numericValues = itr.column[S].toList.asInstanceOf[List[GetTypeAtName[K, S, V]]]
 
       val sortedValues = numericValues.sorted
       val size = sortedValues.size
@@ -235,35 +235,35 @@ object NamedTupleIteratorExtensions:
 
     inline def column[S <: String](using
         @implicitNotFound("Column ${S} not found")
-        ev: IsColumn[S, K1] =:= true,
+        ev: IsColumn[S, K] =:= true,
         s: ValueOf[S]
-    ): Iterator[GetTypeAtName[K1, S, V1]] =
-      val headers = constValueTuple[K1].toList.map(_.toString())
+    ): Iterator[GetTypeAtName[K, S, V]] =
+      val headers = constValueTuple[K].toList.map(_.toString())
       val headers2 = if headers.size > 22 then headers.reverse else headers
 
       val idx = headers2.indexOf(s.value)
-      itr.map(x => x.toTuple(idx).asInstanceOf[GetTypeAtName[K1, S, V1]])
+      itr.map(x => x.toTuple(idx).asInstanceOf[GetTypeAtName[K, S, V]])
     end column
 
     inline def dropColumn[S <: String](using
         @implicitNotFound("Column ${S} not found")
-        ev: IsColumn[S, K1] =:= true,
+        ev: IsColumn[S, K] =:= true,
         s: ValueOf[S]
-    ): Iterator[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]] =
-      val headers = constValueTuple[K1].toList.map(_.toString())
+    ): Iterator[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]] =
+      val headers = constValueTuple[K].toList.map(_.toString())
 
       /** Aaahhhh... apparently, TupleXXL is in reverse order!
         */
       val headers2 = if headers.size > 22 then headers.reverse else headers
       val idx = headers2.indexOf(s.value)
 
-      type RemoveMe = GetTypeAtName[K1, S, V1]
+      type RemoveMe = GetTypeAtName[K, S, V]
 
-      itr.map { (x: NamedTuple[K1, V1]) =>
+      itr.map { (x: NamedTuple[K, V]) =>
         val (head, tail) = x.toTuple.splitAt(idx)
         head match
-          case x: EmptyTuple => tail.tail.withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]]
-          case _             => (head ++ tail.tail).withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K1, S], DropOneTypeAtName[K1, S, V1]]]
+          case x: EmptyTuple => tail.tail.withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]]
+          case _             => (head ++ tail.tail).withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]]
         end match
       }
     end dropColumn

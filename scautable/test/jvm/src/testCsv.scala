@@ -12,6 +12,7 @@ import scala.compiletime.ops.int.S
 @experimental
 class CSVSuite extends munit.FunSuite:
 
+
   test("type test") {
     def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
 
@@ -336,6 +337,43 @@ class CSVSuite extends munit.FunSuite:
     assertEquals(csv.headerIndex("col1"), 0)
     assertEquals(csv.headerIndex("col2"), 1)
     assertEquals(csv.headerIndex("col3"), 2)
+
+    // csv.filter{ x => 
+    //   println(x.col1)
+    //   ???
+    // }.toVector 
+  }
+
+  
+  test("missing values") {
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "missing.csv")
+
+    val missing = csv.toList
+
+    assertEquals(missing.length, 4)
+    for (r <- missing) {
+      assertEquals(r.toTuple.productArity, 3)
+    }
+
+    val check = csv.filterNot(_.col2.isEmpty).toVector
+    
+  }
+
+  
+  test("missing values wide") {
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "missing_wide.csv")
+
+    val missing = csv.toList
+
+    assertEquals(missing.length, 4)
+    for (r <- missing) {
+      assertEquals(r.toTuple.productArity, 22)
+    }  
+
+    val check = csv.filterNot(_.col18.isEmpty).toVector
+
+    assertEquals(check.length, 2)
+    
   }
 
   // test("url") {
