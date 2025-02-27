@@ -23,14 +23,7 @@ class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, S
   inline def headerIndex(s: String) =
     headers.zipWithIndex.find(_._1 == s).get._2
 
-  /** Here be dragons, in Tuple Land, Tuple XXL is reversed, creating a discontinuity. Small tuples start at 1, big tuples start the other end.
-    *
-    * Apparently fixed in 3.6.3
-    *
-    * @return
-    */
-  inline def headerIndex[S <: String & Singleton] =
-    val headers2 = if headers.size > 22 then headers.reverse else headers
+  inline def headerIndex[S <: String & Singleton] =    
     headers.indexOf(constValue[S].toString)
   end headerIndex
 

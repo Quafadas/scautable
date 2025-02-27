@@ -106,10 +106,6 @@ object NamedTupleIteratorExtensions:
     ): Iterator[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]] =
       import scala.compiletime.ops.string.*
       val headers = constValueTuple[K].toList.map(_.toString())
-
-      /** Aaahhhh... apparently, TupleXXL is in reverse order!
-        */
-      val headers2 = if headers.size > 22 then headers.reverse else headers
       val idx = headers.indexOf(s.value)
       if idx == -1 then ???
       end if
@@ -239,9 +235,7 @@ object NamedTupleIteratorExtensions:
         s: ValueOf[S]
     ): Iterator[GetTypeAtName[K, S, V]] =
       val headers = constValueTuple[K].toList.map(_.toString())
-      val headers2 = if headers.size > 22 then headers.reverse else headers
-
-      val idx = headers2.indexOf(s.value)
+      val idx = headers.indexOf(s.value)
       itr.map(x => x.toTuple(idx).asInstanceOf[GetTypeAtName[K, S, V]])
     end column
 
