@@ -9,6 +9,7 @@ import scala.compiletime.*
 import CSV.*
 import ConsoleFormat.*
 import ColumnTyped.*
+import NamedTuple.*
 
 class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
@@ -20,10 +21,19 @@ class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, S
   lazy val headersTuple =
     listToTuple(headers)
 
+  def schemaGen: String =
+    val headerTypes = headers.map(header => s"type ${header} = \"$header\"").mkString("\n  ")
+    s"""object CsvSchema:
+  $headerTypes
+
+import CsvSchema.*
+"""
+  end schemaGen
+
   inline def headerIndex(s: String) =
     headers.zipWithIndex.find(_._1 == s).get._2
 
-  inline def headerIndex[S <: String & Singleton] =    
+  inline def headerIndex[S <: String & Singleton] =
     headers.indexOf(constValue[S].toString)
   end headerIndex
 
