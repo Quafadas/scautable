@@ -257,6 +257,20 @@ class CSVSuite extends munit.FunSuite:
 
   }
 
+  test("schema gen") {
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val schema = csv.schemaGen
+    assertNoDiff(
+      schema,
+      """object CsvSchema:
+  type col1 = "col1"
+  type col2 = "col2"
+  type col3 = "col3"
+
+import CsvSchema.*"""
+    )
+  }
+
   test("rename column") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
