@@ -21,6 +21,14 @@ import scala.collection.View.Single
 @experimental
 object CSV:
 
+  transparent inline def url[T](inline path: String) = ${ readCsvFromUrl('path) }
+
+  transparent inline def pwd[T](inline path: String) = ${ readCsvFromCurrentDir('path) }
+
+  transparent inline def resource[T](inline path: String) = ${ readCsvResource('path) }
+
+  transparent inline def absolutePath[T](path: String) = ${ readCsvAbolsutePath('path) }
+
   given IteratorToExpr2[K <: Tuple](using ToExpr[String], Type[K]): ToExpr[CsvIterator[K]] with
     def apply(opt: CsvIterator[K])(using Quotes): Expr[CsvIterator[K]] =
       val str = Expr(opt.getFilePath)
@@ -29,14 +37,6 @@ object CSV:
       }
     end apply
   end IteratorToExpr2
-
-  transparent inline def url[T](inline path: String) = ${ readCsvFromUrl('path) }
-
-  transparent inline def pwd[T](inline path: String) = ${ readCsvFromCurrentDir('path) }
-
-  transparent inline def resource[T](inline path: String) = ${ readCsvResource('path) }
-
-  transparent inline def absolutePath[T](path: String) = ${ readCsvAbolsutePath('path) }
 
   private transparent inline def readHeaderlineAsCsv(bs: BufferedSource, path: String)(using q: Quotes) =
     import q.reflect.*
@@ -92,7 +92,7 @@ object CSV:
     end if
     val source = Source.fromResource(path)
 
-    readHeaderlineAsCsv(source, path)
+    readHeaderlineAsCsv(source, resourcePath.getPath)
   end readCsvResource
 
 end CSV
