@@ -269,6 +269,15 @@ class CSVSuite extends munit.FunSuite:
 
 import CsvSchema.*"""
     )
+    object CsvSchema:
+      type col1 = "col1"
+      type col2 = "col2"
+      type col3 = "col3"
+    end CsvSchema
+
+    import CsvSchema.*
+
+    csv.column[col1].toArray // This should compile _and_ you get type completion
   }
 
   test("rename column") {
