@@ -16,6 +16,7 @@ import scala.collection.View.FlatMap
 import io.github.quafadas.scautable.ConsoleFormat.*
 import ColumnTyped.*
 import scala.math.Fractional.Implicits.*
+import scala.collection.View.Single
 
 @experimental
 object CSV:
@@ -35,9 +36,23 @@ object CSV:
 
   transparent inline def resource[T](inline path: String) = ${ readCsvResource('path) }
 
-  transparent inline def absolutePath[T](inline path: String) = ${ readCsvAbolsutePath('path) }
+  transparent inline def absolutePath[T](path: String) = ${ readCsvAbolsutePath('path) }
 
-  // TODO : I can't figure out how to refactor the common code inside the contraints of metaprogamming... 4 laterz.
+  private transparent inline def readHeaderlineAsCsv(bs: BufferedSource, path: String)(using q: Quotes) =
+    import q.reflect.*
+    try
+      val headers = bs.getLines().next().split(",").toList
+      val tupHeaders = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+      tupHeaders match
+        case '{ $tup: t } =>
+          val itr = new CsvIterator[t & Tuple](path.toString)
+          Expr(itr)
+        case _ => report.throwError(s"Could not summon Type for type: ${tupHeaders.show}")
+      end match
+
+    finally bs.close()
+    end try
+  end readHeaderlineAsCsv
 
   private def readCsvFromUrl(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
@@ -48,44 +63,15 @@ object CSV:
     val source = Source.fromURL(pathExpr.valueOrAbort)
     val tmpPath = os.temp(dir = os.pwd, prefix = "temp_csv_", suffix = ".csv")
     os.write.over(tmpPath, source.toArray.mkString)
-
-    val headerLine =
-      try Source.fromFile(tmpPath.toString()).getLines().next()
-      finally source.close()
-
-    val headers = headerLine.split(",").toList
-    val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-
-    tupleExpr2 match
-      case '{ $tup: t } =>
-        val itr = new CsvIterator[t & Tuple](tmpPath.toString())
-        // '{ NamedTuple.build[t & Tuple]()($tup) }
-        Expr(itr)
-      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
-    end match
+    readHeaderlineAsCsv(source, tmpPath.toString)
 
   end readCsvFromUrl
 
   private def readCsvFromCurrentDir(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
-
     val path = os.pwd / pathExpr.valueOrAbort
-
     val source = Source.fromFile(path.toString)
-    val headerLine =
-      try source.getLines().next()
-      finally source.close()
-
-    val headers = headerLine.split(",").toList
-    val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-
-    tupleExpr2 match
-      case '{ $tup: t } =>
-        val itr = new CsvIterator[t & Tuple](path.toString)
-        // '{ NamedTuple.build[t & Tuple]()($tup) }
-        Expr(itr)
-      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
-    end match
+    readHeaderlineAsCsv(source, path.toString)
 
   end readCsvFromCurrentDir
 
@@ -93,24 +79,8 @@ object CSV:
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
-
     val source = Source.fromFile(path)
-    val headerLine =
-      try source.getLines().next()
-      finally source.close()
-
-    val headers = headerLine.split(",").toList
-    val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-    tupleExpr2 match
-      case '{ $tup: t } =>
-
-        val itr = new CsvIterator[t & Tuple](path)
-        // println("tup")
-        // println(tup)
-        // '{ NamedTuple.build[t & Tuple]()($tup) }
-        Expr(itr)
-      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
-    end match
+    readHeaderlineAsCsv(source, path)
   end readCsvAbolsutePath
 
   private def readCsvResource(pathExpr: Expr[String])(using Quotes) =
@@ -121,22 +91,8 @@ object CSV:
     if resourcePath == null then report.throwError(s"Resource not found: $path")
     end if
     val source = Source.fromResource(path)
-    val headerLine =
-      try source.getLines().next()
-      finally source.close()
 
-    val headers = headerLine.split(",").toList
-    val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-    tupleExpr2 match
-      case '{ $tup: t } =>
-
-        val itr = new CsvIterator[t & Tuple](resourcePath.getPath.toString())
-        // println("tup")
-        // println(tup)
-        // '{ NamedTuple.build[t & Tuple]()($tup) }
-        Expr(itr)
-      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
-    end match
+    readHeaderlineAsCsv(source, path)
   end readCsvResource
 
 end CSV
