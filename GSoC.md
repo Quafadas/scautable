@@ -13,9 +13,11 @@ My experience has been that the existing scala solutions tend to be heavyweight 
 
 ## How?
 
-The initial experiment here showed (I believe) some promise. Scala's `@experimental NamedTuple` appears well suited to the task. The last I read, the hope is that it will no longer be experimental come scala 3.7.0.
+Scala's `@experimental NamedTuple` appears well suited to the task, and the initial experiment here showed (I believe) some promise (the hope is that it will no longer be experimental come scala 3.7.0, but it's coming at some point).
 
-In combination with a macro, we can generate a type signature for a `NamedTuple` from the CSV file _at compile time_. As far as I can tell, type inference works well from that point onwards. So, we can wheel in the scala stdlib to do an astonishing amount of heavy lifting. We need only to encourage people to think of a collection of `NamedTuple` as a table, I claim a relatively easy mental leap.
+In combination with a macro, we can generate a type signature for a `NamedTuple` from the CSV file headers _at compile time_. And now the compiler knows about the "columns".
+
+As far as I can tell, type inference works well from that point onwards. Our party trick, is that we can then wheel in the scala stdlib to do an astonishing amount of heavy lifting - we need only to encourage people to think of a collection of `NamedTuple` as a table, I claim a relatively easy mental leap.
 
 ## Status
 
