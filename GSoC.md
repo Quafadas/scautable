@@ -9,7 +9,7 @@ There are existing, excellent solutions:
 
 ## So, why?
 
-My experience has been that the existing scala solutions tend to be heavyweight (see spark) or, require you to _know_ the schema ahead of time (fs2-data, is none-the-less a great library). Our target USP, is one line, statically typed data import so that you can get started on a CSV file right from your script. It should heolp you discover the schema, in extremis without needing to open the file and figure out what is actually in there, first.
+My experience has been that the existing scala solutions tend to be heavyweight (see spark) or, require you to _know_ the schema ahead of time (fs2-data, is none-the-less a great library). Our target USP, is one line, statically typed data import so that you can get started on a CSV file right from your script. It should heolp you _discover_ the schema and data. Ideally without needing to open the file and figure out what is actually in there in advance first.
 
 ## How?
 
