@@ -30,6 +30,18 @@ object Excel:
   end IteratorToExpr2
 
   transparent inline def absolutePath[K](filePath: String, sheetName: String) = ${ readExcelAbolsutePath('filePath, 'sheetName) }
+  
+  // New method that allows runtime path evaluation
+  def openExcel(filePath: String, sheetName: String): ExcelIterator[Tuple] =
+    val headers = getExcelHeaders(filePath, sheetName)
+    new ExcelIterator[Tuple](filePath, sheetName)
+  
+  // Helper method to get headers from an Excel file
+  private def getExcelHeaders(filePath: String, sheetName: String): List[String] =
+    val workbook = WorkbookFactory.create(new File(filePath))
+    val sheet = workbook.getSheet(sheetName)
+    val headerRow = sheet.iterator().asScala.next()
+    headerRow.cellIterator().asScala.toList.map(_.toString)
 
   def readExcelAbolsutePath(pathExpr: Expr[String], sheetName: Expr[String])(using Quotes) =
     import quotes.reflect.*
@@ -89,5 +101,32 @@ class ExcelIterator[K](filePath: String, sheetName: String) extends Iterator[Nam
   end next
 
   override def hasNext: Boolean = sheetIterator.hasNext
+  
+  // Add a method to get a specific column by name
+  def getColumn(columnName: String): List[String] =
+    val columnIndex = headers.indexOf(columnName)
+    if columnIndex < 0 then 
+      throw new Excel.BadTableException(s"Column not found: $columnName")
+    else
+      val result = scala.collection.mutable.ListBuffer[String]()
+      val iterator = sheetIterator.drop(0) // We've already consumed the header row
+      while (iterator.hasNext) {
+        val row = iterator.next()
+        val cells = row.cellIterator().asScala.toList.map(_.toString)
+        if (cells.size == headers.size && columnIndex < cells.size) {
+          result += cells(columnIndex)
+        }
+      }
+      result.toList
+  
+  // Add a method to convert to a list of maps for easier data manipulation
+  def toMaps: List[Map[String, String]] =
+    val result = scala.collection.mutable.ListBuffer[Map[String, String]]()
+    while (hasNext) {
+      val row = next()
+      val rowMap = headers.zip(row.productIterator.toList.map(_.toString)).toMap
+      result += rowMap
+    }
+    result.toList
 
 end ExcelIterator
