@@ -4,12 +4,11 @@ import fansi.Str
 import scala.NamedTuple
 import scala.NamedTuple.*
 import scala.compiletime.constValueTuple
-import scala.annotation.experimental
 import scala.math.Numeric.Implicits.*
 import fansi.EscapeAttr
 import scala.util.NotGiven
 
-@experimental
+
 object ConsoleFormat:
 
   extension (s: Seq[Product])
