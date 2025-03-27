@@ -3,13 +3,11 @@ package io.github.quafadas.scautable
 import io.github.quafadas.table.*
 import java.time.LocalDate
 
-import scala.annotation.experimental
 import NamedTuple.*
 import scala.compiletime.ops.int.S
 
 import Excel.BadTableException
 
-@experimental
 class ExcelSuite extends munit.FunSuite:
 
   test("excel provider compiles and typechecks") {

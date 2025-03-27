@@ -2,7 +2,6 @@ package io.github.quafadas.scautable
 
 import scala.quoted.*
 import scala.io.Source
-import scala.annotation.experimental
 import NamedTuple.withNames
 import scala.NamedTuple.*
 import scala.collection.immutable.Stream.Empty
@@ -18,7 +17,6 @@ import ColumnTyped.*
 import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
 
-@experimental
 object CSV:
 
   transparent inline def url[T](inline path: String) = ${ readCsvFromUrl('path) }

@@ -1,15 +1,12 @@
 package io.github.quafadas.scautable
 
 import java.time.LocalDate
-
-import scala.annotation.experimental
 import io.github.quafadas.table.*
 
 import NamedTuple.*
 
 import scala.compiletime.ops.int.S
 
-@experimental
 class CSVSuite extends munit.FunSuite:
 
   test("type test") {
@@ -96,10 +93,10 @@ class CSVSuite extends munit.FunSuite:
 
     def selectCols: Iterator[(col1: Int, col3: String)] = cols.columns[("col1", "col3")]
 
-    assert(cols.toArray().head.col1 == 1)
-    assert(cols.toArray().head.col3 == "7")
-    assert(cols.toArray().last.col1 == 5)
-    assert(cols.toArray().last.col3 == "9")
+    assert(cols.toArray.head.col1 == 1)
+    assert(cols.toArray.head.col3 == "7")
+    assert(cols.toArray.last.col1 == 5)
+    assert(cols.toArray.last.col3 == "9")
 
     def numerics: Iterator[(col1: Int)] = cols.numericCols
     def nonnumerics: Iterator[(col2: String, col3: String)] = cols.nonNumericCols

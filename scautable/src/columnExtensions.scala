@@ -2,7 +2,6 @@ package io.github.quafadas.scautable
 
 import scala.quoted.*
 import scala.io.Source
-import scala.annotation.experimental
 import NamedTuple.withNames
 import scala.NamedTuple.*
 import scala.collection.immutable.Stream.Empty
