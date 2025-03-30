@@ -6,3 +6,8 @@
 .bsp
 out
 .bloop
+
+# idea
+.idea
+.idea_modules
+/.worksheet/
