@@ -73,7 +73,7 @@ import CsvSchema.*
     if !hasNext then throw new NoSuchElementException("No more lines")
     end if
     val str = lineIterator.next()
-    val splitted = CSVParser.parseLine(str)
+    val splitted = CSVParser.parseLine(str, delimiter)
     val tuple = listToTuple(splitted).asInstanceOf[StringyTuple[K & Tuple]]
     NamedTuple.build[K & Tuple]()(tuple)
   end next

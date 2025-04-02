@@ -39,6 +39,7 @@ object CSV:
   transparent inline def url[T](inline path: String) = ${ readCsvFromUrl('path, 'DefaultDelimiter) }
 
   transparent inline def pwd[T](inline path: String) = ${ readCsvFromCurrentDir('path, 'DefaultDelimiter) }
+  transparent inline def pwd[T](inline path: String, inline delimiter: Char) = ${ readCsvFromCurrentDir('path, 'delimiter) }
 
   transparent inline def resource[T](inline path: String) = ${ readCsvResource('path, 'DefaultDelimiter) }
   transparent inline def resource[T](inline path: String, inline delimiter: Char) = ${ readCsvResource('path, 'delimiter) }
@@ -61,7 +62,7 @@ object CSV:
   ) =
     import q.reflect.*
     try
-      val headers = bs.getLines().next().split(",").toList
+      val headers = bs.getLines().next().split(delimiter).toList
       val tupHeaders = Expr.ofTupleFromSeq(headers.map(Expr(_)))
       tupHeaders match
         case '{ $tup: t } =>

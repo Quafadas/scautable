@@ -33,12 +33,16 @@ class CSVSuite extends munit.FunSuite:
     )
   }
 
-  test("reading from semicolon") {
+  test("reading with different delimiter") {
     def csv = CSV.absolutePath(Generated.resourceDir0 + "semicolon.csv", ';')
 
     val headers = csv.headers
 
     assert(headers.length == 3)
+    assert(headers.head == "col1")
+    assert(headers(1) == "col2")
+    assert(headers(2) == "col3")
+    assert(csv.column["col1"].toArray.head == "1")
 
   }
 
