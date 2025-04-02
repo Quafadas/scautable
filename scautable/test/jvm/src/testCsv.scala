@@ -10,8 +10,8 @@ import scala.compiletime.ops.int.S
 class CSVSuite extends munit.FunSuite:
 
   test("type test") {
-    def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
 
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
     val tt = csv.headers.zip(csv.numericTypeTest._1)
     assert(tt.length == csv.headers.length)
 
@@ -33,7 +33,17 @@ class CSVSuite extends munit.FunSuite:
     )
   }
 
+  test("reading from semicolon") {
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "semicolon.csv", ';')
+
+    val headers = csv.headers
+
+    assert(headers.length == 3)
+
+  }
+
   test("csv from resource compiles and typechecks") {
+
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
     val titanic: CsvIterator[("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked")] =
