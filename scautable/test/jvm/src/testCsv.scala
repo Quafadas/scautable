@@ -9,6 +9,19 @@ import scala.compiletime.ops.int.S
 
 class CSVSuite extends munit.FunSuite:
 
+  test("write CSV") {
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val outParth = os.temp()
+    val out = csv.writeCsv(outParth.toString)
+    val testy = os.read.lines(outParth)
+    val source = os.read.lines(os.Path(Generated.resourceDir0 + "simple.csv"))
+    assert(testy.length == source.length)
+    assert(testy.head == source.head)
+    assert(testy.last == source.last)
+    assert(testy(1) == source(1))
+    // assert(os.read(os.Path(outParth)).lines() == os.read(Generated.resourceDir0 + "simple.csv").lines())
+  }
+
   test("type test") {
 
     def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")

@@ -22,6 +22,26 @@ object NamedTupleIteratorExtensions:
 
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 
+    inline def writeCsv(filePath: String) =
+      val headers = constValueTuple[K].toList.map(_.toString())
+
+      val headerLine = headers.mkString(",")
+
+      import java.io.{BufferedWriter, FileWriter}
+      val writer = new BufferedWriter(new FileWriter(filePath))
+
+      try
+        writer.write(headerLine)
+        writer.newLine()
+        itr.foreach { (x: NamedTuple[K, V]) =>
+          val line = x.toList.mkString(",")
+          writer.write(line)
+          writer.newLine()
+        }
+      finally writer.close()
+      end try
+    end writeCsv
+
     inline def numericTypeTest: (List[ConversionAcc], Long) =
       val headers = constValueTuple[K].toList.map(_.toString())
       val headerAcc = headers.map(_ => ConversionAcc(0, 0, 0))
@@ -263,6 +283,26 @@ object NamedTupleIteratorExtensions:
   end extension
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
+
+    inline def writeCsv(filePath: String) =
+      val headers = constValueTuple[K].toList.map(_.toString())
+
+      val headerLine = headers.mkString(",")
+
+      import java.io.{BufferedWriter, FileWriter}
+      val writer = new BufferedWriter(new FileWriter(filePath))
+
+      try
+        writer.write(headerLine)
+        writer.newLine()
+        nt.foreach { (x: NamedTuple[K, V]) =>
+          val line = x.toList.mkString(",")
+          writer.write(line)
+          writer.newLine()
+        }
+      finally writer.close()
+      end try
+    end writeCsv
 
     inline def column[S <: String](using
         @implicitNotFound("Column ${S} not found")

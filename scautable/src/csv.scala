@@ -62,7 +62,7 @@ object CSV:
   ) =
     import q.reflect.*
     try
-      val headers = bs.getLines().next().split(delimiter).toList
+      val headers = CSVParser.parseLine(bs.getLines().next(), delimiter)
       val tupHeaders = Expr.ofTupleFromSeq(headers.map(Expr(_)))
       tupHeaders match
         case '{ $tup: t } =>
