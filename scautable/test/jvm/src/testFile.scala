@@ -1,9 +1,6 @@
-//> using scala 3.6.4
-//> using dep io.github.quafadas::scautable:0.0.19
-
+//> using scala 3.7.0-RC1
+//> using dep io.github.quafadas::scautable:0.0.20
 //> using resourceDir ./scuatable/test/resources
-
-//> using options "-experimental" "-language:experimental.namedTuples"
 
 import io.github.quafadas.table.*
 import java.nio.file.{Files, Paths, Path}
@@ -17,53 +14,59 @@ import java.io.PrintWriter
 
   // Validate resources directory
   if !Files.exists(resourcesDir) || !Files.isDirectory(resourcesDir) then
-    println(s"Resources directory not found at ${resourcesDir.toAbsolutePath}")
+    println(s"Invalid resources directory: ${resourcesDir.toAbsolutePath}")
     System.exit(1)
   end if
 
-  // Get sorted files with metadata
+  // List all files in the directory
   val files = Files
     .list(resourcesDir)
     .filter(Files.isRegularFile(_))
     .toScala(List)
     .sortBy(_.getFileName.toString)
-    .map(p => (p, Try(Files.size(p)).getOrElse(0L)))
 
-  // Process files with error handling
-  val report = files.map { case (path, size) =>
+  // Process each file and generate a report
+  val report = files.map { path =>
     val fileName = path.getFileName.toString
-    val (status, preview, error) = Try {
-      val source = Source.fromFile(path.toFile)
-      try
-        val lines = source.getLines().take(5).toList
-        val contentPreview =
-          if lines.isEmpty then "<EMPTY FILE>"
-          else lines.map(_.take(50)).mkString("|") // Truncate long lines
-        (s"(${size}B)", contentPreview, "")
-      finally source.close()
-      end try
-    } match
-      case Failure(ex) =>
-        (s"(${size}B)", "", s"${ex.getClass.getSimpleName}: ${ex.getMessage}")
-      case Success((s, p, e)) => (s, p, e)
+    val fileSize = Try(Files.size(path)).getOrElse(0L)
 
+    // Attempt to parse the file as a CSV using Scautable
+    // val csvStatus = Try {
+    // TODO: Biggest Hurdle is this Expected a Known Value [The value of: path.toString()]
+    //   CSV.resource(path.toString).take(5).map(_.productIterator.mkString(",")).mkString("|")
+    // } match {
+    //   case Success(_) => "CSV_OK"
+    //   case Failure(_) => "CSV_FAIL"
+    // }
+
+    val csvStatus = "Expected a Known value Error" // just a error skipper
+
+    // Fallback to text reading if CSV parsing fails
+    val textStatus = Try {
+      Source.fromFile(path.toFile).getLines().take(5).mkString("|")
+    } match
+      case Success(_)  => "TEXT_OK"
+      case Failure(ex) => s"TEXT_FAIL: ${ex.getMessage.take(100)}" // Include failure reason
+
+    // Generate a report entry for the current file
     s"""$fileName
-       │Status: $status
-       │${if error.nonEmpty then s"Error: $error" else s"Preview: $preview"}
+       │Size: ${fileSize}B
+       │CSV Status: $csvStatus
+       │Text Status: $textStatus
        │${"-" * 60}""".stripMargin
   }
 
-  // Write formatted report
-  val outputFile = new PrintWriter("file_check_report.txt")
-  try
-    outputFile.println(s"""
-      |Resources Directory: ${resourcesDir.toAbsolutePath}
-      |Total Files Scanned: ${files.size}
-      |${"-" * 60}
-      |${report.mkString("\n")}
-      |""".stripMargin.trim)
-  finally outputFile.close()
-  end try
+  // Write the report to a file
+  new PrintWriter("file_validation_report.txt"):
+    try write(s"""File Validation Report
+         |Date: ${java.time.LocalDate.now}
+         |Scanned Directory: ${resourcesDir.toAbsolutePath}
+         |Total Files: ${files.size}
+         |${"-" * 60}
+         |${report.mkString("\n")}""".stripMargin)
+    finally close()
+    end try
+  end new
 
-  println(s"Report generated: file_check_report.txt")
+  println("File validation report generated: file_validation_report.txt")
 end testFile

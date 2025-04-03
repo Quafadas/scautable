@@ -8,7 +8,6 @@ import scala.math.Numeric.Implicits.*
 import fansi.EscapeAttr
 import scala.util.NotGiven
 
-
 object ConsoleFormat:
 
   extension (s: Seq[Product])
