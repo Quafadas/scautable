@@ -1,6 +1,6 @@
 //> using scala 3.7.0-RC1
 //> using dep io.github.quafadas::scautable:0.0.20
-//> using resourceDir ./scuatable/test/resources
+//> using resourceDir ./scuatable/test/resources/testFile/
 
 import io.github.quafadas.table.*
 import java.nio.file.{Files, Paths, Path}
