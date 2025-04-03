@@ -3,11 +3,9 @@ package io.github.quafadas.scautable
 import io.github.quafadas.table.*
 import java.time.LocalDate
 import scalatags.Text.all.*
-import scala.annotation.experimental
 import NamedTuple.*
 import scala.compiletime.ops.int.S
 
-@experimental
 class ExtendSuite extends munit.FunSuite:
 
   import scautable.*

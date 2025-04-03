@@ -2,9 +2,7 @@ package io.github.quafadas.scautable
 
 import scala.compiletime.*
 import scala.compiletime.ops.int.*
-import scala.annotation.experimental
 
-@experimental
 object ColumnTyped:
 
   inline def constValueAll[A]: A =

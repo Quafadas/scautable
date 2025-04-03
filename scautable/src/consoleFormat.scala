@@ -4,12 +4,11 @@ import fansi.Str
 import scala.NamedTuple
 import scala.NamedTuple.*
 import scala.compiletime.constValueTuple
-import scala.annotation.experimental
 import scala.math.Numeric.Implicits.*
 import fansi.EscapeAttr
 import scala.util.NotGiven
 
-@experimental
+
 object ConsoleFormat:
 
   extension (s: Seq[Product])
@@ -35,8 +34,8 @@ object ConsoleFormat:
     inline def formatAsPercentage: String =
       if a == 0 then "0.00%"
       else
-        val a100 = BigDecimal(numA.toDouble(a) * 100).setScale(2, BigDecimal.RoundingMode.HALF_UP)
-        f"$a100%.2f%%"
+        val a100 = BigDecimal(numA.toDouble(a) * 100).setScale(2, BigDecimal.RoundingMode.HALF_UP).doubleValue
+        String.format(java.util.Locale.ROOT, "%.2f%%", a100)
   end extension
 
   extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])

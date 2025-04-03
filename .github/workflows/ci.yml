@@ -27,8 +27,13 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - uses: coursier/cache-action@v6.4
+      - name: Compile
+        run: ./mill __.compile
+      - name: test
+        run: ./mill scautable.jvm.test
       - name: Run tests
-        run: ./mill -i __.publishArtifacts + __.test
+        run: ./mill -i __.publishArtifacts
+
 
   publish:
     if: github.repository == 'Quafadas/scautable' && contains(github.ref, 'refs/tags/')

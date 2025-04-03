@@ -16,14 +16,14 @@ import mill.api.Result
 
 //  mill --import ivy:com.lihaoyi::mill-contrib-bloop: mill.contrib.bloop.Bloop/install
 trait Common extends ScalaModule with PublishModule {
-  def scalaVersion = "3.6.3"
+  def scalaVersion = "3.7.0-RC1"
 
   override def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"com.lihaoyi::scalatags::0.13.1",
     ivy"com.lihaoyi::os-lib:0.11.4",
     ivy"com.lihaoyi::fansi::0.5.0"
   )
-  override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-experimental", "-language:experimental.namedTuples", "-Xmax-inlines", "128")
+  override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-Xmax-inlines", "128")
 
   def publishVersion = VcsVersion.vcsState().format()
 
