@@ -58,6 +58,17 @@ class MySuite extends munit.FunSuite:
       scautable(startSeq, true).toString()
     )
   }
+
+  test("one row as seq with custom headers") {
+    val start = ScauTest(1, "2")
+    val startSeq = Seq(start)
+    val headers = List("firstHeader", "secondHeader")
+    assertEquals(
+      """<table id="scautable" class="display"><thead><tr><th>firstHeader</th><th>secondHeader</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>""",
+      scautable(startSeq, true, headers).toString()
+    )
+  }
+
   test("one row as seq") {
     val start = ScauTest(1, "2")
     val startSeq = Seq(start)
