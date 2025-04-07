@@ -41,4 +41,41 @@ object CSVParser:
 
     result.toList
   end parseLine
+     def parseWithRecovery(
+     lines: Iterator[String],
+     separator: Char = ',',
+     recoveryStrategy: RecoveryStrategy.Strategy = RecoveryStrategy.Skip
+   ): Iterator[Either[CsvError, Seq[String]]] = {
+     if (!lines.hasNext) {
+       return Iterator.empty
+     }
+     
+     val headerLine = lines.next()
+     val headers = parseLine(headerLine, separator)
+     val expectedFields = headers.length
+     
+     Iterator(Right(headers)) ++ lines.zipWithIndex.flatMap { case (line, idx) =>
+       try {
+         val fields = parseLine(line, separator)
+         if (fields.length != expectedFields) {
+           val error = MalformedRowError(idx + 2, expectedFields, fields.length, line)
+           recoveryStrategy.recover(error, headers) match {
+             case Some(recovered) => Iterator(Right(recovered))
+             case None => Iterator(Left(error))
+           }
+         } else {
+           Iterator(Right(fields))
+         }
+       } catch {
+         case e: Exception => 
+           val error = new CsvError {
+             def lineNumber = idx + 2
+             def message = s"Failed to parse line: ${e.getMessage}"
+             def rowContent = line
+             def severity = ErrorSeverity.Fatal
+           }
+           Iterator(Left(error))
+       }
+     }
+   }
 end CSVParser
