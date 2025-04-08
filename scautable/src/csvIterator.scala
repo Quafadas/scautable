@@ -15,11 +15,62 @@ class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, S
   type COLUMNS = K
 
   def getFilePath: String = filePath
-  lazy private val source = Source.fromFile(filePath)
-  lazy private val lineIterator = source.getLines()
-  lazy val headers = CSVParser.parseLine((Source.fromFile(filePath).getLines().next()))
-  lazy val headersTuple =
-    listToTuple(headers)
+  
+  // Initialize these as vals to avoid reopening the file multiple times
+  private val fileContents = {
+    val src = Source.fromFile(filePath)
+    try {
+      src.getLines().toVector
+    } finally {
+      src.close()
+    }
+  }
+  
+  // Iterator over the loaded content
+  private val lineIterator = fileContents.iterator.drop(1) // Drop header line
+  
+  // Original raw headers from CSV file
+  lazy val originalHeaders: List[String] = CSVParser.parseLine(fileContents.head)
+  
+  // Headers used for the type-level representation (may be normalized if duplicates exist)
+  lazy val headers: List[String] = {
+    val rawHeaders = originalHeaders
+    if (rawHeaders.distinct.length != rawHeaders.length) {
+      // If duplicates exist, use normalized headers
+      HeaderUtils.normalizeHeaders(rawHeaders).toList
+    } else {
+      // Otherwise use originals
+      rawHeaders
+    }
+  }
+  
+  lazy val headersTuple = listToTuple(headers)
+  
+  // Check if headers were normalized due to duplicates
+  lazy val hasNormalizedHeaders: Boolean = originalHeaders.distinct.length != originalHeaders.length
+  
+  // Generate a report about header normalization if duplicates were found
+  def headerNormalizationReport: Option[String] = 
+    if (hasNormalizedHeaders) {
+      Some(HeaderUtils.createHeaderMappingTable(originalHeaders, headers))
+    } else {
+      None // No report needed if no normalization happened
+    }
+  
+  // Get the normalized version of a header (useful for accessing columns by original name)
+  def getNormalizedHeader(originalHeader: String): String = {
+    if (!hasNormalizedHeaders) return originalHeader
+    
+    val indices = originalHeaders.zipWithIndex.filter(_._1 == originalHeader).map(_._2)
+    if (indices.length == 1) {
+      // If there's only one instance of this header, return the corresponding normalized header
+      headers(indices.head)
+    } else {
+      // If there are multiple instances, find the first one
+      val idx = originalHeaders.indexOf(originalHeader)
+      headers(idx)
+    }
+  }
 
   def schemaGen: String =
     val headerTypes = headers.map(header => s"type ${header} = \"$header\"").mkString("\n  ")
@@ -37,36 +88,7 @@ import CsvSchema.*
     headers.indexOf(constValue[S].toString)
   end headerIndex
 
-  inline override def hasNext: Boolean =
-    val hasMore = lineIterator.hasNext
-    if !hasMore then source.close()
-    end if
-    hasMore
-  end hasNext
-
-  // def numericTypeTest(sample: Option[Int] = None) =
-  //   val sampled = sample match
-  //     case Some(n) =>
-  //       this.take(n)
-  //     case None =>
-  //       this
-  //   val asList = headers.map(_ => ConversionAcc(0, 0, 0))
-
-  //   sampled.foldLeft((asList, 0L))((acc: (List[ConversionAcc], Long), elem: NamedTuple[K & Tuple, StringyTuple[K & Tuple]]) =>
-
-  //     val list = elem.toList.asInstanceOf[List[String]].zip(acc._1).map { case (str, acc) =>
-
-  //       (
-  //         ConversionAcc(
-  //           acc.validInts + str.toIntOption.fold(0)(_ => 1),
-  //           acc.validDoubles + str.toDoubleOption.fold(0)(_ => 1),
-  //           acc.validLongs + str.toLongOption.fold(0)(_ => 1)
-  //         )
-  //       )
-  //     }
-  //     (list, acc._2 + 1)
-  //   )
-  // end numericTypeTest
+  inline override def hasNext: Boolean = lineIterator.hasNext
 
   inline override def next() =
     if !hasNext then throw new NoSuchElementException("No more lines")
@@ -76,6 +98,4 @@ import CsvSchema.*
     val tuple = listToTuple(splitted).asInstanceOf[StringyTuple[K & Tuple]]
     NamedTuple.build[K & Tuple]()(tuple)
   end next
-
-  next() // drop the headers
 end CsvIterator
