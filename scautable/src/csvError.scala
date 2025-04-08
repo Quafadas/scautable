@@ -45,7 +45,18 @@
      def message = s"Missing value in non-nullable column '$columnName' at line $lineNumber"
    }
 
-   /** Error recovery strategies */
+   /** Error recovery strategies 
+    *
+    * These strategies complement the compile-time typing system by providing 
+    * a preprocessing mechanism for CSV files with structural issues. The workflow is:
+    * 
+    * 1. Pre-process CSV files with structural issues using recovery strategies
+    * 2. Save the fixed CSV to a known location
+    * 3. Use compile-time typing with the fixed file
+    * 
+    * This is particularly valuable for user-uploaded or external CSV files where
+    * structure cannot be guaranteed at compile time.
+    */
    object RecoveryStrategy {
      trait Strategy {
        def recover[T](error: CsvError, headers: Seq[String]): Option[Seq[String]]
@@ -78,6 +89,21 @@
              val fields = CSVParser.parseLine(row)
              Some(fields.take(expected))
            case _ => None
+         }
+     }
+     
+     /** Combine multiple recovery strategies 
+      * 
+      * This method allows you to create a new strategy that tries each of the
+      * provided strategies in sequence until one succeeds.
+      * 
+      * @param strategies The recovery strategies to combine
+      * @return A new strategy that tries each provided strategy in order
+      */
+     def combine(strategies: Strategy*): Strategy = new Strategy {
+       def recover[T](error: CsvError, headers: Seq[String]): Option[Seq[String]] = 
+         strategies.foldLeft[Option[Seq[String]]](None) { (result, strategy) =>
+           result.orElse(strategy.recover(error, headers))
          }
      }
    }
