@@ -1,6 +1,7 @@
 package io.github.quafadas.scautable
 
 import munit.FunSuite
+import io.github.quafadas.scautable.HeaderUtils._
 
 class HeaderUtilsTest extends FunSuite {
   test("header normalization") {
