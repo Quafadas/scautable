@@ -9,9 +9,22 @@ import scala.compiletime.ops.int.S
 
 class CSVSuite extends munit.FunSuite:
 
-  test("type test") {
-    def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
+  test("write CSV") {
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val outParth = os.temp()
+    val out = csv.writeCsv(outParth.toString)
+    val testy = os.read.lines(outParth)
+    val source = os.read.lines(os.Path(Generated.resourceDir0 + "simple.csv"))
+    assert(testy.length == source.length)
+    assert(testy.head == source.head)
+    assert(testy.last == source.last)
+    assert(testy(1) == source(1))
+    // assert(os.read(os.Path(outParth)).lines() == os.read(Generated.resourceDir0 + "simple.csv").lines())
+  }
 
+  test("type test") {
+
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
     val tt = csv.headers.zip(csv.numericTypeTest._1)
     assert(tt.length == csv.headers.length)
 
@@ -33,7 +46,21 @@ class CSVSuite extends munit.FunSuite:
     )
   }
 
+  test("reading with different delimiter") {
+    def csv = CSV.absolutePath(Generated.resourceDir0 + "semicolon.csv", ';')
+
+    val headers = csv.headers
+
+    assert(headers.length == 3)
+    assert(headers.head == "col1")
+    assert(headers(1) == "col2")
+    assert(headers(2) == "col3")
+    assert(csv.column["col1"].toArray.head == "1")
+
+  }
+
   test("csv from resource compiles and typechecks") {
+
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
     val titanic: CsvIterator[("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked")] =
