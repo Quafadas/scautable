@@ -16,7 +16,7 @@ import mill.api.Result
 
 //  mill --import ivy:com.lihaoyi::mill-contrib-bloop: mill.contrib.bloop.Bloop/install
 trait Common extends ScalaModule with PublishModule {
-  def scalaVersion = "3.7.0-RC1"
+  def scalaVersion = "3.7.0-RC2"
 
   override def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"com.lihaoyi::scalatags::0.13.1",
