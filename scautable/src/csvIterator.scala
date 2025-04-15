@@ -10,6 +10,9 @@ import CSV.*
 import ConsoleFormat.*
 import ColumnTyped.*
 import NamedTuple.*
+import scala.quoted.Expr
+import scala.quoted.Quotes
+import scala.Tuple.Fold
 
 class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
@@ -17,6 +20,7 @@ class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, S
   def getFilePath: String = filePath
   lazy private val source = Source.fromFile(filePath)
   lazy private val lineIterator = source.getLines()
+
   lazy val headers = CSVParser.parseLine((Source.fromFile(filePath).getLines().next()))
   lazy val headersTuple =
     listToTuple(headers)

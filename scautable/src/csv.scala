@@ -25,7 +25,7 @@ object CSV:
 
   transparent inline def resource[T](inline path: String) = ${ readCsvResource('path) }
 
-  transparent inline def absolutePath[T](path: String) = ${ readCsvAbolsutePath('path) }
+  transparent inline def absolutePath[T](inline path: String) = ${ readCsvAbolsutePath('path) }
 
   given IteratorToExpr2[K <: Tuple](using ToExpr[String], Type[K]): ToExpr[CsvIterator[K]] with
     def apply(opt: CsvIterator[K])(using Quotes): Expr[CsvIterator[K]] =

@@ -2,6 +2,8 @@ package io.github.quafadas.scautable
 
 import scala.compiletime.*
 import scala.compiletime.ops.int.*
+import compiletime.ops.any.ToString
+import scala.compiletime.ops.int.S
 
 object ColumnTyped:
 
@@ -178,5 +180,25 @@ object ColumnTyped:
 
   type Size[T] <: Int = T match
     case EmptyTuple => 0
-    case x *: xs    => 1 + Size[xs]
+    case x *: xs    => S[Size[xs]]
 end ColumnTyped
+
+object Bah:
+
+  import scala.compiletime.ops.string.+
+  import scala.compiletime.ops.int.S
+
+  type DeduplicateTuple[T <: Tuple, Seen <: Tuple, Count <: Int] <: Tuple = T match
+    case EmptyTuple => EmptyTuple
+    case head *: tail =>
+      TupleContains[Seen, head] match
+        case true  => (head + "_" + ToString[Count]) *: DeduplicateTuple[tail, (head + "_") *: Seen, S[Count]]
+        case false => head *: DeduplicateTuple[tail, head *: Seen, S[Count]]
+
+  type TupleContains[T <: Tuple, Elem] <: Boolean = T match
+    case EmptyTuple => false
+    case head *: tail =>
+      head match
+        case Elem => true
+        case _    => TupleContains[tail, Elem]
+end Bah
