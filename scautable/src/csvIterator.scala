@@ -48,6 +48,8 @@ import CsvSchema.*
     hasMore
   end hasNext
 
+  inline def deduplicateHeaders = new CsvIterator[Bah.DeduplicateTuple[K, EmptyTuple, 0]](filePath)
+
   // def numericTypeTest(sample: Option[Int] = None) =
   //   val sampled = sample match
   //     case Some(n) =>
