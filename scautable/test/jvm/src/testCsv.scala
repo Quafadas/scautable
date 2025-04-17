@@ -33,6 +33,15 @@ class CSVSuite extends munit.FunSuite:
     )
   }
 
+  test("csv has duplicate headers") {
+    def csvD: CsvIterator[("col1", "col1", "col1", "col2", "col3", "col1")] = CSV.absolutePath(Generated.resourceDir0 + "dups.csv")
+
+    // If the next two lines compile, this is a pretty good indicator that we've deduplicated the headers
+    def ded1: CsvIterator[("col1", "col1_1", "col1_2", "col2", "col3", "col1_5")] = csvD.deduplicateHeaders
+    val argy = ded1.drop(1).next().col1_5
+    assert(argy == "5")
+  }
+
   test("csv from resource compiles and typechecks") {
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
 
