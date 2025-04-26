@@ -40,6 +40,13 @@ class CSVSuite extends munit.FunSuite:
     def ded1: CsvIterator[("col1", "col1_1", "col1_2", "col2", "col3", "col1_5")] = csvD.deduplicateHeaders
     val argy = ded1.drop(1).next().col1_5
     assert(argy == "5")
+
+    // These lines check that the macro can be called with named arguments
+    def noDedup: CsvIterator[("col1", "col1", "col1", "col2", "col3", "col1")] = CSV.absolutePath(Generated.resourceDir0 + "dups.csv", false)
+    def atCallsite: CsvIterator[("col1", "col1_1", "col1_2", "col2", "col3", "col1_5")] = CSV.absolutePath(Generated.resourceDir0 + "dups.csv", true)
+    def namedArg: CsvIterator[("col1", "col1_1", "col1_2", "col2", "col3", "col1_5")] = CSV.absolutePath(Generated.resourceDir0 + "dups.csv", dedupHeaders = true)
+    val argy2 = namedArg.drop(1).next().col1_5
+    assert(argy2 == "5")
   }
 
   test("csv from resource compiles and typechecks") {

@@ -16,16 +16,21 @@ import io.github.quafadas.scautable.ConsoleFormat.*
 import ColumnTyped.*
 import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
+import io.github.quafadas.scautable.Bah.DeduplicateTuple
 
 object CSV:
 
-  transparent inline def url[T](inline path: String) = ${ readCsvFromUrl('path) }
+  transparent inline def url[T](inline path: String, inline dedupHeaders: Boolean) = ${ readCsvFromUrl('path, 'dedupHeaders) }
 
-  transparent inline def pwd[T](inline path: String) = ${ readCsvFromCurrentDir('path) }
+  transparent inline def pwd[T](inline path: String, inline dedupHeaders: Boolean) = ${ readCsvFromCurrentDir('path, 'dedupHeaders) }
 
-  transparent inline def resource[T](inline path: String) = ${ readCsvResource('path) }
+  transparent inline def resource[T](inline path: String, inline dedupHeaders: Boolean) = ${ readCsvResource('path, 'dedupHeaders) }
 
-  transparent inline def absolutePath[T](inline path: String) = ${ readCsvAbolsutePath('path) }
+  transparent inline def absolutePath[T](inline path: String, inline dedupHeaders: Boolean = false) =
+    ${
+      readCsvAbolsutePath('path, 'dedupHeaders)
+    }
+  end absolutePath
 
   given IteratorToExpr2[K <: Tuple](using ToExpr[String], Type[K]): ToExpr[CsvIterator[K]] with
     def apply(opt: CsvIterator[K])(using Quotes): Expr[CsvIterator[K]] =
@@ -35,15 +40,26 @@ object CSV:
       }
     end apply
   end IteratorToExpr2
+  given IteratorToExpr3[K <: Tuple, D <: DeduplicateTuple[K, EmptyTuple, 0]](using ToExpr[String], Type[D]): ToExpr[CsvIterator[D]] with
+    def apply(opt: CsvIterator[D])(using Quotes): Expr[CsvIterator[D]] =
+      val str = Expr(opt.getFilePath)
+      '{
+        new CsvIterator[D]($str)
+      }
+    end apply
+  end IteratorToExpr3
 
-  private transparent inline def readHeaderlineAsCsv(bs: BufferedSource, path: String)(using q: Quotes) =
+  private transparent inline def readHeaderlineAsCsv(bs: BufferedSource, path: String, dedupHeaders: Boolean)(using q: Quotes) =
     import q.reflect.*
     try
       val headers = bs.getLines().next().split(",").toList
       val tupHeaders = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-      tupHeaders match
-        case '{ $tup: t } =>
+      (tupHeaders, dedupHeaders) match
+        case ('{ $tup: t }, false) =>
           val itr = new CsvIterator[t & Tuple](path.toString)
+          Expr(itr)
+        case ('{ $tup: t }, true) =>
+          val itr = new CsvIterator[t & Tuple](path.toString).deduplicateHeaders
           Expr(itr)
         case _ => report.throwError(s"Could not summon Type for type: ${tupHeaders.show}")
       end match
@@ -52,7 +68,12 @@ object CSV:
     end try
   end readHeaderlineAsCsv
 
-  private def readCsvFromUrl(pathExpr: Expr[String])(using Quotes) =
+  private def defaultDefaultDedeupHeaderArg(dedup: Expr[Boolean])(using Quotes) =
+    import quotes.reflect.*
+    dedup.value.getOrElse(false)
+  end defaultDefaultDedeupHeaderArg
+
+  private def readCsvFromUrl(pathExpr: Expr[String], dedupHeadersE: Expr[Boolean])(using Quotes) =
     import quotes.reflect.*
 
     report.warning(
@@ -60,37 +81,43 @@ object CSV:
     )
     val source = Source.fromURL(pathExpr.valueOrAbort)
     val tmpPath = os.temp(dir = os.pwd, prefix = "temp_csv_", suffix = ".csv")
+    val dedupHeaders = defaultDefaultDedeupHeaderArg(dedupHeadersE)
     os.write.over(tmpPath, source.toArray.mkString)
-    readHeaderlineAsCsv(source, tmpPath.toString)
+    readHeaderlineAsCsv(source, tmpPath.toString, dedupHeaders)
 
   end readCsvFromUrl
 
-  private def readCsvFromCurrentDir(pathExpr: Expr[String])(using Quotes) =
+  private def readCsvFromCurrentDir(pathExpr: Expr[String], dedupHeadersE: Expr[Boolean])(using Quotes) =
     import quotes.reflect.*
     val path = os.pwd / pathExpr.valueOrAbort
     val source = Source.fromFile(path.toString)
-    readHeaderlineAsCsv(source, path.toString)
+    val dedupHeaders = defaultDefaultDedeupHeaderArg(dedupHeadersE)
+    readHeaderlineAsCsv(source, path.toString, dedupHeaders)
 
   end readCsvFromCurrentDir
 
-  def readCsvAbolsutePath(pathExpr: Expr[String])(using Quotes) =
+  def readCsvAbolsutePath(pathExpr: Expr[String], dedupHeadersE: Expr[Boolean])(using Quotes) =
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
+    val dedupHeaders = defaultDefaultDedeupHeaderArg(dedupHeadersE)
     val source = Source.fromFile(path)
-    readHeaderlineAsCsv(source, path)
+    readHeaderlineAsCsv(source, path, dedupHeaders)
+
   end readCsvAbolsutePath
 
-  private def readCsvResource(pathExpr: Expr[String])(using Quotes) =
+  private def readCsvResource(pathExpr: Expr[String], dedupHeadersE: Expr[Boolean])(using Quotes) =
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
+    val dedupHeaders = defaultDefaultDedeupHeaderArg(dedupHeadersE)
     val resourcePath = this.getClass.getClassLoader.getResource(path)
     if resourcePath == null then report.throwError(s"Resource not found: $path")
     end if
     val source = Source.fromResource(path)
 
-    readHeaderlineAsCsv(source, resourcePath.getPath)
+    readHeaderlineAsCsv(source, resourcePath.getPath, dedupHeaders)
+
   end readCsvResource
 
 end CSV
