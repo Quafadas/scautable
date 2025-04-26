@@ -34,3 +34,6 @@ This style guide outlines the conventions and best practices for contributing to
 - **Pattern Matching**: Use pattern matching for conditional logic instead of chained `if-else` statements.
 - **Option Handling**: Use `Option` and pattern matching to handle nullable values.
 
+## Changes
+
+Please provide a short summary of the changes you have made suitable for committing to git.
