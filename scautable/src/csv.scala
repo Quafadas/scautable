@@ -32,15 +32,15 @@ object CSV:
     }
   end absolutePath
 
-  given IteratorFromExpr[K <: Tuple](using Type[K]): FromExpr[CsvIterator[K]] with
-    def unapply(x: Expr[CsvIterator[K]])(using Quotes): Option[CsvIterator[K]] =
-      import quotes.reflect.*
-      x.asTerm.underlying.asExprOf[CsvIterator[K]] match
-        case '{ new CsvIterator[K](${ Expr(filePath) }) } => Some(new CsvIterator[K](filePath))
-        case _                                            => None
-      end match
-    end unapply
-  end IteratorFromExpr
+  // given IteratorFromExpr[K <: Tuple](using Type[K]): FromExpr[CsvIterator[K]] with
+  //   def unapply(x: Expr[CsvIterator[K]])(using Quotes): Option[CsvIterator[K]] =
+  //     import quotes.reflect.*
+  //     x.asTerm.underlying.asExprOf[CsvIterator[K]] match
+  //       case '{ new CsvIterator[K](${ Expr(filePath) }) } => Some(new CsvIterator[K](filePath))
+  //       case _                                            => None
+  //     end match
+  //   end unapply
+  // end IteratorFromExpr
 
   given IteratorToExpr2[K <: Tuple](using ToExpr[String], Type[K]): ToExpr[CsvIterator[K]] with
     def apply(opt: CsvIterator[K])(using Quotes): Expr[CsvIterator[K]] =
@@ -68,9 +68,9 @@ object CSV:
         case ('{ $tup: t }, false) =>
           val itr = new CsvIterator[t & Tuple](path.toString)
           Expr(itr)
-        // case ('{ $tup: t }, true) =>
-        //   val itr = new CsvIterator[t & Tuple](path.toString).deduplicateHeaders
-        //   Expr(itr)
+        case ('{ $tup: t }, true) =>
+          val itr = new CsvIterator[t & Tuple](path.toString).deduplicateHeaders
+          Expr(itr)
         case _ => report.throwError(s"Could not summon Type for type: ${tupHeaders.show}")
       end match
 
