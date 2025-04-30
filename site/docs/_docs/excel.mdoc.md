@@ -6,5 +6,7 @@ Reading tables from excel should work a very similar way to CSV, with support be
 
 
 ```scala sc:no-compile
-def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.resource("SimpleTable.xlsx", "Sheet1")
+import io.github.quafadas.table.*
+
+def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.absolutePath("path/to/SimpleTable.xlsx", "Sheet1")
 ```
