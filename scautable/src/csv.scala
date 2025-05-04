@@ -27,6 +27,18 @@ object CSV:
 
   transparent inline def absolutePath[T](path: String) = ${ readCsvAbolsutePath('path) }
 
+  /** Ensures unique column names for the iterator.
+    *
+    * For each repeated column name, appends the column’s 0-based index to the name.
+    *
+    *  Example:
+    *  {{{
+    *    val csv: CsvIterator[("colA", "colB" "colA")] = CSV.absolutePath("...")
+    *    val uniqCsv: CsvIterator[("colA", "colB", "colA_2")] = CSV.deduplicateHeaders(csv)
+    *  }}}
+    */
+  transparent inline def deduplicateHeaders[K <: Tuple](obj: CsvIterator[K]) = ${ deduplicateHeadersCode('obj) }
+
   given IteratorToExpr2[K <: Tuple](using ToExpr[String], Type[K]): ToExpr[CsvIterator[K]] with
     def apply(opt: CsvIterator[K])(using Quotes): Expr[CsvIterator[K]] =
       val str = Expr(opt.getFilePath)
@@ -36,10 +48,22 @@ object CSV:
     end apply
   end IteratorToExpr2
 
+  given IteratorFromExpr[K <: Tuple](using Type[K]): FromExpr[CsvIterator[K]] with
+    def unapply(x: Expr[CsvIterator[K]])(using Quotes): Option[CsvIterator[K]] =
+      import quotes.reflect.*
+      x.asTerm.underlying.asExprOf[CsvIterator[K]] match
+      case '{ new CsvIterator[K](${Expr(filePath)})} => Some(new CsvIterator[K](filePath))
+      case _ => None
+  end IteratorFromExpr
+
   private transparent inline def readHeaderlineAsCsv(bs: BufferedSource, path: String)(using q: Quotes) =
     import q.reflect.*
     try
       val headers = bs.getLines().next().split(",").toList
+
+      if headers.length != headers.distinct.length then
+        report.info("Possible duplicated headers detected. Consider using `CSV.deduplicateHeaders`.")
+
       val tupHeaders = Expr.ofTupleFromSeq(headers.map(Expr(_)))
       tupHeaders match
         case '{ $tup: t } =>
@@ -92,5 +116,22 @@ object CSV:
 
     readHeaderlineAsCsv(source, resourcePath.getPath)
   end readCsvResource
+
+  private def deduplicateHeadersCode[K <: Tuple](objExpr: Expr[CsvIterator[K]])(using Quotes, Type[K]) =
+    import quotes.reflect.*
+
+    val obj = objExpr.valueOrAbort
+
+    val headers = obj.headers
+    val uniqueHeaders = for ((h, i) <- headers.zipWithIndex) yield
+      if headers.indexOf(h) != i then s"${h}_${i}" else h
+
+    Expr.ofTupleFromSeq(uniqueHeaders.map(Expr(_))) match
+      case '{ $tup: t } =>
+        val itr = new CsvIterator[t & Tuple](obj.getFilePath)
+        Expr(itr)
+      case _ => report.throwError(s"Could not infer a literal type for ${uniqueHeaders}")
+    end match
+  end deduplicateHeadersCode
 
 end CSV
