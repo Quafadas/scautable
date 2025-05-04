@@ -11,13 +11,14 @@ import ConsoleFormat.*
 import ColumnTyped.*
 import NamedTuple.*
 
-class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
+class CsvIterator[K <: Tuple](filePath: String, delimiter: Char) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
 
   def getFilePath: String = filePath
+  def getDelimiter: Char = delimiter
   lazy private val source = Source.fromFile(filePath)
   lazy private val lineIterator = source.getLines()
-  lazy val headers = CSVParser.parseLine((Source.fromFile(filePath).getLines().next()))
+  lazy val headers = CSVParser.parseLine((Source.fromFile(filePath).getLines().next()), delimiter)
   lazy val headersTuple =
     listToTuple(headers)
 
@@ -72,7 +73,7 @@ import CsvSchema.*
     if !hasNext then throw new NoSuchElementException("No more lines")
     end if
     val str = lineIterator.next()
-    val splitted = CSVParser.parseLine(str)
+    val splitted = CSVParser.parseLine(str, delimiter)
     val tuple = listToTuple(splitted).asInstanceOf[StringyTuple[K & Tuple]]
     NamedTuple.build[K & Tuple]()(tuple)
   end next
