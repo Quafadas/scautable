@@ -98,9 +98,9 @@ println(colmanipuluation.filter(_.col4_renamed > 20).foldLeft(0.0)(_ + _.col4_re
 
 ### Why are the iterators `def`?
 
-Because if you make them `val` and try to read them a second time, you'll get a `StreamClosedException` or something similar.
+Because if you make them `val` and try to read them a second time, you'll get a `StreamClosedException`.
 
-They are cheap to create - I normally switch to `val` after a call to `toList` or similar.
+Iterators are cheap to create, but I usually read all data into a `val` via a call to `toSeq` to avoid traversing the file multiple times.
 
 ### Header deduplication
 

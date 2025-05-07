@@ -16,7 +16,7 @@ import NamedTuple.*
  * 
  * It is a (lazy) iterator that reads a CSV file line by line and converts each line into a NamedTuple.
  * 
- * Attempting to use the iterator a second time will throw an exception. Common usage
+ * Attempting to use the iterator a second time will throw a `StreamClosedException`. Common usage
  * 
  * ```scala sc:nocompile
  * def csvIterator = CSV.resource("simple.csv")
