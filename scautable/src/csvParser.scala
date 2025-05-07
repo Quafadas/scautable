@@ -5,9 +5,10 @@ import scala.util.Try
 import scala.util.chaining.*
 import scala.util.matching.Regex
 
-/** According to chatGPT will parse RFC 4180 compliant CSV.
+/** 
+ * According to chatGPT will parse RFC 4180 compliant CSV line.
   */
-object CSVParser:
+private[scautable] object CSVParser:
   def parseLine(line: String, delimiter: Char = ',', quote: Char = '"'): List[String] =
     var inQuotes = false
     val cellBuffer = new StringBuilder

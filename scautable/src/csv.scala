@@ -19,12 +19,48 @@ import scala.collection.View.Single
 
 object CSV:
 
+  /**
+   * Saves a URL to a local CSV returns a [[io.github.quafadas.scautable.CsvIterator]].
+   * 
+   * Example:
+   * {{{
+   *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.url("https://somewhere.com/file.csv")
+   * }}}      
+   */
   transparent inline def url[T](inline path: String) = ${ readCsvFromUrl('path) }
 
+  /**
+   * Reads a CSV present in the current _compiler_ working directory resources and returns a [[io.github.quafadas.scautable.CsvIterator]].
+   * 
+   * Note that in most cases, this is _not_ the same as the current _runtime_ working directory, and you are likely to get the bloop server directory.
+   * 
+   * Hopefully, useful in almond notebooks.
+   * 
+   * Example:
+   * {{{
+   *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.pwd("file.csv")
+   * }}}      
+   */
   transparent inline def pwd[T](inline path: String) = ${ readCsvFromCurrentDir('path) }
 
+    /**
+   * Reads a CSV present in java resources and returns a [[io.github.quafadas.scautable.CsvIterator]].
+   * 
+   * Example:
+   * {{{
+   *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.resource("file.csv")
+   * }}}      
+   */
   transparent inline def resource[T](inline path: String) = ${ readCsvResource('path) }
 
+  /**
+   * Reads a CSV file from an absolute path and returns a [[io.github.quafadas.scautable.CsvIterator]].
+   * 
+   * Example:
+   * {{{
+   *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.absolutePath("/absolute/path/to/file.csv")
+   * }}}      
+   */
   transparent inline def absolutePath[T](path: String) = ${ readCsvAbolsutePath('path) }
 
   /** Ensures unique column names for the iterator.
@@ -91,8 +127,7 @@ object CSV:
 
   private def readCsvFromCurrentDir(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
-    val path = os.pwd / pathExpr.valueOrAbort
-    // val source = Source.fromFile(path.toString)
+    val path = os.pwd / pathExpr.valueOrAbort    
     readHeaderlineAsCsv(path.toString)
 
   end readCsvFromCurrentDir
@@ -101,7 +136,6 @@ object CSV:
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
-    // val source = Source.fromFile(path)
     readHeaderlineAsCsv(path)
   end readCsvAbolsutePath
 
@@ -111,8 +145,7 @@ object CSV:
     val path = pathExpr.valueOrAbort
     val resourcePath = this.getClass.getClassLoader.getResource(path)
     if resourcePath == null then report.throwError(s"Resource not found: $path")
-    end if
-    // val source = Source.fromResource(path)
+    end if    
 
     readHeaderlineAsCsv(resourcePath.getPath)
   end readCsvResource

@@ -56,6 +56,8 @@ We'll leave out explicit type ascriptions for the rest of the examples.
 
 ```
 
+
+
 ### Column Operations
 
 [[io.github.quafadas.scautable.CSV]] and look at the extension methods
@@ -67,9 +69,12 @@ def colmanipuluation = experiment
   .renameColumn["col4", "col4_renamed"]
   .mapColumn["col4_renamed", Double](_ * 2)
 
-println(colmanipuluation.toArray.consoleFormatNt(fansi = false))
+colmanipuluation.toArray.consoleFormatNt(fansi = false)
 
 println(colmanipuluation.column["col4_renamed"].foldLeft(0.0)(_ + _))
+
+// and select a subset of columns
+colmanipuluation.columns[("col4_renamed", "col1")].toArray.consoleFormatNt(fansi = false)
 
 ```
 
@@ -97,6 +102,15 @@ Because if you make them `val` and try to read them a second time, you'll get a 
 
 They are cheap to create - I normally switch to `val` after a call to `toList` or similar.
 
+### Header deduplication
+
+If you are in the situation where you have a large number of duplicate headers, consider de-duplication.
+
+```scala sc:nocompile
+def csvDup: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA")] = CSV.resource("dups.csv")
+
+def dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_5")] = CSV.deduplicateHeader(csvDup)
+```
 
 ### Example
 

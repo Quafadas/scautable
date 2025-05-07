@@ -9,7 +9,25 @@ title: Displaying Tables
 
 ```
 
-# Elevator Pitch
+# In console
+
+In scripts or conosle, fansi formatting is strongly preferred. 
+
+```scala mdoc sc:nocompile
+import io.github.quafadas.table.*
+
+def csv = CSV.resource("simple.csv")
+csv.toSeq.consoleFormatNt(fansi = false)
+
+// This  much better in a console / script, but ugly in browser
+csv.toSeq.consoleFormatNt(fansi = false)
+
+// but this is easier to type and is equivalent to this;
+csv.toSeq.ptbln
+
+```
+
+# In browser (currently untested with named tuples)
 
 ```scala
 import io.github.quafadas.table.*
