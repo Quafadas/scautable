@@ -56,24 +56,24 @@ object CSV:
       case _ => None
   end IteratorFromExpr
 
-  private transparent inline def readHeaderlineAsCsv(bs: BufferedSource, path: String)(using q: Quotes) =
+  private transparent inline def readHeaderlineAsCsv(path: String)(using q: Quotes) =
     import q.reflect.*
-    try
-      val headers = bs.getLines().next().split(",").toList
+    
+    val itr = new CsvIterator(path.toString)
+    val headers = itr.headers
 
-      if headers.length != headers.distinct.length then
-        report.info("Possible duplicated headers detected. Consider using `CSV.deduplicateHeaders`.")
+    if headers.length != headers.distinct.length then
+      report.info("Possible duplicated headers detected. Consider using `CSV.deduplicateHeaders`.")
 
-      val tupHeaders = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-      tupHeaders match
-        case '{ $tup: t } =>
-          val itr = new CsvIterator[t & Tuple](path.toString)
-          Expr(itr)
-        case _ => report.throwError(s"Could not summon Type for type: ${tupHeaders.show}")
-      end match
+    val tupHeaders = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+    tupHeaders match
+      case '{ $tup: t } =>
+        // val itr = new CsvIterator[t & Tuple](path.toString)
+        Expr(itr.asInstanceOf[CsvIterator[t & Tuple]])
+      case _ => report.throwError(s"Could not summon Type for type: ${tupHeaders.show}")
+    end match
 
-    finally bs.close()
-    end try
+    
   end readHeaderlineAsCsv
 
   private def readCsvFromUrl(pathExpr: Expr[String])(using Quotes) =
@@ -85,15 +85,15 @@ object CSV:
     val source = Source.fromURL(pathExpr.valueOrAbort)
     val tmpPath = os.temp(dir = os.pwd, prefix = "temp_csv_", suffix = ".csv")
     os.write.over(tmpPath, source.toArray.mkString)
-    readHeaderlineAsCsv(source, tmpPath.toString)
+    readHeaderlineAsCsv(tmpPath.toString)
 
   end readCsvFromUrl
 
   private def readCsvFromCurrentDir(pathExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
     val path = os.pwd / pathExpr.valueOrAbort
-    val source = Source.fromFile(path.toString)
-    readHeaderlineAsCsv(source, path.toString)
+    // val source = Source.fromFile(path.toString)
+    readHeaderlineAsCsv(path.toString)
 
   end readCsvFromCurrentDir
 
@@ -101,8 +101,8 @@ object CSV:
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
-    val source = Source.fromFile(path)
-    readHeaderlineAsCsv(source, path)
+    // val source = Source.fromFile(path)
+    readHeaderlineAsCsv(path)
   end readCsvAbolsutePath
 
   private def readCsvResource(pathExpr: Expr[String])(using Quotes) =
@@ -112,9 +112,9 @@ object CSV:
     val resourcePath = this.getClass.getClassLoader.getResource(path)
     if resourcePath == null then report.throwError(s"Resource not found: $path")
     end if
-    val source = Source.fromResource(path)
+    // val source = Source.fromResource(path)
 
-    readHeaderlineAsCsv(source, resourcePath.getPath)
+    readHeaderlineAsCsv(resourcePath.getPath)
   end readCsvResource
 
   private def deduplicateHeadersCode[K <: Tuple](objExpr: Expr[CsvIterator[K]])(using Quotes, Type[K]) =

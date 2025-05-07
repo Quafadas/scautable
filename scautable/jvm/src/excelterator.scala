@@ -14,7 +14,12 @@ import ColumnTyped.*
 import java.io.File
 import scala.collection.JavaConverters.*
 import scala.quoted.*
+import org.apache.poi.ss.util.CellRangeAddress
 
+
+/**
+ * 
+ */
 object Excel:
 
   class BadTableException(message: String) extends Exception(message)
@@ -23,46 +28,94 @@ object Excel:
     def apply(opt: ExcelIterator[K])(using Quotes): Expr[ExcelIterator[K]] =
       val str = Expr(opt.getFilePath)
       val sheet = Expr(opt.getSheet)
+      val colRange = Expr(opt.getColRange)
       '{
-        new ExcelIterator[K]($str, $sheet)
+        new ExcelIterator[K]($str, $sheet, $colRange)
       }
     end apply
   end IteratorToExpr2
 
-  transparent inline def absolutePath[K](filePath: String, sheetName: String) = ${ readExcelAbolsutePath('filePath, 'sheetName) }
+  transparent inline def absolutePath[K](filePath: String, sheetName: String, range: String = "") = ${ readExcelAbolsutePath('filePath, 'sheetName, 'range) }
+  transparent inline def resource[K](filePath: String, sheetName: String, range: String = "") = ${ readExcelResource('filePath, 'sheetName, 'range) }
 
-  def readExcelAbolsutePath(pathExpr: Expr[String], sheetName: Expr[String])(using Quotes) =
+  def readExcelResource(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String])(using Quotes) =
+    import quotes.reflect.*
+
+    val path = pathExpr.valueOrAbort
+    val resourcePath = this.getClass.getClassLoader.getResource(path)
+    if resourcePath == null then report.throwError(s"Resource not found: $path")
+    end if
+    val validatedPath = resourcePath.toURI.getPath
+    val colRange = colRangeExpr.value    
+    val iterator = ExcelIterator(validatedPath, sheetName.valueOrAbort, colRange)
+    val tupleExpr2 = Expr.ofTupleFromSeq(iterator.headers.map(Expr(_)))
+    tupleExpr2 match
+      case '{ $tup: t } =>        
+        // val itr = new ExcelIterator[t](validatedPath, sheetName.valueOrAbort, colRange)
+        Expr(iterator.asInstanceOf[ExcelIterator[t]])
+      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
+    end match
+  
+  def readExcelAbolsutePath(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String])(using Quotes) =
     import quotes.reflect.*
 
     val fPath = pathExpr.valueOrAbort
-    val headers = ExcelIterator(pathExpr.valueOrAbort, sheetName.valueOrAbort).headers
-    val tupleExpr2 = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-    tupleExpr2 match
-      case '{ $tup: t } =>
+    val colRange = colRangeExpr.value    
+    val iterator = ExcelIterator(fPath, sheetName.valueOrAbort, colRange)
+    val tupleExpr2 = Expr.ofTupleFromSeq(iterator.headers.map(Expr(_)))
 
-        val itr = new ExcelIterator[t](fPath, sheetName.valueOrAbort)
-        // println("tup")
-        // println(tup)
-        // '{ NamedTuple.build[t & Tuple]()($tup) }
-        Expr(itr)
+
+    tupleExpr2 match
+      case '{ $tup: t } =>        
+        // val itr = new ExcelIterator[t](fPath, sheetName.valueOrAbort, colRange)
+        Expr(iterator.asInstanceOf[ExcelIterator[t]])
       case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
     end match
   end readExcelAbolsutePath
 end Excel
 
-class ExcelIterator[K](filePath: String, sheetName: String) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple]]]:
+class ExcelIterator[K](filePath: String, sheetName: String, colRange: Option[String]) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
 
   def getFilePath: String = filePath
   def getSheet: String = sheetName
+  def getColRange: Option[String] = colRange
 
-  lazy val sheetIterator =
+  def getRanges(r: String) =
+      val range = CellRangeAddress.valueOf(r)
+      (range.getFirstRow, range.getLastRow, range.getFirstColumn, range.getLastColumn)
+
+  lazy val sheetIterator =    
     val workbook = WorkbookFactory.create(new File(filePath))
     val sheet = workbook.getSheet(sheetName)
     sheet.iterator().asScala
   end sheetIterator
 
-  val headers = if sheetIterator.hasNext then sheetIterator.next().cellIterator().asScala.toList.map(_.toString) else List.empty
+
+  var debugi: Int = colRange match
+    case None => 0
+    case Some(range) => 
+      val (firstRow, lastRow, firstCol, lastCol) = getRanges(range)
+      firstRow
+
+  val headers: List[String] = 
+    colRange match 
+      case None => 
+        if sheetIterator.hasNext then      
+          sheetIterator.next().cellIterator().asScala.toList.map(_.toString)
+        else
+          throw new Excel.BadTableException("No headers found in the first row of the sheet, and no range specified.")
+      case Some(range) => 
+        val (firstRow, lastRow, firstCol, lastCol) = getRanges(range)
+        // println(s"Row firstRow: $firstRow, lastRow: $lastRow, firstCol: $firstCol, lastCol: $lastCol")
+        val firstRow_ = sheetIterator.drop(firstRow).next()
+        val cells = for (i <- firstCol to
+         lastCol) yield {
+          firstRow_.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+        }
+        cells.toList
+  
+  lazy val numCellsPerRow = headers.size
 
   val headerSet = scala.collection.mutable.Set[String]()
   headers.foreach { header =>
@@ -73,21 +126,36 @@ class ExcelIterator[K](filePath: String, sheetName: String) extends Iterator[Nam
   lazy val headersTuple =
     listToTuple(headers)
 
-  var debugi: Int = 0
-  // var nextRow = sheetIterator.next().cellIterator().asScala.toList.map(_.toString)
+  
   override def next(): NamedTuple[K & Tuple, StringyTuple[K & Tuple]] =
     if !hasNext then throw new NoSuchElementException("No more rows")
-    end if
     val row = sheetIterator.next()
-    val cells = row.cellIterator().asScala.toList.map(_.toString)
-    if cells.size != headers.size then
+    val lastColumn = row.getLastCellNum();
+    val cells = row.cellIterator().asScala     
+    val cellStr = colRange match
+      case None => 
+        cells.toList.map(_.toString)
+      case Some(range) => 
+        val (firstRow, lastRow, firstCol, lastCol) = getRanges(range)
+        // println(s"Row $debugi: $firstRow, $lastRow, $firstCol, $lastCol")
+        val cells = for (i <- firstCol to lastCol) yield {
+          row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+        }
+        cells.toList
+    
+    // println(s"Row $debugi: ${cellStr.map(_.toString).mkString(", ")}")
+    if cellStr.size != headers.size then
       throw new Excel.BadTableException(s"Row $debugi has ${cells.size} cells, but the table has ${headers.size} cells. Reading data was terminated")
-    end if
-    val tuple = listToTuple(cells)
+    val tuple = listToTuple(cellStr)
     debugi += 1
     NamedTuple.build[K & Tuple]()(tuple).asInstanceOf[StringyTuple[K & Tuple]]
   end next
 
-  override def hasNext: Boolean = sheetIterator.hasNext
+  override def hasNext: Boolean = 
+    colRange match
+      case None => sheetIterator.hasNext
+      case Some(value) => 
+        val (firstRow, lastRow, firstCol, lastCol) = getRanges(value)        
+        debugi < lastRow
 
 end ExcelIterator

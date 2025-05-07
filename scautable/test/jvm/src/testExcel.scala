@@ -36,4 +36,23 @@ class ExcelSuite extends munit.FunSuite:
 
   }
 
+  test("ExcelIterator with colStart parameter") {    
+    def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.absolutePath(Generated.resourceDir0 + "SimpleTableColOffset.xlsx", "Sheet1", "D1:F4")
+     
+    val csvSeq = csv.toSeq
+    assertEquals(csvSeq.column["Column 1"].toList.head, "Row 1, Col 1")
+    assertEquals(csvSeq.column["Column 1"].toList.last, "Row 3, Col 1")
+    assertEquals(csvSeq.column["Column 3"].toList.last, "Row 3, Col 3")
+
+  }
+
+  test("ExcelIterator range") {
+    def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.absolutePath(Generated.resourceDir0 + "Offset.xlsx", "Sheet1", "E3:G6")    
+    val csvSeq = csv.toSeq
+    // csvSeq.ptbln
+    assertEquals(csv.column["Column 2"].toList.head, "Row 1, Col 2")
+    assertEquals(csv.column["Column 2"].toList.last, "Row 3, Col 2")
+
+  }
+
 end ExcelSuite
