@@ -20,9 +20,9 @@ def csv = CSV.resource("simple.csv")
 csv.toSeq.consoleFormatNt(fansi = false)
 
 // This  much better in a console / script, but ugly in browser
-csv.toSeq.consoleFormatNt(fansi = false)
+csv.toSeq.consoleFormatNt(fansi = true)
 
-// but this is easier to type and is equivalent to this;
+// but this is easier to type and is fansi;
 csv.toSeq.ptbln
 
 ```
