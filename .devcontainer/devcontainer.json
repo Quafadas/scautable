@@ -10,8 +10,7 @@
         "scalameta.metals",
         "usernamehw.errorlens",
         "github.copilot",
-        "skellock.just",
-        "github.vscode-github-actions"
+        "skellock.just"
       ]
     }
   },
