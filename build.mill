@@ -34,6 +34,17 @@ trait Common extends ScalaModule {
   override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-Xmax-inlines", "128")  
 }
 
+
+trait CommonJS extends Common with ScalaJSModule {
+  def scalaJSVersion = "1.19.0"
+  override def ivyDeps = super.ivyDeps() ++ Agg(
+    ivy"org.scala-js::scalajs-dom::2.8.0",
+    ivy"org.scala-js::scalajs-java-securerandom::1.0.0".withDottyCompat(scalaVersion()),
+    Config.laminar
+  )
+}
+
+
 trait PublishModule extends mill.scalalib.PublishModule {
   override def artifactName = "scautable"
 
@@ -54,21 +65,11 @@ trait PublishModule extends mill.scalalib.PublishModule {
 
 }
 
-trait CommonJS extends ScalaJSModule {
-  def scalaJSVersion = Config.scalaJSVersion
-  override def ivyDeps = super.ivyDeps() ++
-  Seq(
-    ivy"org.scala-js::scalajs-dom::2.8.0",
-    ivy"org.scala-js:scalajs-java-securerandom_sjs1_2.13:1.0.0",
-    Config.laminar
-  )
-}
+// trait CommonTests extends TestModule.Munit {
 
-trait CommonTests extends TestModule.Munit {
-
-  // override def testFramework = "munit.runner.Framework"
-  override def ivyDeps = super.ivyDeps() ++ Agg(
-    Config.munit
-  )
-}
+//   // override def testFramework = "munit.runner.Framework"
+//   override def ivyDeps = super.ivyDeps() ++ Agg(
+//     Config.munit
+//   )
+// }
 

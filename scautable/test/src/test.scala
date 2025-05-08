@@ -161,4 +161,3 @@ class HtmlRenderSuite extends munit.FunSuite:
       scautable(test2, true).toString()
     )
   }
-end MySuite

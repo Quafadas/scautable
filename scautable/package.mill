@@ -12,28 +12,22 @@ import build.Config
 
 object `package` extends RootModule {
 
-  trait SharedModule extends build.Common with PlatformScalaModule 
+  trait SharedModule extends build.Common with PlatformScalaModule   
 
-  trait SharedTest extends SharedModule with build.CommonTests with PlatformScalaModule
-
-
-  object jvm extends SharedModule with ScalaModule with build.PublishModule {
-    override def ivyDeps: Target[Agg[Dep]] = super.ivyDeps() ++ Agg(
-      ivy"org.apache.poi:poi:5.4.1",
-      ivy"org.apache.poi:poi-ooxml:5.4.1",
-    )
-
+  trait SharedTest extends SharedModule with TestModule.Munit {
+    override def ivyDeps = super.ivyDeps() ++
+      Agg(
+        ivy"org.scalameta::munit::1.1.1"
+      )
   }
 
-  object js extends SharedModule with build.CommonJS  with build.PublishModule {    
+  object js extends SharedModule with build.CommonJS with build.PublishModule
 
-  }
-
-  object test extends Module {
+  object test extends Module {    
     object js extends SharedTest with build.CommonJS {
-      override def moduleDeps = Seq(build.scautable.js)
-
+      override def moduleDeps: Seq[JavaModule]  = Seq(build.scautable.js)
     }
+
     object jvm extends SharedTest with BuildInfo {
       override def moduleDeps = Seq(build.scautable.jvm)
       def buildInfoPackageName: String = "io.github.quafadas.scautable"
@@ -56,5 +50,12 @@ object Generated {$resourceDir$platformPathSeperator
 
       }      
     }
+  }
+  
+  object jvm extends SharedModule with ScalaModule with build.PublishModule {
+    override def ivyDeps= super.ivyDeps() ++ Agg(
+      ivy"org.apache.poi:poi:5.4.1",
+      ivy"org.apache.poi:poi-ooxml:5.4.1",
+    )
   }
 }
