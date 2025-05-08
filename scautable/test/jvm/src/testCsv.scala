@@ -400,11 +400,6 @@ import CsvSchema.*"""
     assert(testVal == "5")
   }
 
-  test("Some Csv Files") {
-    def whiskey: CsvIterator[("RowID", "Distillery", "Body", "Sweetness", "Smoky", "Medicinal", "Tobacco", "Honey", "Spicy", "Winey", "Nutty", "Malty", "Fruity", "Floral", "Postcode", " Latitude", " Longitude")] = CSV.absolutePath(Generated.resourceDir0 + "testFile" + Generated.pathSep + "whiskey.csv")
-    
-  }
-
   // test("url") {
   //   val csv = CSV.url("https://raw.githubusercontent.com/datasciencedojo/datasets/refs/heads/master/titanic.csv")
   // }
