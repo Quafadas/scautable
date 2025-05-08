@@ -1,31 +1,43 @@
-import $ivy.`com.github.lolgab::mill-crossplatform::0.2.4`
-import $ivy.`io.github.quafadas:millSite_mill0.12_2.13:0.0.38`
-import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
-import $ivy.`com.lihaoyi::mill-contrib-buildinfo:`
+package build
 
-import mill.contrib.buildinfo.BuildInfo
-import de.tobiasroeser.mill.vcs.version._
-import com.github.lolgab.mill.crossplatform._
-import mill._, mill.scalalib._, mill.scalajslib._, mill.scalanativelib._
-import io.github.quafadas.millSite.SiteModule
-import io.github.quafadas.millSite.QuickChange
+import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
+
+import mill._, mill.scalalib._, mill.scalajslib._
 import mill._, scalalib._, publish._
 
-import mill.api.Result
+import de.tobiasroeser.mill.vcs.version._
 
+import $packages._
+
+object Config {
+  val oslib = ivy"com.lihaoyi::os-lib:0.11.4"
+  val scalatags = ivy"com.lihaoyi::scalatags::0.13.1"
+  val fansi = ivy"com.lihaoyi::fansi::0.5.0"
+  
+  
+
+  val laminar = ivy"com.raquo::laminar::17.2.1"
+  val munit = ivy"org.scalameta::munit::1.1.1"
+  val scalaVersion = "3.7.0"
+  val scalaJSVersion = "1.19.0"
+}
 
 //  mill --import ivy:com.lihaoyi::mill-contrib-bloop: mill.contrib.bloop.Bloop/install
-trait Common extends ScalaModule with PublishModule {
-  def scalaVersion = "3.7.0-RC2"
+trait Common extends ScalaModule {
+  def scalaVersion = Config.scalaVersion  
 
   override def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"com.lihaoyi::scalatags::0.13.1",
-    ivy"com.lihaoyi::os-lib:0.11.4",
-    ivy"com.lihaoyi::fansi::0.5.0"
+    Config.scalatags,
+    Config.oslib,
+    Config.fansi
   )
-  override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-Xmax-inlines", "128")
+  override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-Xmax-inlines", "128")  
+}
 
-  def publishVersion = VcsVersion.vcsState().format()
+trait PublishModule extends mill.scalalib.PublishModule {
+  override def artifactName = "scautable"
+
+  override def publishVersion = T{ VcsVersion.vcsState().format() }  
 
   override def pomSettings = T {
     PomSettings(
@@ -43,71 +55,20 @@ trait Common extends ScalaModule with PublishModule {
 }
 
 trait CommonJS extends ScalaJSModule {
-  def scalaJSVersion = "1.18.2"
-  def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"com.raquo::laminar::17.2.0"
+  def scalaJSVersion = Config.scalaJSVersion
+  override def ivyDeps = super.ivyDeps() ++
+  Seq(
+    ivy"org.scala-js::scalajs-dom::2.8.0",
+    ivy"org.scala-js:scalajs-java-securerandom_sjs1_2.13:1.0.0",
+    Config.laminar
   )
 }
+
 trait CommonTests extends TestModule.Munit {
-  def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"org.scalameta::munit::1.0.4"
+
+  // override def testFramework = "munit.runner.Framework"
+  override def ivyDeps = super.ivyDeps() ++ Agg(
+    Config.munit
   )
 }
 
-object scautable extends CrossPlatform {
-  trait Shared extends CrossPlatformScalaModule with Common {
-    // common `core` settings here
-    trait SharedTests extends CommonTests {
-      // common `core` test settings here
-    }
-  }
-  object jvm extends Shared {
-
-    override def ivyDeps: Target[Agg[Dep]] = super.ivyDeps() ++ Agg(
-      ivy"org.apache.poi:poi:5.4.0",
-      ivy"org.apache.poi:poi-ooxml:5.4.0",
-    )
-    // jvm specific settings here
-    object test extends ScalaTests with SharedTests with BuildInfo {
-
-      def buildInfoPackageName: String = "io.github.quafadas.scautable"
-
-
-      override def generatedSources: T[Seq[PathRef]] = T{
-        val resourceDir = resources().map(_.path).zipWithIndex.map{case (str, i) => s"""final val resourceDir$i = \"\"\"$str${java.io.File.separator}\"\"\""""  }.mkString("\n\t")
-        val fileName = "BuildInfo.scala"
-        val code = s"""
-
-package io.github.quafadas.scautable
-
-/**
-Resources are not available at compile time. This is a workaround to get the path to the resource directory, (allowing unit testing of a macro based on a local file).
-*/
-
-object Generated {$resourceDir
-}
-"""
-        val dest = T.ctx().dest / "BuildInfo.scala"
-        os.write(dest , code)
-        Seq(PathRef(dest))
-
-      }
-
-    }
-  }
-  object js extends Shared with CommonJS {
-    // js specific settings here
-    object test extends ScalaJSTests with SharedTests
-  }
-
-}
-
-object site extends SiteModule {
-
-  def scalaVersion = scautable.jvm.scalaVersion
-
-  override def scalacOptions: T[Seq[String]] =  super.scalacOptions() ++  scautable.jvm.scalacOptions()
-
-  override def moduleDeps = Seq(scautable.jvm)
-
-}

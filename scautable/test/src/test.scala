@@ -2,7 +2,8 @@ package io.github.quafadas.scautable
 
 import scalatags.Text.all.*
 import java.time.LocalDate
-class MySuite extends munit.FunSuite:
+
+class HtmlRenderSuite extends munit.FunSuite:
 
   import scautable.*
   import scautable.given
