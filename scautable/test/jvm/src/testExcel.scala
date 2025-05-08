@@ -52,7 +52,15 @@ class ExcelSuite extends munit.FunSuite:
     // csvSeq.ptbln
     assertEquals(csv.column["Column 2"].toList.head, "Row 1, Col 2")
     assertEquals(csv.column["Column 2"].toList.last, "Row 3, Col 2")
+  }
 
+  test("ExcelIterator Missing and blank values") {
+    def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.absolutePath(Generated.resourceDir0 + "Missing.xlsx", "Sheet1", "A1:C4")
+    val csvSeq = csv.toSeq
+    // csvSeq.ptbln
+    assertEquals(csv.column["Column 2"].toList.drop(1).head, "")
+    assertEquals(csv.column["Column 3"].toList.drop(2).head, "")
+    
   }
 
 end ExcelSuite
