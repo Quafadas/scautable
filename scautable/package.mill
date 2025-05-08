@@ -5,7 +5,6 @@ import mill.contrib.buildinfo.BuildInfo
 
 import mill._
 import mill.scalalib._
-import mill.scalalib.publish._
 import mill.scalajslib._
 import mill.scalajslib.api._
 import build.Config
