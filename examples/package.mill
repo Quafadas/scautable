@@ -4,7 +4,7 @@ import mill._, scalalib._, mill.scalajslib._, mill.scalajslib.api._
 
 import build.Config
 
-object `package` extends RootModule with ScalaModule {
+object `package` extends RootModule with ScalaModule with build.ShareCompileResources {
   def scalaVersion = Config.scalaVersion
   override def moduleDeps = Seq(build.scautable.jvm)
 
