@@ -1,0 +1,11 @@
+package build.examples
+
+import mill._, scalalib._, mill.scalajslib._, mill.scalajslib.api._
+
+import build.Config
+
+object `package` extends RootModule with ScalaModule {
+  def scalaVersion = Config.scalaVersion
+  override def moduleDeps = Seq(build.scautable.jvm)
+
+}

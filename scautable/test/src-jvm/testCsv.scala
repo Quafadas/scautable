@@ -10,7 +10,7 @@ import scala.compiletime.ops.int.S
 class CSVSuite extends munit.FunSuite:
 
   test("type test") {
-    def csv = CSV.absolutePath(Generated.resourceDir0 + "typeTest.csv")
+    def csv = CSV.resource("typeTest.csv")
 
     val tt = csv.headers.zip(csv.numericTypeTest._1)
     assert(tt.length == csv.headers.length)
@@ -34,15 +34,15 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("csv from resource compiles and typechecks") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
     val titanic: CsvIterator[("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked")] =
-      CSV.absolutePath(Generated.resourceDir0 + "titanic.csv")
-    // val wide = CSV.absolutePath(Generated.resourceDir0 + "wide.csv")
+      CSV.resource("titanic.csv")
+    // val wide = CSV.resource("wide.csv")
   }
 
   test("column safety") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
     assert(
       !compileErrors("csv.column[\"notcol\"]").isEmpty()
@@ -70,7 +70,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("sample") {
-    def csv = CSV.absolutePath(Generated.resourceDir0 + "titanic.csv")
+    def csv = CSV.resource("titanic.csv")
 
     val sample = csv.sample(0.1)
     assertEqualsDouble(sample.length.toDouble, 89, 30)
@@ -83,7 +83,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("columns") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
     assert(
       !compileErrors("csv.columns[(\"notcol\")]").isEmpty()
@@ -108,7 +108,7 @@ class CSVSuite extends munit.FunSuite:
       case Male, Female
     end Gender
 
-    def titanic = CSV.absolutePath(Generated.resourceDir0 + "titanic.csv")
+    def titanic = CSV.resource("titanic.csv")
     def data = titanic
       .mapColumn["Sex", Gender]((x: String) => Gender.valueOf(x.capitalize))
       .dropColumn["PassengerId"]
@@ -132,7 +132,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("column") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
     val column2 = csv.column["col2"]
     val col2 = column2.toArray
@@ -142,7 +142,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("drop column") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
     def csv2: Iterator[(col1: String, col2: String, col3: String)] = csv.take(3)
 
@@ -161,7 +161,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("easy print") {
-    def csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv").toVector
+    def csv = CSV.resource("simple.csv").toVector
     csv.ptbln
 
     val seq2 = Vector((1, 2), (3, 4))
@@ -170,7 +170,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("Drop column, mapColumn, then select another") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
     def dropped = csv.dropColumn["col2"].mapColumn["col3", Int](_.toInt)
 
@@ -212,8 +212,8 @@ class CSVSuite extends munit.FunSuite:
           "Column21",
           "Column22"
       )
-    ] = CSV.absolutePath(Generated.resourceDir0 + "wide22.csv")
-    val wide23 = CSV.absolutePath(Generated.resourceDir0 + "wide23.csv")
+    ] = CSV.resource("wide22.csv")
+    val wide23 = CSV.resource("wide23.csv")
     val out: Array[String] = wide22.column["Column21"].toArray
     val out23: Array[String] = wide23.column["Column_21"].toArray
 
@@ -226,13 +226,13 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("reading data") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
     assertEquals(csv.toArray.mkString(","), """(1,2,7),(3,4,8),(5,6,9)""")
   }
 
   test("add columns") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
     val added = csv
       .addColumn["col3Times3", Int](_.col3.toInt * 3)
@@ -255,7 +255,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("schema gen") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
     val schema = csv.schemaGen
     assertNoDiff(
       schema,
@@ -278,7 +278,7 @@ import CsvSchema.*"""
   }
 
   test("rename column") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
     val renamed: Iterator[(col1: String, col2Renamed: String, col3: String)] = csv.renameColumn["col2", "col2Renamed"]
     val out = renamed.toArray
@@ -288,7 +288,7 @@ import CsvSchema.*"""
   }
 
   test("force column type") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
     val renamed: Iterator[(col1: String, col2Renamed: String, col3: String)] = csv.renameColumn["col2", "col2Renamed"].forceColumnType["col2Renamed", String]
     val out = renamed.toArray
@@ -298,7 +298,7 @@ import CsvSchema.*"""
   }
 
   test("map column") {
-    def csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    def csv = CSV.resource("simple.csv")
 
     def mapCol2 = csv.mapColumn["col2", Int]((s: String) => s.toInt)
     val result = mapCol2.toArray
@@ -319,7 +319,7 @@ import CsvSchema.*"""
     /** If this compiles, then hopefully we have borked the typelevel bookkeeping
       */
 
-    def csv = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    def csv = CSV.resource("simple.csv")
 
     def composed = csv
       .mapColumn["col2", Int]((s: String) => s.toInt)
@@ -335,7 +335,7 @@ import CsvSchema.*"""
   }
 
   test("console print") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
     assertNoDiff(
       csv.toArray.consoleFormatNt(),
       """| |col1|col2|col3|
@@ -346,13 +346,13 @@ import CsvSchema.*"""
 +-+----+----+----+""".trim()
     )
 
-    val titanic = CSV.absolutePath(Generated.resourceDir0 + "titanic.csv").toArray
+    val titanic = CSV.resource("titanic.csv").toArray
     assert(titanic.length == 891)
 
   }
 
   test("header indexes") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.absolutePath(Generated.resourceDir0 + "simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
     assertEquals(csv.headerIndex("col1"), 0)
     assertEquals(csv.headerIndex("col2"), 1)
     assertEquals(csv.headerIndex("col3"), 2)
@@ -364,7 +364,7 @@ import CsvSchema.*"""
   }
 
   test("missing values") {
-    def csv = CSV.absolutePath(Generated.resourceDir0 + "missing.csv")
+    def csv = CSV.resource("missing.csv")
 
     val missing = csv.toList
 
@@ -377,7 +377,7 @@ import CsvSchema.*"""
   }
 
   test("missing values wide") {
-    def csv = CSV.absolutePath(Generated.resourceDir0 + "missing_wide.csv")
+    def csv = CSV.resource("missing_wide.csv")
 
     val missing = csv.toList
 
@@ -392,7 +392,7 @@ import CsvSchema.*"""
   }
 
   test("csv has duplicate headers") {
-    def csv: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA")] = CSV.absolutePath(Generated.resourceDir0 + "dups.csv")
+    def csv: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA")] = CSV.resource("dups.csv")
 
     // If the next two lines compile, this is a pretty good indicator that we've deduplicated the headers
     def dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_5")] = CSV.deduplicateHeaders(csv)

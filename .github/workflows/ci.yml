@@ -30,8 +30,8 @@ jobs:
       - name: Compile
         run: ./mill __.compile
       - name: test
-        run: ./mill scautable.jvm.test
-      - name: Run tests
+        run: ./mill scautable.test._
+      - name: Publish artifacts
         run: ./mill -i __.publishArtifacts
 
 
