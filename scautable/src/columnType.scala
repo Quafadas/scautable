@@ -22,7 +22,7 @@ object ColumnTyped:
         case false => true *: Negate[tail]
         case true  => false *: Negate[tail]
 
-  type IsColumn[StrConst <: String, T <: Tuple] = T match
+  type IsColumn[StrConst <: String, T <: Tuple] <: Boolean = T match
     case EmptyTuple => false
     case (head *: tail) =>
       IsMatch[StrConst, head] match
@@ -146,37 +146,8 @@ object ColumnTyped:
     case EmptyTuple   => EmptyTuple
     case head *: tail => String *: StringyTuple[tail]
 
-  type ReReverseXLL[t] = Size[t] match
-    case 0  => EmptyTuple
-    case 1  => t
-    case 2  => t
-    case 3  => t
-    case 4  => t
-    case 5  => t
-    case 6  => t
-    case 7  => t
-    case 8  => t
-    case 9  => t
-    case 10 => t
-    case 11 => t
-    case 12 => t
-    case 13 => t
-    case 14 => t
-    case 15 => t
-    case 16 => t
-    case 17 => t
-    case 18 => t
-    case 19 => t
-    case 20 => t
-    case 21 => t
-    case 22 => t
-    case _  => ReverseTuple[t]
-
   type ReverseTuple[T <: Tuple] <: Tuple = T match
     case EmptyTuple => EmptyTuple
     case x *: xs    => ReverseTuple[xs] *: x
 
-  type Size[T] <: Int = T match
-    case EmptyTuple => 0
-    case x *: xs    => 1 + Size[xs]
 end ColumnTyped

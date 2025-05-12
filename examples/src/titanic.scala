@@ -1,9 +1,20 @@
 import io.github.quafadas.table.*
 
+import viz.PlotTargets.desktopBrowser
+import viz.Plottable.*
+import viz.vegaFlavour
+import upickle.default.ReadWriter.join
+import viz.Macros.Implicits.given_Writer_T
+// import viz.NamedTupleReadWriter.given_ReadWriter_T
+import viz.*
+import NamedTuple.NamedTuple
+
 import NamedTuple.withNames
+import io.github.quafadas.scautable.ColumnTyped.StringyTuple
+import scala.annotation.implicitNotFound
 
 enum Gender:
-  case Male, Female
+  case Male, Female, Unknown
 end Gender
 
 @main def titanic =
@@ -52,10 +63,45 @@ end Gender
 
   println()
   println("Gender Info")
+  titanic.columns["Sex" *: EmptyTuple].plotPieChart
+  titanic.columns["Embarked" *: EmptyTuple].plotPieChart
   sex.ptbl
 
   println()
   println("Survived By Gender")
+
   group.ptbln
 
 end titanic
+
+extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])(using
+    @implicitNotFound("Only valid for one column")
+    evK: Tuple.Size[K] =:= 1,
+    @implicitNotFound("Only valid for one column")
+    evV: Tuple.Size[V] =:= 1
+)
+  inline def plotPieChart: Unit =
+    val name = scala.compiletime.constValueTuple[K].head.asInstanceOf[String]
+    val spec = os.resource / "pieChart.vg.json"
+    val dataGrouped = data.map(_.head).groupMapReduce(identity)(_ => 1)(_ + _).toSeq
+    spec.plot(
+      List(
+        spec =>
+          spec("data") = upickle.default.writeJs(
+            (values = dataGrouped.map: d =>
+              (
+                category = d._1.toString(),
+                value = d._2
+              ))
+          ),
+        spec =>
+          spec("title") = upickle.default.writeJs(
+            text = name,
+            fontSize = (
+              expr = "width / 20"
+            )
+          )
+      )
+    )
+
+end extension

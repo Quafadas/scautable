@@ -8,4 +8,8 @@ object `package` extends RootModule with ScalaModule with build.ShareCompileReso
   def scalaVersion = Config.scalaVersion
   override def moduleDeps = Seq(build.scautable.jvm)
 
+  override def ivyDeps = super.ivyDeps() ++ Agg(
+    ivy"io.github.quafadas::dedav4s::0.10.0-M2"
+  )
+
 }
