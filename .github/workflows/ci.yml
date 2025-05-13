@@ -56,10 +56,10 @@ jobs:
       - name: Publish to Maven Central
         run: ./mill --import "ivy:com.lihaoyi::mill-contrib-sonatypecentral:" mill.contrib.sonatypecentral.SonatypeCentralPublishModule/publishAll --publishArtifacts __.publishArtifacts
         env:
-          MILL_PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
-          MILL_PGP_SECRET_BASE64: ${{ secrets.PGP_SECRET }}
-          MILL_SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          MILL_SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          MILL_PGP_PASSPHRASE: ${{ secrets.PUBLISH_SECRET_KEY_PASSWORD }}
+          MILL_PGP_SECRET_BASE64: ${{ secrets.PUBLISH_SECRET_KEY }}
+          MILL_SONATYPE_PASSWORD: ${{ secrets.PUBLISH_PASSWORD }}
+          MILL_SONATYPE_USERNAME: ${{ secrets.PUBLISH_USER }}
           
   # Check that we can _generate_ the docs, but don't run upload / pages actions to actually deploy them for pull requests.
   site_pr_check:
