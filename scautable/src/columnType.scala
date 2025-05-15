@@ -30,13 +30,6 @@ object ColumnTyped:
         case false => IsColumn[StrConst, tail]
     case _ => false
 
-  type Tail[T <: Tuple, S <: String] <: Tuple = T match
-    case EmptyTuple => EmptyTuple
-    case head *: tail =>
-      IsMatch[S, head] match
-        case true  => EmptyTuple
-        case false => Tail[tail, S]
-
   type ReplaceOneName[T <: Tuple, StrConst <: String, A <: String] <: Tuple = T match
     case EmptyTuple => EmptyTuple
     case nameHead *: nameTail =>
@@ -74,11 +67,6 @@ object ColumnTyped:
         case true => typeHead
         case false =>
           GetTypeAtName[nameTail, StrConst, typeTail]
-
-  type GetNames[N <: Tuple] = N match
-    case (EmptyTuple, _) => EmptyTuple
-    case (nameHead *: typ, tail) =>
-      nameHead *: GetNames[tail]
 
   type DropAfterName[T, StrConst <: String] = T match
     case EmptyTuple => EmptyTuple
@@ -145,9 +133,5 @@ object ColumnTyped:
   type StringyTuple[T <: Tuple] <: Tuple = T match
     case EmptyTuple   => EmptyTuple
     case head *: tail => String *: StringyTuple[tail]
-
-  type ReverseTuple[T <: Tuple] <: Tuple = T match
-    case EmptyTuple => EmptyTuple
-    case x *: xs    => ReverseTuple[xs] *: x
 
 end ColumnTyped

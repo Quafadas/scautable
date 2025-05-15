@@ -244,13 +244,7 @@ object NamedTupleIteratorExtensions:
         s: ValueOf[S]
     ): Iterator[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]] =
       val headers = constValueTuple[K].toList.map(_.toString())
-
-      /** Aaahhhh... apparently, TupleXXL is in reverse order!
-        */
-      val headers2 = if headers.size > 22 then headers.reverse else headers
-      val idx = headers2.indexOf(s.value)
-
-      type RemoveMe = GetTypeAtName[K, S, V]
+      val idx = headers.indexOf(s.value)
 
       itr.map { (x: NamedTuple[K, V]) =>
         val (head, tail) = x.toTuple.splitAt(idx)
