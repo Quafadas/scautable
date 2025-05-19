@@ -142,9 +142,9 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("drop column") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
 
-    def csv2: Iterator[(col1: String, col2: String, col3: String)] = csv.take(3)
+    def csv2: Iterator[(col1: String, col2: String, col3: String)] = csv.restart.take(3)
 
     val dropped = csv.dropColumn["col2"]
     val out = dropped.toArray
@@ -156,7 +156,7 @@ class CSVSuite extends munit.FunSuite:
     val out2 = dropFirst.toArray
     assertEquals(out2.head, ("2", "7"))
     assertEquals(out2.tail.head, ("4", "8"))
-    assertEquals(out2.last, ("6", "9"))
+    assertEquals(out2.last, ("6", "9"))    
 
   }
 

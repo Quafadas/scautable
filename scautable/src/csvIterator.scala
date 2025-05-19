@@ -32,6 +32,8 @@ import NamedTuple.*
  */
 class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
+  
+  type Col[N <: Int] = Tuple.Elem[K, N]
 
   def getFilePath: String = filePath
   lazy private val source = Source.fromFile(filePath)
@@ -86,6 +88,9 @@ import CsvSchema.*
   //     (list, acc._2 + 1)
   //   )
   // end numericTypeTest
+
+  inline def restart = new CsvIterator[K](filePath)    
+  inline def copy = restart
 
   inline override def next() =
     if !hasNext then throw new NoSuchElementException("No more lines")
