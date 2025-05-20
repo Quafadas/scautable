@@ -21,7 +21,7 @@ enum Gender:
   case Male, Female, Unknown
 end Gender
 
-/** Before running this, you shoudl have the visualisation websocket server running. `./mill examples.vizserver.run`
+/** Before running this, you shoudl have the visualisation websocket server running. `./mill examples.vizserver.runBackground 8085`
   *
   * It will start a websocket server on port 8085, then open these urls in your browser:
   *
