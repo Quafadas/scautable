@@ -38,6 +38,8 @@ end Gender
   * http://127.0.0.1:8085/view/Age-VS-Fare
   *
   * Then run the example: `./mill examples.run --main-class titanic`
+  *
+  * The "view" urls will be updated with the data from the example. The last part of the URL, is the "description" field of the chart.
   */
 @main def titanic =
   given port: Int = 8085
@@ -96,13 +98,13 @@ end Gender
 
   group.ptbln
 
-  // println("plots")
-  // data.plotPieChart["Sex"]
-  // data.plotPieChart["Survived"]
-  // data.plotHistogram["Fare"]
-  // data.plotPieChart["AgeIsDefined"]
-  // data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotHistogram["Age"]
-  // data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotMarginalHistogram["Age", "Fare"]
+  println("plots")
+  data.plotPieChart["Sex"]
+  data.plotPieChart["Survived"]
+  data.plotHistogram["Fare"]
+  data.plotPieChart["AgeIsDefined"]
+  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotHistogram["Age"]
+  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotMarginalHistogram["Age", "Fare"]
   data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotScatter["Age", "Fare"]
   data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotRegression["Age", "Fare"]
 
