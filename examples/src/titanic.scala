@@ -1,6 +1,6 @@
 import io.github.quafadas.table.*
 
-import viz.PlotTargets.desktopBrowser
+import viz.PlotTargets.websocket
 import viz.Plottable.*
 import viz.vegaFlavour
 import upickle.default.ReadWriter.join
@@ -12,12 +12,32 @@ import NamedTuple.NamedTuple
 import NamedTuple.withNames
 import io.github.quafadas.scautable.ColumnTyped.StringyTuple
 import scala.annotation.implicitNotFound
+import io.github.quafadas.scautable.ColumnTyped.IsColumn
+import io.github.quafadas.scautable.ColumnTyped.IsNumeric
+import io.github.quafadas.scautable.ColumnTyped.GetTypeAtName
+import io.github.quafadas.scautable.ColumnTyped.AllAreColumns
 
 enum Gender:
   case Male, Female, Unknown
 end Gender
 
+/**
+ * Before running this, you shoudl have the visualisation websocket server running.
+ * `./mill examples.vizserver.run`
+ * 
+ * It will start a websocket server on port 8085, open these urls in your browser:
+    http://127.0.0.1:8085/view/Survived
+    http://127.0.0.1:8085/view/Sex
+    http://127.0.0.1:8085/view/Fare
+    http://127.0.0.1:8085/view/AgeIsDefined
+    http://127.0.0.1:8085/view/Age
+    http://127.0.0.1:8085/view/Age-VS-Fare
+
+Then run the example:
+  * `./mill examples.run --main-class titanic`
+ */
 @main def titanic =
+  given port: Int = 8085
 
   val titanic = CSV.resource("titanic.csv").toSeq
 
@@ -26,6 +46,8 @@ end Gender
     .dropColumn["PassengerId"]
     .mapColumn["Age", Option[Double]](_.toDoubleOption)
     .mapColumn["Survived", Boolean](_ == "1")
+    .mapColumn["Fare", Double](_.toDouble)
+    .addColumn["AgeIsDefined", Boolean](_.Age.isDefined)
 
   def surived: (survivied: Int, total: Int, pct: Double) = data
     .column["Survived"]
@@ -63,8 +85,12 @@ end Gender
 
   println()
   println("Gender Info")
-  titanic.columns["Sex" *: EmptyTuple].plotPieChart
-  titanic.columns["Embarked" *: EmptyTuple].plotPieChart
+  data.plotPieChart["Sex"]
+  data.plotPieChart["Survived"]
+  data.plotHistogram["Fare"]
+  data.plotPieChart["AgeIsDefined"]
+  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotHistogram["Age"]
+  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotMarginalHistogram["Age", "Fare"]
   sex.ptbl
 
   println()
@@ -74,16 +100,16 @@ end Gender
 
 end titanic
 
-extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])(using
-    @implicitNotFound("Only valid for one column")
-    evK: Tuple.Size[K] =:= 1,
-    @implicitNotFound("Only valid for one column")
-    evV: Tuple.Size[V] =:= 1
-)
-  inline def plotPieChart: Unit =
-    val name = scala.compiletime.constValueTuple[K].head.asInstanceOf[String]
+extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
+  inline def plotPieChart[S <: String](using
+        @implicitNotFound("Column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        s: ValueOf[S],
+    ): Unit =
+    val oneCol = data.column[S]
     val spec = os.resource / "pieChart.vg.json"
-    val dataGrouped = data.map(_.head).groupMapReduce(identity)(_ => 1)(_ + _).toSeq
+    val dataGrouped = oneCol.groupMapReduce(identity)(_ => 1)(_ + _).toSeq
+    val colName: String = s.value
     spec.plot(
       List(
         spec =>
@@ -94,9 +120,10 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])(using
                 value = d._2
               ))
           ),
+        spec => spec("description") = colName,
         spec =>
           spec("title") = upickle.default.writeJs(
-            text = name,
+            text = colName,
             fontSize = (
               expr = "width / 20"
             )
@@ -104,4 +131,82 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])(using
       )
     )
 
+  end plotPieChart
+
+  inline def plotHistogram[S <: String](using
+        @implicitNotFound("Column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        s: ValueOf[S],
+        @implicitNotFound("Column ${S} is not numeric")
+        numeric: Numeric[ GetTypeAtName[K, S, V] ],
+    ): Unit =
+    println("Here")
+    val oneCol = data.column[S]
+    val spec = os.resource / "histogram.vg.json"
+    val colName: String = s.value
+    spec.plot(
+      List(
+        spec =>
+          spec("data") = upickle.default.writeJs(
+            (values = oneCol.map: d =>
+              ujson.Obj(
+                colName -> numeric.toDouble(d)
+              ))
+          ),
+        spec => spec("encoding")("x")("field") = colName,
+        spec => spec("description") = colName,
+        spec =>
+          spec("title") = upickle.default.writeJs(
+            text = colName,
+            fontSize = (
+              expr = "width / 20"
+            )
+          )
+      )
+    )
+
+  inline def plotMarginalHistogram[S1 <: String, S2 <: String](using              
+        @implicitNotFound("Column ${S1} not found")
+        ev1: IsColumn[S1, K] =:= true,
+        @implicitNotFound("Column ${S2} not found")
+        ev2: IsColumn[S2, K] =:= true,
+        ev: AllAreColumns[(S1, S2), K] =:= true,
+        s1: ValueOf[S1],
+        s2: ValueOf[S2],
+        @implicitNotFound("Column ${S1} is not numeric")
+        numeric1: Numeric[ GetTypeAtName[K, S1, V] ],
+        @implicitNotFound("Column ${S2} is not numeric")
+        numeric2: Numeric[ GetTypeAtName[K, S2, V] ],
+    ): Unit =
+    val column1 = data.column[S1]
+    val column2 = data.column[S2]
+    val zipped = column1.zip(column2)
+    val spec = os.resource / "marginalHistogram.vg.json"
+    val col1Name: String = s1.value
+    val col2Name: String = s2.value
+    spec.plot(
+      List(
+        spec =>
+          spec("data") = upickle.default.writeJs(
+            (values = zipped.map: d =>
+              ujson.Obj(
+                col1Name -> numeric1.toDouble(d._1),
+                col2Name -> numeric2.toDouble(d._2)
+              ))
+          ),
+        spec => spec("description") = s"${col1Name}-VS-${col2Name}",
+        spec => spec("vconcat")(0)("encoding")("x")("field") = col1Name,
+        spec => spec("vconcat")(1)("hconcat")(0)("encoding")("x")("field") = col1Name,
+        spec => spec("vconcat")(1)("hconcat")(0)("encoding")("y")("field") = col2Name,
+        spec => spec("vconcat")(1)("hconcat")(1)("encoding")("y")("field") = col2Name,
+        spec =>
+          spec("title") = upickle.default.writeJs(
+            text = s"$col1Name vs $col2Name",
+            fontSize = (
+              expr = "width / 20"
+            )
+          )
+      )
+    )
+    
 end extension

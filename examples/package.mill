@@ -9,7 +9,17 @@ object `package` extends RootModule with ScalaModule with build.ShareCompileReso
   override def moduleDeps = Seq(build.scautable.jvm)
 
   override def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"io.github.quafadas::dedav4s::0.10.0-M2"
+    ivy"io.github.quafadas::dedav4s::0.10.0-RC1"
   )
+
+  /**
+    * 
+    */
+  object vizserver extends ScalaModule{
+    def scalaVersion = Config.scalaVersion
+    def moduleDeps = Seq(build.examples)
+
+    def mainClass = Some("viz.websockets.serve")
+  }
 
 }

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "data": {"values": [
+
+  ]},
+  "width": "container",
+    "height": "container",
+  "mark": {
+    "type": "bar",
+    "tooltip": true
+    },
+  "encoding": {
+    "x": {
+      "bin": {
+        "maxbins": 30
+      },      
+      "field": "Col"      
+    },
+    "y": {"aggregate": "count"}
+  }
+}
