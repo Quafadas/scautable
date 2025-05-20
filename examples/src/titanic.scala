@@ -21,21 +21,24 @@ enum Gender:
   case Male, Female, Unknown
 end Gender
 
-/**
- * Before running this, you shoudl have the visualisation websocket server running.
- * `./mill examples.vizserver.run`
- * 
- * It will start a websocket server on port 8085, open these urls in your browser:
-    http://127.0.0.1:8085/view/Survived
-    http://127.0.0.1:8085/view/Sex
-    http://127.0.0.1:8085/view/Fare
-    http://127.0.0.1:8085/view/AgeIsDefined
-    http://127.0.0.1:8085/view/Age
-    http://127.0.0.1:8085/view/Age-VS-Fare
-
-Then run the example:
-  * `./mill examples.run --main-class titanic`
- */
+/** Before running this, you shoudl have the visualisation websocket server running. `./mill examples.vizserver.run`
+  *
+  * It will start a websocket server on port 8085, then open these urls in your browser:
+  *
+  * http://127.0.0.1:8085/view/Survived
+  *
+  * http://127.0.0.1:8085/view/Sex
+  *
+  * http://127.0.0.1:8085/view/Fare
+  *
+  * http://127.0.0.1:8085/view/AgeIsDefined
+  *
+  * http://127.0.0.1:8085/view/Age
+  *
+  * http://127.0.0.1:8085/view/Age-VS-Fare
+  *
+  * Then run the example: `./mill examples.run --main-class titanic`
+  */
 @main def titanic =
   given port: Int = 8085
 
@@ -97,7 +100,7 @@ Then run the example:
   data.plotPieChart["Sex"]
   data.plotPieChart["Survived"]
   data.plotHistogram["Fare"]
-  data.plotPieChart["AgeIsDefined"]  
+  data.plotPieChart["AgeIsDefined"]
   data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotHistogram["Age"]
   data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotMarginalHistogram["Age", "Fare"]
 
@@ -105,10 +108,10 @@ end titanic
 
 extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
   inline def plotPieChart[S <: String](using
-        @implicitNotFound("Column ${S} not found")
-        ev: IsColumn[S, K] =:= true,
-        s: ValueOf[S],
-    ): Unit =
+      @implicitNotFound("Column ${S} not found")
+      ev: IsColumn[S, K] =:= true,
+      s: ValueOf[S]
+  ): Unit =
     val oneCol = data.column[S]
     val spec = os.resource / "pieChart.vg.json"
     val dataGrouped = oneCol.groupMapReduce(identity)(_ => 1)(_ + _).toSeq
@@ -137,12 +140,12 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
   end plotPieChart
 
   inline def plotHistogram[S <: String](using
-        @implicitNotFound("Column ${S} not found")
-        ev: IsColumn[S, K] =:= true,
-        s: ValueOf[S],
-        @implicitNotFound("Column ${S} is not numeric")
-        numeric: Numeric[ GetTypeAtName[K, S, V] ],
-    ): Unit =    
+      @implicitNotFound("Column ${S} not found")
+      ev: IsColumn[S, K] =:= true,
+      s: ValueOf[S],
+      @implicitNotFound("Column ${S} is not numeric")
+      numeric: Numeric[GetTypeAtName[K, S, V]]
+  ): Unit =
     val oneCol = data.column[S]
     val spec = os.resource / "histogram.vg.json"
     val colName: String = s.value
@@ -166,20 +169,21 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
           )
       )
     )
+  end plotHistogram
 
-  inline def plotMarginalHistogram[S1 <: String, S2 <: String](using              
-        @implicitNotFound("Column ${S1} not found")
-        ev1: IsColumn[S1, K] =:= true,
-        @implicitNotFound("Column ${S2} not found")
-        ev2: IsColumn[S2, K] =:= true,
-        ev: AllAreColumns[(S1, S2), K] =:= true,
-        s1: ValueOf[S1],
-        s2: ValueOf[S2],
-        @implicitNotFound("Column ${S1} is not numeric")
-        numeric1: Numeric[ GetTypeAtName[K, S1, V] ],
-        @implicitNotFound("Column ${S2} is not numeric")
-        numeric2: Numeric[ GetTypeAtName[K, S2, V] ],
-    ): Unit =
+  inline def plotMarginalHistogram[S1 <: String, S2 <: String](using
+      @implicitNotFound("Column ${S1} not found")
+      ev1: IsColumn[S1, K] =:= true,
+      @implicitNotFound("Column ${S2} not found")
+      ev2: IsColumn[S2, K] =:= true,
+      ev: AllAreColumns[(S1, S2), K] =:= true,
+      s1: ValueOf[S1],
+      s2: ValueOf[S2],
+      @implicitNotFound("Column ${S1} is not numeric")
+      numeric1: Numeric[GetTypeAtName[K, S1, V]],
+      @implicitNotFound("Column ${S2} is not numeric")
+      numeric2: Numeric[GetTypeAtName[K, S2, V]]
+  ): Unit =
     val column1 = data.column[S1]
     val column2 = data.column[S2]
     val zipped = column1.zip(column2)
@@ -210,5 +214,6 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
           )
       )
     )
-    
+  end plotMarginalHistogram
+
 end extension
