@@ -39,9 +39,9 @@ Then run the example:
 @main def titanic =
   given port: Int = 8085
 
-  val titanic = CSV.resource("titanic.csv").toSeq
+  val titanic = CSV.resource("titanic.csv")
 
-  def data = titanic
+  val data = titanic.toSeq
     .mapColumn["Sex", Gender]((x: String) => Gender.valueOf(x.capitalize))
     .dropColumn["PassengerId"]
     .mapColumn["Age", Option[Double]](_.toDoubleOption)
@@ -49,7 +49,7 @@ Then run the example:
     .mapColumn["Fare", Double](_.toDouble)
     .addColumn["AgeIsDefined", Boolean](_.Age.isDefined)
 
-  def surived: (survivied: Int, total: Int, pct: Double) = data
+  val surived: (survivied: Int, total: Int, pct: Double) = data
     .column["Survived"]
     .foldLeft((survivied = 0, total = 0, pct = 0.0)) { case (acc, survived) =>
       val survivedI = if survived then 1 else 0
@@ -57,7 +57,7 @@ Then run the example:
     }
 
   val dataArr = data.toArray
-  println(data.toArray.take(20).consoleFormatNt(fansi = false))
+  data.toArray.take(20).ptbln
   // scautable.desktopShowNt(dataArr) // Will pop up a browser window with the data
 
   val sex: Seq[(Gender, Int)] = dataArr.map(_.Sex).groupMapReduce(identity)(_ => 1)(_ + _).toSeq
@@ -85,18 +85,21 @@ Then run the example:
 
   println()
   println("Gender Info")
-  data.plotPieChart["Sex"]
-  data.plotPieChart["Survived"]
-  data.plotHistogram["Fare"]
-  data.plotPieChart["AgeIsDefined"]
-  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotHistogram["Age"]
-  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotMarginalHistogram["Age", "Fare"]
+
   sex.ptbl
 
   println()
   println("Survived By Gender")
 
   group.ptbln
+
+  println("plots")
+  data.plotPieChart["Sex"]
+  data.plotPieChart["Survived"]
+  data.plotHistogram["Fare"]
+  data.plotPieChart["AgeIsDefined"]  
+  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotHistogram["Age"]
+  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotMarginalHistogram["Age", "Fare"]
 
 end titanic
 
@@ -139,8 +142,7 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
         s: ValueOf[S],
         @implicitNotFound("Column ${S} is not numeric")
         numeric: Numeric[ GetTypeAtName[K, S, V] ],
-    ): Unit =
-    println("Here")
+    ): Unit =    
     val oneCol = data.column[S]
     val spec = os.resource / "histogram.vg.json"
     val colName: String = s.value
