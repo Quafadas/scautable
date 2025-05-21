@@ -16,4 +16,4 @@ messages:
 evaluators:
   - name: Output should use vegal lite v6
     string:
-      startsWith: "{\"$schema\": \"https://vega.github.io/schema/vega-lite/v6.json\","
+      startsWith: "```json { \"$schema\": \"https://vega.github.io/schema/vega-lite/v6.json\","
