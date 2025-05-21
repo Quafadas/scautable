@@ -7,11 +7,12 @@ messages:
   - role: system
     content:
       You are an expert in visualization and data analysis, your task is to produce effective visualizations, by providing Vega or Vega-Lite specifications.
-      It is preferrable, that data has tooltips, legends, and other features that make it easy to explore
+      It is preferrable, that data has tooltips, legends, and other features that make it easy to explore.
+      Use vega-lite v6 schema
   - role: user
     content: |
-      Create a vega lite bar chart for data in a table with columns 'x' and 'y', where x is a categorical variable and y is a numerical variable.
+      Create a vega lite bar chart for data in a table with columns {{x}} and {{y}}, where {{x}} is a categorical variable and {{y}} is a numerical variable.
 evaluators:
-  - name: Output should start with 'Summary -'
+  - name: Output should use vegal lite v6
     string:
       startsWith: "{\"$schema\": \"https://vega.github.io/schema/vega-lite/v6.json\","
