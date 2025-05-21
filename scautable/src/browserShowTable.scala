@@ -10,6 +10,7 @@ import scalatags.Text.TypedTag
 import fansi.Str
 import NamedTuple.*
 import scala.compiletime.constValueTuple
+import scala.annotation.nowarn
 
 /** This is a simple library to render a scala case class as an html table. It assumes the presence of a [[HtmlTableRender]] instance for each type in the case class.
   */
@@ -93,6 +94,7 @@ object scautable extends PlatformSpecific:
                 )
               }
           val fromElements: List[Any] => A = elements =>
+            @nowarn
             val product: Product = new Product:
               override def productArity: Int = caseClassElements.size
 
@@ -237,7 +239,9 @@ object scautable extends PlatformSpecific:
     tr(elemLabels.map(th(_)))
   end tableHeader
 
+  @nowarn
   protected inline def deriveCaseClass[A](using m: Mirror.ProductOf[A]) =
+
     new HtmlTableRender[A]:
 
       override def tableHeader(a: A) =

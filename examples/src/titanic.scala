@@ -16,6 +16,7 @@ import io.github.quafadas.scautable.ColumnTyped.IsColumn
 import io.github.quafadas.scautable.ColumnTyped.IsNumeric
 import io.github.quafadas.scautable.ColumnTyped.GetTypeAtName
 import io.github.quafadas.scautable.ColumnTyped.AllAreColumns
+import scala.concurrent.Future
 
 enum Gender:
   case Male, Female, Unknown
@@ -37,12 +38,13 @@ end Gender
   *
   * http://127.0.0.1:8085/view/Age-VS-Fare
   *
+  * http://127.0.0.1:8085/view/Regression-Age-VS-Fare
+  *
   * Then run the example: `./mill examples.run --main-class titanic`
   *
   * The "view" urls will be updated with the data from the example. The last part of the URL, is the "description" field of the chart.
   */
 @main def titanic =
-  given port: Int = 8085
 
   val titanic = CSV.resource("titanic.csv")
 
@@ -302,7 +304,7 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
                 col2Name -> numeric2.toDouble(d._2)
               ))
           ),
-        spec => spec("description") = s"${col1Name}-VS-${col2Name}",
+        spec => spec("description") = s"Regression-${col1Name}-VS-${col2Name}",
         spec => spec("layer")(0)("encoding") = upickle.default.writeJs(encoding),
         spec => spec("layer")(1)("encoding") = upickle.default.writeJs(encoding),
         spec => spec("layer")(1)("transform")(0)("regression") = col2Name,
