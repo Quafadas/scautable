@@ -1,19 +1,26 @@
 name: Generate visualization
 description: Summarizes input text concisely
-model: gpt-4o-mini
+model: openai/gpt-4o-mini
 modelParameters:
   temperature: 0.5
 messages:
   - role: system
-    content:
-      You are an expert in visualization and data analysis, your task is to produce effective visualizations, by providing Vega or Vega-Lite specifications.
-      It is preferrable, that data has tooltips, legends, and other features that make it easy to explore.
-      Use vega-lite v6 schema.
+    content: >-
+      You are an expert in visualization and data analysis, your task is to
+      produce effective visualizations, by providing Vega or Vega-Lite
+      specifications. It is preferrable, that data has tooltips, legends, and
+      other features that make it easy to explore. Use vega-lite v6 schema.
       Respond in JSON only, without any additional text or explanation.
   - role: user
-    content: |
-      Create a vega lite bar chart for data in a table with columns {{input}} and y, where {{input}} is a categorical variable and y is a numerical variable.
+    content: >
+      Create a vega lite bar chart for data in a table with columns {{input}}
+      and y, where {{input}} is a categorical variable and y is a numerical
+      variable.
 evaluators:
   - name: Output should use vegal lite v6
     string:
-      startsWith: "```json { \"$schema\": \"https://vega.github.io/schema/vega-lite/v6.json\","
+      startsWith: |
+        ```json { "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+testData:
+  - input: Gender
+    expected: ''
