@@ -11,25 +11,24 @@ import ConsoleFormat.*
 import ColumnTyped.*
 import NamedTuple.*
 
-/**
- * A NamedTuple representation of a CSV file. 
- * 
- * It is a (lazy) iterator that reads a CSV file line by line and converts each line into a NamedTuple.
- * 
- * Attempting to use the iterator a second time will throw a `StreamClosedException`. Common usage
- * 
- * ```scala sc:nocompile
- * def csvIterator = CSV.resource("simple.csv")
- * val csvData = csvIterator.toSeq
- * ```
- * 
- * Note that at this point, you are plugged right into the scala collections API. 
- * 
- * ```scala sc:nocompile
- * csvData.filter(_.column("colA") == "foo").drop(10).take(5).map(_.column("colB"))
- * ```
- * etc
- */
+/** A NamedTuple representation of a CSV file.
+  *
+  * It is a (lazy) iterator that reads a CSV file line by line and converts each line into a NamedTuple.
+  *
+  * Attempting to use the iterator a second time will throw a `StreamClosedException`. Common usage
+  *
+  * ```scala sc:nocompile
+  * def csvIterator = CSV.resource("simple.csv")
+  * val csvData = csvIterator.toSeq
+  * ```
+  *
+  * Note that at this point, you are plugged right into the scala collections API.
+  *
+  * ```scala sc:nocompile
+  * csvData.filter(_.column("colA") == "foo").drop(10).take(5).map(_.column("colB"))
+  * ```
+  * etc
+  */
 class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
   
