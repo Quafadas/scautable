@@ -18,6 +18,98 @@ import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
 
 object CSV:
+  import scala.quoted.Quotes
+
+  enum CsvErrorStrategy:
+    /** Fails the compilation if an error is encountered while reading the CSV. */
+    case Fail
+
+    /** Returns an empty iterator if an error is encountered while reading the CSV. */
+    case Empty
+  end CsvErrorStrategy
+
+  enum TypeStrategy:
+    case FirstRow, AutoType, AllStrings
+  end TypeStrategy
+
+  given FromExpr[CsvErrorStrategy] with
+    def unapply(expr: Expr[CsvErrorStrategy])(using Quotes): Option[CsvErrorStrategy] =
+      expr match
+        case '{ CsvErrorStrategy.Fail }  => Some(CsvErrorStrategy.Fail)
+        case '{ CsvErrorStrategy.Empty } => Some(CsvErrorStrategy.Empty)
+        case _                           => None
+  end given
+
+  given FromExpr[TypeStrategy] with
+    def unapply(expr: Expr[TypeStrategy])(using Quotes): Option[TypeStrategy] =
+      expr match
+        case '{ TypeStrategy.FirstRow }   => Some(TypeStrategy.FirstRow)
+        case '{ TypeStrategy.AutoType }   => Some(TypeStrategy.AutoType)
+        case '{ TypeStrategy.AllStrings } => Some(TypeStrategy.AllStrings)
+        case _                            => None
+  end given
+
+  given FromExpr[CsvReadOptions] with
+    def unapply(expr: Expr[CsvReadOptions])(using Quotes): Option[CsvReadOptions] =
+      expr match
+        case '{ CsvReadOptions($delimiter, $errorStrategy, $typeStrategy) } =>
+          for
+            d <- delimiter.value
+            e <- errorStrategy.value
+            t <- typeStrategy.value
+          yield CsvReadOptions(d, e, t)
+        case _ => None
+  end given
+
+  // ...existing code...
+  given FromExpr[CsvReadOptions2] with
+    def unapply(expr: Expr[CsvReadOptions2])(using Quotes): Option[CsvReadOptions2] =
+      import quotes.reflect.*
+      println(expr.asTerm.asExprOf[CsvReadOptions2])
+      val argd = expr.asTerm
+      val delimiter = Select(argd, Symbol.)
+
+
+    end unapply
+  end given
+  // ...existing code...
+  given ToExpr[CsvReadOptions2] with
+    def apply(opt: CsvReadOptions2)(using Quotes): Expr[CsvReadOptions2] =
+      val delimiterExpr = Expr(opt.delimiter)
+      '{ CsvReadOptions2($delimiterExpr) }
+    end apply
+  end given
+
+  case class CsvReadOptions(
+      delimiter: Char,
+      errorStrategy: CsvErrorStrategy = CsvErrorStrategy.Fail,
+      typeStrategy: TypeStrategy = TypeStrategy.FirstRow
+  )
+  case class CsvReadOptions2(
+      delimiter: Char
+  )
+
+  given ToExpr[CsvErrorStrategy] with
+    def apply(e: CsvErrorStrategy)(using Quotes): Expr[CsvErrorStrategy] = e match
+      case CsvErrorStrategy.Fail  => '{ CsvErrorStrategy.Fail }
+      case CsvErrorStrategy.Empty => '{ CsvErrorStrategy.Empty }
+  end given
+
+  given ToExpr[CsvReadOptions] with
+    def apply(opt: CsvReadOptions)(using Quotes): Expr[CsvReadOptions] =
+      val delimiterExpr = Expr(opt.delimiter)
+      val errorStrategyExpr = Expr(opt.errorStrategy)
+      val typeStrategyExpr = Expr(opt.typeStrategy)
+      '{ CsvReadOptions($delimiterExpr, $errorStrategyExpr, $typeStrategyExpr) }
+    end apply
+  end given
+
+  given ToExpr[TypeStrategy] with
+    def apply(ts: TypeStrategy)(using Quotes): Expr[TypeStrategy] = ts match
+      case TypeStrategy.FirstRow   => '{ TypeStrategy.FirstRow }
+      case TypeStrategy.AutoType   => '{ TypeStrategy.AutoType }
+      case TypeStrategy.AllStrings => '{ TypeStrategy.AllStrings }
+  end given
 
   /** Saves a URL to a local CSV returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -48,7 +140,13 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.resource("file.csv")
     * }}}
     */
-  transparent inline def resource[T](inline path: String) = ${ readCsvResource('path) }
+  transparent inline def resource[T](inline path: String) =
+    ${ readCsvResoourceNoOpts('path) }
+  end resource
+
+  transparent inline def resource[T](inline path: String, inline opts: CsvReadOptions2) =
+    ${ readCsvResource('path, 'opts) }
+  end resource
 
   /** Reads a CSV file from an absolute path and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -136,9 +234,21 @@ object CSV:
     readHeaderlineAsCsv(path)
   end readCsvAbolsutePath
 
-  private def readCsvResource(pathExpr: Expr[String])(using Quotes) =
-    import quotes.reflect.*
+  private def readCsvResoourceNoOpts(pathExpr: Expr[String])(using Quotes) =
+    readCsvResource(
+      pathExpr,
+      Expr(
+        CsvReadOptions2(
+          delimiter = ','
+        )
+      )
+    )
+  end readCsvResoourceNoOpts
 
+  private def readCsvResource(pathExpr: Expr[String], opts: Expr[CsvReadOptions2])(using Quotes) =
+    import quotes.reflect.*
+    val arg = opts.valueOrAbort
+    println(arg)
     val path = pathExpr.valueOrAbort
     val resourcePath = this.getClass.getClassLoader.getResource(path)
     if resourcePath == null then report.throwError(s"Resource not found: $path")
