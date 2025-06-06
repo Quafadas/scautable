@@ -19,7 +19,15 @@ object `package` extends RootModule with ScalaModule with build.ShareCompileReso
     def scalaVersion = Config.scalaVersion
     def moduleDeps = Seq(build.examples)
 
-    def mainClass = Some("viz.websockets.serve")
+    /**
+      * This attempts to leave some logging behind, to tell vscode to port forward to 8085. If it doesn't work, you can port forwrad manually.
+      *
+      * @return
+      */
+    def mainClass = Task{
+      println("Starting vizserver...on https://localhost:8085/")
+      Some("viz.websockets.serve")
+    }
 
   }
 
