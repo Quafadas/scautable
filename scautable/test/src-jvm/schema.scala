@@ -1,10 +1,9 @@
+package io.github.quafadas.scautable
+
 import io.github.quafadas.table.*
 import NamedTuple.*
 import scala.quoted.Quotes
-
-final val rd = CsvReadOptions2(
-  ';'
-)
+import java.awt.Window.Type
 
 class CSVSchemaSuite extends munit.FunSuite:
 
@@ -19,14 +18,19 @@ class CSVSchemaSuite extends munit.FunSuite:
 
   test("Drop column by number") {
 
+    val csv2 = CSV.resource("simple.csv", CsvReadOptions(';', TypeInferenceStrategy.StringsOnly))
+
+    println(csv2.getOpts)
+
     val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource(
       "simple.csv",
-      CsvReadOptions2(
-        ';'
+      CsvReadOptions(
+        ',',
+        TypeInferenceStrategy.AutoType
       )
     )
 
-    println(csv.schemaGen)
+    println(csv.getOpts)
 
   }
 end CSVSchemaSuite

@@ -29,12 +29,13 @@ import NamedTuple.*
   * ```
   * etc
   */
-class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
+class CsvIterator[K <: Tuple](filePath: String, opts: CsvReadOptions) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
-  
+
   type Col[N <: Int] = Tuple.Elem[K, N]
 
   def getFilePath: String = filePath
+  def getOpts: CsvReadOptions = opts
   lazy private val source = Source.fromFile(filePath)
   lazy private val lineIterator = source.getLines()
   lazy val headers = CSVParser.parseLine((Source.fromFile(filePath).getLines().next()))
@@ -88,7 +89,7 @@ import CsvSchema.*
   //   )
   // end numericTypeTest
 
-  inline def restart = new CsvIterator[K](filePath)    
+  inline def restart = new CsvIterator[K](filePath, opts)
   inline def copy = restart
 
   inline override def next() =
