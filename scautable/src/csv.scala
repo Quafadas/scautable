@@ -11,12 +11,15 @@ import scala.util.Using.Manager.Resource
 import scala.compiletime.*
 import scala.compiletime.ops.int.*
 import fansi.Str
+
 import scala.collection.View.FlatMap
 import io.github.quafadas.scautable.ConsoleFormat.*
 import ColumnTyped.*
+
+import scala.annotation.tailrec
 import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
-import scala.collection.mutable
+import scala.collection.immutable.ListMap
 
 object CSV:
 
@@ -153,14 +156,8 @@ object CSV:
 
     val obj = objExpr.valueOrAbort
 
-    val seen = mutable.Map[String, Int]()
     val headers = obj.headers
-    val uniqueHeaders = headers.map { h =>
-      val count = seen.getOrElse(h, 0) + 1
-      seen(h) = count
-      if (count > 1) s"${h}_$count" else h
-    }
-        
+    val uniqueHeaders = uniquifyHeaders(headers)
 
     Expr.ofTupleFromSeq(uniqueHeaders.map(Expr(_))) match
       case '{ $tup: t } =>
@@ -169,5 +166,17 @@ object CSV:
       case _ => report.throwError(s"Could not infer a literal type for ${uniqueHeaders}")
     end match
   end deduplicateHeadersCode
+
+  val startHeaderIndex = 1
+  def uniquifyHeaders(headers: List[String]): List[String] =
+    if headers.toSet.sizeCompare(headers) == 0 then headers
+    else
+      val updatedHeaders = headers.foldLeft(ListMap.empty[String, Int]):
+        case (acc, elem) =>
+          acc
+            .get(elem)
+            .map(value => (acc + (s"${elem}_${value}" -> startHeaderIndex)).updatedWith(elem)(_.map(_ + 1)))
+            .getOrElse(acc + (elem -> startHeaderIndex))
+      updatedHeaders.keys.toList
 
 end CSV
