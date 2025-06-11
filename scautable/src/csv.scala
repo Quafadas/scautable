@@ -16,6 +16,7 @@ import io.github.quafadas.scautable.ConsoleFormat.*
 import ColumnTyped.*
 import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
+import scala.collection.mutable
 
 object CSV:
 
@@ -152,8 +153,14 @@ object CSV:
 
     val obj = objExpr.valueOrAbort
 
+    val seen = mutable.Map[String, Int]()
     val headers = obj.headers
-    val uniqueHeaders = for ((h, i) <- headers.zipWithIndex) yield if headers.indexOf(h) != i then s"${h}_${i}" else h
+    val uniqueHeaders = headers.map { h =>
+      val count = seen.getOrElse(h, 0) + 1
+      seen(h) = count
+      if (count > 1) s"${h}_$count" else h
+    }
+        
 
     Expr.ofTupleFromSeq(uniqueHeaders.map(Expr(_))) match
       case '{ $tup: t } =>
