@@ -16,10 +16,9 @@ import scala.collection.View.FlatMap
 import io.github.quafadas.scautable.ConsoleFormat.*
 import ColumnTyped.*
 
-import scala.annotation.tailrec
 import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
-import scala.collection.immutable.ListMap
+import io.github.quafadas.scautable.CSVUtils.*
 
 object CSV:
 
@@ -166,17 +165,5 @@ object CSV:
       case _ => report.throwError(s"Could not infer a literal type for ${uniqueHeaders}")
     end match
   end deduplicateHeadersCode
-
-  val startHeaderIndex = 1
-  def uniquifyHeaders(headers: List[String]): List[String] =
-    if headers.toSet.sizeCompare(headers) == 0 then headers
-    else
-      val updatedHeaders = headers.foldLeft(ListMap.empty[String, Int]):
-        case (acc, elem) =>
-          acc
-            .get(elem)
-            .map(value => (acc + (s"${elem}_${value}" -> startHeaderIndex)).updatedWith(elem)(_.map(_ + 1)))
-            .getOrElse(acc + (elem -> startHeaderIndex))
-      updatedHeaders.keys.toList
 
 end CSV
