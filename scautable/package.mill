@@ -29,6 +29,7 @@ object `package` extends RootModule {
 
     object jvm extends SharedTest with build.ShareCompileResources {
       override def moduleDeps = Seq(build.scautable.jvm)
+       def scalacOptions: T[Seq[String]] = Seq("-Xmax-inlines:10000")
     }
   }
 
