@@ -11,11 +11,14 @@ import scala.util.Using.Manager.Resource
 import scala.compiletime.*
 import scala.compiletime.ops.int.*
 import fansi.Str
+
 import scala.collection.View.FlatMap
 import io.github.quafadas.scautable.ConsoleFormat.*
 import ColumnTyped.*
+
 import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
+import io.github.quafadas.scautable.CSVUtils.*
 
 object CSV:
 
@@ -153,7 +156,7 @@ object CSV:
     val obj = objExpr.valueOrAbort
 
     val headers = obj.headers
-    val uniqueHeaders = for ((h, i) <- headers.zipWithIndex) yield if headers.indexOf(h) != i then s"${h}_${i}" else h
+    val uniqueHeaders = uniquifyHeaders(headers)
 
     Expr.ofTupleFromSeq(uniqueHeaders.map(Expr(_))) match
       case '{ $tup: t } =>
