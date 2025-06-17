@@ -395,10 +395,11 @@ import CsvSchema.*"""
     def csv: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA")] = CSV.resource("dups.csv")
 
     // If the next two lines compile, this is a pretty good indicator that we've deduplicated the headers
-    def dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_5")] = CSV.deduplicateHeaders(csv)
-    val testVal = dedupCsv.drop(1).next().colA_5
+    def dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_3")] = CSV.deduplicateHeaders(csv)
+    val testVal = dedupCsv.drop(1).next().colA_3
     assert(testVal == "5")
   }
+
 
   // test("url") {
   //   val csv = CSV.url("https://raw.githubusercontent.com/datasciencedojo/datasets/refs/heads/master/titanic.csv")
