@@ -16,7 +16,7 @@ object `package` extends RootModule {
   object jvm extends SharedModule with ScalaModule with build.PublishModule {
     override def ivyDeps= super.ivyDeps() ++ Agg(
       ivy"org.apache.poi:poi:5.4.1",
-      ivy"org.apache.poi:poi-ooxml:5.4.1",
+      ivy"org.apache.poi:poi-ooxml:5.4.1"
     )
   }
 
