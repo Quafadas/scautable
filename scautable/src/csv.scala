@@ -20,6 +20,7 @@ import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
 import io.github.quafadas.scautable.CSVUtils.*
 
+
 object CSV:
 
   /** Saves a URL to a local CSV returns a [[io.github.quafadas.scautable.CsvIterator]].
@@ -60,55 +61,42 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.absolutePath("/absolute/path/to/file.csv")
     * }}}
     */
-  transparent inline def absolutePath[T](path: String) = ${ readCsvAbolsutePath('path) }
+  transparent inline def absolutePath[T](inline path: String) = ${ readCsvAbolsutePath('path) }
 
-  /** Ensures unique column names for the iterator.
-    *
-    * For each repeated column name, appends the column’s 0-based index to the name.
+    /** Reads a CSV from a String and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
     * Example:
     * {{{
-    *    val csv: CsvIterator[("colA", "colB" "colA")] = CSV.absolutePath("...")
-    *    val uniqCsv: CsvIterator[("colA", "colB", "colA_2")] = CSV.deduplicateHeaders(csv)
+    * val csvContent = "colA,colB\n1,a\n2,b"
+    * val csv: CsvIterator[("colA", "colB")] = CSV.fromString(csvContent)
     * }}}
     */
-  transparent inline def deduplicateHeaders[K <: Tuple](obj: CsvIterator[K]) = ${ deduplicateHeadersCode('obj) }
-
-  given IteratorToExpr2[K <: Tuple](using ToExpr[String], Type[K]): ToExpr[CsvIterator[K]] with
-    def apply(opt: CsvIterator[K])(using Quotes): Expr[CsvIterator[K]] =
-      val str = Expr(opt.getFilePath)
-      '{
-        new CsvIterator[K]($str)
-      }
-    end apply
-  end IteratorToExpr2
-
-  given IteratorFromExpr[K <: Tuple](using Type[K]): FromExpr[CsvIterator[K]] with
-    def unapply(x: Expr[CsvIterator[K]])(using Quotes): Option[CsvIterator[K]] =
-      import quotes.reflect.*
-      x.asTerm.underlying.asExprOf[CsvIterator[K]] match
-        case '{ new CsvIterator[K](${ Expr(filePath) }) } => Some(new CsvIterator[K](filePath))
-        case _                                            => None
-      end match
-    end unapply
-  end IteratorFromExpr
+  transparent inline def fromString[T](inline csvContent: String): CsvIterator[?] = fromString[T](csvContent, HeaderOptions.Default)
+  
+  transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions) = ${ readCsvFromString('csvContent, 'headers) }
 
   private transparent inline def readHeaderlineAsCsv(path: String)(using q: Quotes) =
     import q.reflect.*
 
-    val itr = new CsvIterator(path.toString)
-    val headers = itr.headers
+    lazy val source = Source.fromFile(path)
+    lazy val lineIterator: Iterator[String] = source.getLines()
+    lazy val headers = CSVParser.parseLine(lineIterator.next())
+    val itr = new CsvIterator(lineIterator, headers)
 
-    if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected. Consider using `CSV.deduplicateHeaders`.")
+    if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
     end if
 
-    val tupHeaders = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-    tupHeaders match
+    val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+    headerTupleExpr match
       case '{ $tup: t } =>
-        // val itr = new CsvIterator[t & Tuple](path.toString)
-        Expr(itr.asInstanceOf[CsvIterator[t & Tuple]])
-      case _ => report.throwError(s"Could not summon Type for type: ${tupHeaders.show}")
-    end match
+        val filePathExpr = Expr(path)
+        '{
+          val lines = scala.io.Source.fromFile($filePathExpr).getLines()
+          val headers = CSVParser.parseLine(lines.next())
+          new CsvIterator[t & Tuple](lines, headers)
+        }
+      case _ =>
+        report.throwError(s"Could not infer literal tuple type from headers: ${headers}")
 
   end readHeaderlineAsCsv
 
@@ -150,20 +138,32 @@ object CSV:
     readHeaderlineAsCsv(resourcePath.getPath)
   end readCsvResource
 
-  private def deduplicateHeadersCode[K <: Tuple](objExpr: Expr[CsvIterator[K]])(using Quotes, Type[K]) =
+  private def readCsvFromString(csvContentExpr: Expr[String], csvHeaders: Expr[HeaderOptions])(using Quotes) =
     import quotes.reflect.*
+    import io.github.quafadas.scautable.HeaderOptions.*
 
-    val obj = objExpr.valueOrAbort
+    val content = csvContentExpr.valueOrAbort
+    if content.trim.isEmpty then
+      report.throwError("Empty CSV content provided.")
+    val lines = content.linesIterator
+    val (headers, iter) = lines.headers(csvHeaders.valueOrAbort)
 
-    val headers = obj.headers
-    val uniqueHeaders = uniquifyHeaders(headers)
 
-    Expr.ofTupleFromSeq(uniqueHeaders.map(Expr(_))) match
+    if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
+    end if
+
+    val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+    headerTupleExpr match
       case '{ $tup: t } =>
-        val itr = new CsvIterator[t & Tuple](obj.getFilePath)
-        Expr(itr)
-      case _ => report.throwError(s"Could not infer a literal type for ${uniqueHeaders}")
-    end match
-  end deduplicateHeadersCode
+        '{
+          val content = ${csvContentExpr}
+          val lines = content.linesIterator
+          val (headers, iterator) = lines.headers(${csvHeaders})
+          new CsvIterator[t & Tuple](iterator, headers)
+        }
+      case _ =>
+        report.throwError(s"Could not infer literal tuple type from headers: ${headers}")
+  end readCsvFromString
+
 
 end CSV
