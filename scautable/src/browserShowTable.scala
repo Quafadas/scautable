@@ -19,7 +19,7 @@ object scautable extends PlatformSpecific:
   // Aggressively copy-pasta-d from here; https://blog.philipp-martini.de/blog/magic-mirror-scala3/
   protected inline def getTypeclassInstances[A <: Tuple]: List[HtmlTableRender[Any]] =
     inline erasedValue[A] match
-      case _: EmptyTuple => Nil
+      case _: EmptyTuple     => Nil
       case _: (head *: tail) =>
         val headTypeClass =
           summonInline[HtmlTableRender[
@@ -65,7 +65,7 @@ object scautable extends PlatformSpecific:
     protected inline def getInstances[A <: Tuple]: List[TC[Any]] =
       inline erasedValue[A] match
         case _: EmptyTuple => Nil
-        case _: (t *: ts) =>
+        case _: (t *: ts)  =>
           summonInline[TC[t]].asInstanceOf[TC[Any]] :: getInstances[ts]
 
     protected inline def getElemLabels[A <: Tuple]: List[String] =
@@ -226,7 +226,7 @@ object scautable extends PlatformSpecific:
 
   protected inline def getElemLabels[A <: Tuple]: List[String] =
     inline erasedValue[A] match
-      case _: EmptyTuple => Nil // stop condition - the tuple is empty
+      case _: EmptyTuple     => Nil // stop condition - the tuple is empty
       case _: (head *: tail) => // yes, in scala 3 we can match on tuples head and tail to deconstruct them step by step
         val headElementLabel =
           constValue[head].toString // bring the head label to value space

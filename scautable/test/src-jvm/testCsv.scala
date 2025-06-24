@@ -156,7 +156,7 @@ class CSVSuite extends munit.FunSuite:
     val out2 = dropFirst.toArray
     assertEquals(out2.head, ("2", "7"))
     assertEquals(out2.tail.head, ("4", "8"))
-    assertEquals(out2.last, ("6", "9"))    
+    assertEquals(out2.last, ("6", "9"))
 
   }
 
@@ -399,7 +399,6 @@ import CsvSchema.*"""
     val testVal = dedupCsv.drop(1).next().colA_3
     assert(testVal == "5")
   }
-
 
   // test("url") {
   //   val csv = CSV.url("https://raw.githubusercontent.com/datasciencedojo/datasets/refs/heads/master/titanic.csv")

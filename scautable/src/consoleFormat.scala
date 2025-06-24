@@ -64,7 +64,7 @@ object ConsoleFormat:
 
   inline def consoleFormat_(table: Seq[Product], fancy: Boolean, headers: List[String]): String = table match
     case Seq() => ""
-    case _ =>
+    case _     =>
       val indexLen = table.length.toString.length
       val sizes =
         for (row <- table)

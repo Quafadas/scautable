@@ -31,7 +31,7 @@ import NamedTuple.*
   */
 class CsvIterator[K <: Tuple](filePath: String) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
-  
+
   type Col[N <: Int] = Tuple.Elem[K, N]
 
   def getFilePath: String = filePath
@@ -88,7 +88,7 @@ import CsvSchema.*
   //   )
   // end numericTypeTest
 
-  inline def restart = new CsvIterator[K](filePath)    
+  inline def restart = new CsvIterator[K](filePath)
   inline def copy = restart
 
   inline override def next() =
