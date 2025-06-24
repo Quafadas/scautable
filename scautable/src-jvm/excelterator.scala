@@ -90,7 +90,7 @@ class ExcelIterator[K](filePath: String, sheetName: String, colRange: Option[Str
   end sheetIterator
 
   var debugi: Int = colRange match
-    case None => 0
+    case None        => 0
     case Some(range) =>
       val (firstRow, lastRow, firstCol, lastCol) = getRanges(range)
       firstRow
@@ -149,7 +149,7 @@ class ExcelIterator[K](filePath: String, sheetName: String, colRange: Option[Str
 
   override def hasNext: Boolean =
     colRange match
-      case None => sheetIterator.hasNext
+      case None        => sheetIterator.hasNext
       case Some(value) =>
         val (firstRow, lastRow, firstCol, lastCol) = getRanges(value)
         debugi < lastRow
