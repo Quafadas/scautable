@@ -40,7 +40,7 @@ class CsvFromStringSuite extends FunSuite:
 
   test("fromString should handle duplicated headers by parsing correctly but warn at compile time") {
     inline val csvContent = "colA,colB,colA\n1,2,3"
-    val csvIterator = CSV.fromString(csvContent, HeaderOptions.R(0))
+    val csvIterator = CSV.fromString(csvContent, HeaderOptions.FromRows(1))
 
     assertEquals(csvIterator.headers, List("colA", "colB", "colA")) 
 
@@ -77,7 +77,7 @@ class CsvFromStringSuite extends FunSuite:
 
   test("H should use explicit headers and consume no initial rows") {
     inline val csvContent = "1,2,3\n4,5,6"
-    val csvIterator = CSV.fromString(csvContent, HeaderOptions.H("headerA", "headerB", "headerC"))
+    val csvIterator = CSV.fromString(csvContent, HeaderOptions.Manual("headerA", "headerB", "headerC"))
 
     assertEquals(csvIterator.headers, List("headerA", "headerB", "headerC"))
 
@@ -101,7 +101,29 @@ class CsvFromStringSuite extends FunSuite:
   test("fromString should combine multi-line headers correctly with HeaderOptions.R(1)") {
     inline val csvContent = "Name,Age\nFirst,Years\nAlice,30\nBob,24"
 
-    val csvIterator = CSV.fromString(csvContent, HeaderOptions.R(1))
+    val csvIterator = CSV.fromString(csvContent, HeaderOptions.FromRows(2))
+
+    assertEquals(csvIterator.headers, List("Name First", "Age Years"))
+
+    assert(csvIterator.hasNext)
+    val row1 = csvIterator.next()
+    assertEquals(row1.`Name First`, "Alice")
+    assertEquals(row1.`Age Years`, "30")
+    assertEquals(row1.toTuple.toList, List("Alice", "30"))
+
+    assert(csvIterator.hasNext)
+    val row2 = csvIterator.next()
+    assertEquals(row2.`Name First`, "Bob")
+    assertEquals(row2.`Age Years`, "24")
+    assertEquals(row2.toTuple.toList, List("Bob", "24"))
+
+    assert(!csvIterator.hasNext)
+  }
+
+  test("fromString should correctly drop initial lines and combine multi-line headers with FromRows(2, dropFirst = 1)") {
+    inline val csvContent = "skip this line\nName,Age\nFirst,Years\nAlice,30\nBob,24"
+
+    val csvIterator = CSV.fromString(csvContent, HeaderOptions.FromRows(merge = 2, dropFirst = 1))
 
     assertEquals(csvIterator.headers, List("Name First", "Age Years"))
 
