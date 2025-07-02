@@ -10,4 +10,6 @@ object table:
   export io.github.quafadas.scautable.scautable.*
   export io.github.quafadas.scautable.ConsoleFormat.*
   export io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
+  export io.github.quafadas.scautable.HeaderOptions
+  export io.github.quafadas.scautable.HeaderOptions.*
 end table
