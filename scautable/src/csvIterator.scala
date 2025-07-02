@@ -10,6 +10,7 @@ import CSV.*
 import ConsoleFormat.*
 import ColumnTyped.*
 import NamedTuple.*
+import scala.annotation.publicInBinary
 
 /** A NamedTuple representation of a CSV file.
   *
@@ -29,7 +30,7 @@ import NamedTuple.*
   * ```
   * etc
   */
-class CsvIterator[K <: Tuple](val rows: Iterator[String], val headers: Seq[String]) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
+class CsvIterator[K <: Tuple] @publicInBinary private[scautable] (private val rows: Iterator[String], val headers: Seq[String]) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
   type COLUMNS = K
 
   type Col[N <: Int] = Tuple.Elem[K, N]
