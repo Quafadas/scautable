@@ -26,4 +26,4 @@ passed the below test.
 
 Please bear in mind that scautable is targeted for the "small". Beyond this point, feel free to experiment but expect instability - scautable may not be the right strategy for your data analysis.
 
-The number of rows should not be problematic. The design it lazy in nature - although again please bear in mind that we are targeting "small". Scautable is untested beyond 5 million rows 🤷.
+The number of rows should not be problematic. The design is lazy in nature - although again please bear in mind that we are targeting "small". Scautable is untested beyond 5 million rows 🤷.
