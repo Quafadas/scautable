@@ -30,7 +30,9 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.url("https://somewhere.com/file.csv")
     * }}}
     */
-  transparent inline def url[T](inline path: String) = ${ readCsvFromUrl('path) }
+  transparent inline def url[T](inline path: String): CsvIterator[?] = url[T](path, HeaderOptions.Default)
+
+  transparent inline def url[T](inline path: String, inline headers: HeaderOptions) = ${ readCsvFromUrl('path, 'headers) }
 
   /** Reads a CSV present in the current _compiler_ working directory resources and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -43,7 +45,9 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.pwd("file.csv")
     * }}}
     */
-  transparent inline def pwd[T](inline path: String) = ${ readCsvFromCurrentDir('path) }
+  transparent inline def pwd[T](inline path: String): CsvIterator[?] = pwd[T](path, HeaderOptions.Default)
+
+  transparent inline def pwd[T](inline path: String, inline headers: HeaderOptions) = ${ readCsvFromCurrentDir('path, 'headers) }
 
   /** Reads a CSV present in java resources and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -52,7 +56,9 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.resource("file.csv")
     * }}}
     */
-  transparent inline def resource[T](inline path: String) = ${ readCsvResource('path) }
+  transparent inline def resource[T](inline path: String): CsvIterator[?] = resource[T](path, HeaderOptions.Default)
+
+  transparent inline def resource[T](inline path: String, inline headers: HeaderOptions) = ${ readCsvResource('path, 'headers) }
 
   /** Reads a CSV file from an absolute path and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -61,7 +67,9 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.absolutePath("/absolute/path/to/file.csv")
     * }}}
     */
-  transparent inline def absolutePath[T](inline path: String) = ${ readCsvAbolsutePath('path) }
+  transparent inline def absolutePath[T](inline path: String): CsvIterator[?] = absolutePath[T](path, HeaderOptions.Default)
+
+  transparent inline def absolutePath[T](inline path: String, inline headers: HeaderOptions) = ${ readCsvAbolsutePath('path, 'headers) }
 
     /** Reads a CSV from a String and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -75,13 +83,13 @@ object CSV:
   
   transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions) = ${ readCsvFromString('csvContent, 'headers) }
 
-  private transparent inline def readHeaderlineAsCsv(path: String)(using q: Quotes) =
+  private transparent inline def readHeaderlineAsCsv(path: String, csvHeaders: Expr[HeaderOptions])(using q: Quotes) =
     import q.reflect.*
+    import io.github.quafadas.scautable.HeaderOptions.*
 
-    lazy val source = Source.fromFile(path)
-    lazy val lineIterator: Iterator[String] = source.getLines()
-    lazy val headers = CSVParser.parseLine(lineIterator.next())
-    val itr = new CsvIterator(lineIterator, headers)
+    val source = Source.fromFile(path)
+    val lineIterator: Iterator[String] = source.getLines()
+    val (headers, iter) = lineIterator.headers(csvHeaders.valueOrAbort)
 
     if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
     end if
@@ -92,15 +100,15 @@ object CSV:
         val filePathExpr = Expr(path)
         '{
           val lines = scala.io.Source.fromFile($filePathExpr).getLines()
-          val headers = CSVParser.parseLine(lines.next())
-          new CsvIterator[t & Tuple](lines, headers)
+          val (headers, iterator) = lines.headers(${csvHeaders})
+          new CsvIterator[t & Tuple](iterator, headers)
         }
       case _ =>
         report.throwError(s"Could not infer literal tuple type from headers: ${headers}")
 
   end readHeaderlineAsCsv
 
-  private def readCsvFromUrl(pathExpr: Expr[String])(using Quotes) =
+  private def readCsvFromUrl(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions])(using Quotes) =
     import quotes.reflect.*
 
     report.warning(
@@ -109,25 +117,25 @@ object CSV:
     val source = Source.fromURL(pathExpr.valueOrAbort)
     val tmpPath = os.temp(dir = os.pwd, prefix = "temp_csv_", suffix = ".csv")
     os.write.over(tmpPath, source.toArray.mkString)
-    readHeaderlineAsCsv(tmpPath.toString)
+    readHeaderlineAsCsv(tmpPath.toString, csvHeaders)
 
   end readCsvFromUrl
 
-  private def readCsvFromCurrentDir(pathExpr: Expr[String])(using Quotes) =
+  private def readCsvFromCurrentDir(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions])(using Quotes) =
     import quotes.reflect.*
     val path = os.pwd / pathExpr.valueOrAbort
-    readHeaderlineAsCsv(path.toString)
+    readHeaderlineAsCsv(path.toString, csvHeaders)
 
   end readCsvFromCurrentDir
 
-  def readCsvAbolsutePath(pathExpr: Expr[String])(using Quotes) =
+  def readCsvAbolsutePath(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions])(using Quotes) =
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
-    readHeaderlineAsCsv(path)
+    readHeaderlineAsCsv(path, csvHeaders)
   end readCsvAbolsutePath
 
-  private def readCsvResource(pathExpr: Expr[String])(using Quotes) =
+  private def readCsvResource(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions])(using Quotes) =
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
@@ -135,7 +143,7 @@ object CSV:
     if resourcePath == null then report.throwError(s"Resource not found: $path")
     end if
 
-    readHeaderlineAsCsv(resourcePath.getPath)
+    readHeaderlineAsCsv(resourcePath.getPath, csvHeaders)
   end readCsvResource
 
   private def readCsvFromString(csvContentExpr: Expr[String], csvHeaders: Expr[HeaderOptions])(using Quotes) =
