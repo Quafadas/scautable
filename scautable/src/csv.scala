@@ -21,6 +21,7 @@ import scala.collection.View.Single
 import io.github.quafadas.scautable.CSVUtils.*
 
 
+
 object CSV:
 
   /** Saves a URL to a local CSV returns a [[io.github.quafadas.scautable.CsvIterator]].
@@ -30,7 +31,7 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.url("https://somewhere.com/file.csv")
     * }}}
     */
-  transparent inline def url[T](inline path: String): CsvIterator[?] = url[T](path, HeaderOptions.Default)
+  transparent inline def url[T](inline path: String): Any = url[T](path, HeaderOptions.Default)
 
   transparent inline def url[T](inline path: String, inline headers: HeaderOptions) = ${ readCsvFromUrl('path, 'headers) }
 
@@ -45,7 +46,7 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.pwd("file.csv")
     * }}}
     */
-  transparent inline def pwd[T](inline path: String): CsvIterator[?] = pwd[T](path, HeaderOptions.Default)
+  transparent inline def pwd[T](inline path: String): Any = pwd[T](path, HeaderOptions.Default)
 
   transparent inline def pwd[T](inline path: String, inline headers: HeaderOptions) = ${ readCsvFromCurrentDir('path, 'headers) }
 
@@ -56,7 +57,7 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.resource("file.csv")
     * }}}
     */
-  transparent inline def resource[T](inline path: String): CsvIterator[?] = resource[T](path, HeaderOptions.Default)
+  transparent inline def resource[T](inline path: String): Any = resource[T](path, HeaderOptions.Default)
 
   transparent inline def resource[T](inline path: String, inline headers: HeaderOptions) = ${ readCsvResource('path, 'headers) }
 
@@ -67,7 +68,7 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.absolutePath("/absolute/path/to/file.csv")
     * }}}
     */
-  transparent inline def absolutePath[T](inline path: String): CsvIterator[?] = absolutePath[T](path, HeaderOptions.Default)
+  transparent inline def absolutePath[T](inline path: String): Any = absolutePath[T](path, HeaderOptions.Default)
 
   transparent inline def absolutePath[T](inline path: String, inline headers: HeaderOptions) = ${ readCsvAbolsutePath('path, 'headers) }
 
@@ -79,9 +80,9 @@ object CSV:
     * val csv: CsvIterator[("colA", "colB")] = CSV.fromString(csvContent)
     * }}}
     */
-  transparent inline def fromString[T](inline csvContent: String): CsvIterator[?] = fromString[T](csvContent, HeaderOptions.Default)
+  // transparent inline def fromString[T](inline csvContent: String): Any = fromString[T](csvContent, HeaderOptions.Default, TypeInferrer.StringType)
   
-  transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions) = ${ readCsvFromString('csvContent, 'headers) }
+  transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${ readCsvFromString('csvContent, 'headers, 'dataType) }
 
   private transparent inline def readHeaderlineAsCsv(path: String, csvHeaders: Expr[HeaderOptions])(using q: Quotes) =
     import q.reflect.*
@@ -101,7 +102,7 @@ object CSV:
         '{
           val lines = scala.io.Source.fromFile($filePathExpr).getLines()
           val (headers, iterator) = lines.headers(${csvHeaders})
-          new CsvIterator[t & Tuple](iterator, headers)
+          new CsvIterator[t & Tuple, t & Tuple](iterator, headers)
         }
       case _ =>
         report.throwError(s"Could not infer literal tuple type from headers: ${headers}")
@@ -146,32 +147,51 @@ object CSV:
     readHeaderlineAsCsv(resourcePath.getPath, csvHeaders)
   end readCsvResource
 
-  private def readCsvFromString(csvContentExpr: Expr[String], csvHeaders: Expr[HeaderOptions])(using Quotes) =
+  private def readCsvFromString(csvContentExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
     import quotes.reflect.*
     import io.github.quafadas.scautable.HeaderOptions.*
+    import io.github.quafadas.scautable.TypeInferrer.*
 
     val content = csvContentExpr.valueOrAbort
     if content.trim.isEmpty then
       report.throwError("Empty CSV content provided.")
+
     val lines = content.linesIterator
     val (headers, iter) = lines.headers(csvHeaders.valueOrAbort)
 
-
-    if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
+    if headers.length != headers.distinct.length then
+      report.info("Possible duplicated headers detected.")
     end if
 
     val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+
+    def constructWithTypes[Hdrs <: Tuple : Type, Data <: Tuple : Type]: Expr[CsvIterator[Hdrs, Data]] =
+      '{
+        val content = $csvContentExpr
+        val lines = content.linesIterator
+        val (headers, iterator) = lines.headers($csvHeaders)
+        new CsvIterator[Hdrs, Data](iterator, headers)
+      }
+
     headerTupleExpr match
-      case '{ $tup: t } =>
-        '{
-          val content = ${csvContentExpr}
-          val lines = content.linesIterator
-          val (headers, iterator) = lines.headers(${csvHeaders})
-          new CsvIterator[t & Tuple](iterator, headers)
-        }
+      case '{ $tup: hdrs } =>
+        dataType match
+
+          case '{ TypeInferrer.fromTuple[t] } =>
+            constructWithTypes[hdrs & Tuple, t & Tuple]
+
+          case '{ TypeInferrer.StringType } =>
+            constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
+
+          case '{ TypeInferrer.Auto } =>
+            val inferredTypeRepr = TypeInferrer.inferrer(iter)
+            inferredTypeRepr.asType match {
+              case '[v] =>
+                constructWithTypes[hdrs & Tuple, v & Tuple]
+            }
+
       case _ =>
-        report.throwError(s"Could not infer literal tuple type from headers: ${headers}")
-  end readCsvFromString
+        report.throwError("Could not infer literal header tuple.")
 
 
 end CSV

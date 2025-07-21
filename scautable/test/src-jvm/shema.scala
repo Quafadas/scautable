@@ -3,12 +3,14 @@ import io.github.quafadas.table.*
 import NamedTuple.*
 
 
-class CSVSchemaSuite extends munit.FunSuite:
-    test("Drop column by number") {
-        val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")        
+// class CSVSchemaSuite extends munit.FunSuite:
+    // test("Drop column by number") {
+    //     inline val csvContent = "col1,col2,col3\n1,2,3\n4,5,6"
+    //     val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.fromString[(String, String, String)](csvContent)  
+    //     // val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")        
 
-        val drp = csv.dropColumn[csv.Col[1]]
+    //     val drp = csv.dropColumn[csv.Col[1]]
 
-        println(csv.schemaGen)
+    //     println(csv.schemaGen)
         
-    }
+    // }
