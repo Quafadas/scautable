@@ -11,6 +11,8 @@ import ConsoleFormat.*
 import ColumnTyped.*
 import NamedTuple.*
 import scala.annotation.publicInBinary
+import io.github.quafadas.scautable.Decoder.given
+import io.github.quafadas.scautable.RowDecoder.given
 
 /** A NamedTuple representation of a CSV file.
   *
@@ -30,17 +32,26 @@ import scala.annotation.publicInBinary
   * ```
   * etc
   */
-class CsvIterator[K <: Tuple] @publicInBinary private[scautable] (private val rows: Iterator[String], val headers: Seq[String]) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
+class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (private val rows: Iterator[String], val headers: Seq[String])(using decoder: RowDecoder[V]) extends Iterator[NamedTuple[K, V]]:
   type COLUMNS = K
 
   type Col[N <: Int] = Tuple.Elem[K, N]
   
   inline override def hasNext: Boolean = rows.hasNext
 
+  // inline override def next() =
+  //   val str = rows.next()
+  //   val splitted = CSVParser.parseLine(str)
+  //   val tuple = listToTuple(splitted).asInstanceOf[StringyTuple[K]]
+  //   NamedTuple.build[K & Tuple]()(tuple)
+  // end next
+
   inline override def next() =
     val str = rows.next()
     val splitted = CSVParser.parseLine(str)
-    val tuple = listToTuple(splitted).asInstanceOf[StringyTuple[K & Tuple]]
+    val tuple = decoder.decodeRow(splitted).getOrElse(
+      throw new Exception("Failed to decode row: " + splitted)
+    )
     NamedTuple.build[K & Tuple]()(tuple)
   end next
 
