@@ -407,7 +407,7 @@ import CsvSchema.*"""
   }
 
   test("CSV.resource with Manual headers parses data_without_headers.csv correctly") {
-    val csv = CSV.resource("data_without_headers.csv", HeaderOptions.Manual("name", "age", "profession"))
+    val csv: CsvIterator[("name", "age", "profession"), (String, Int, String)]  = CSV.resource("data_without_headers.csv", HeaderOptions.Manual("name", "age", "profession"), TypeInferrer.Auto)
 
     assertEquals(csv.headers, List("name", "age", "profession"))
 
@@ -416,15 +416,15 @@ import CsvSchema.*"""
     assertEquals(rows.length, 3)
 
     assertEquals(rows(0).name, "Alice")
-    assertEquals(rows(0).age, "25")
+    assertEquals(rows(0).age, 25)
     assertEquals(rows(0).profession, "Engineer")
 
     assertEquals(rows(1).name, "Bob")
-    assertEquals(rows(1).age, "30")
+    assertEquals(rows(1).age, 30)
     assertEquals(rows(1).profession, "Designer")
 
     assertEquals(rows(2).name, "Charlie")
-    assertEquals(rows(2).age, "22")
+    assertEquals(rows(2).age, 22)
     assertEquals(rows(2).profession, "Student")
   }
 

@@ -107,9 +107,9 @@ Iterators are cheap to create, but I usually read all data into a `val` via a ca
 If you are in the situation where you have a large number of duplicate headers, consider de-duplication.
 
 ```scala sc:nocompile
-def csvDup: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA")] = CSV.resource("dups.csv")
+def csvDup: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA"), (String, String, String, String, String, String)] = CSV.resource("dups.csv")
 
-def dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_5")] = CSV.deduplicateHeader(csvDup)
+def dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_5"), (String, String, String, String, String, String)] = CSV.deduplicateHeader(csvDup)
 ```
 
 ### Example
