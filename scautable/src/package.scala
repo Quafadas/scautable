@@ -11,4 +11,9 @@ object table:
   export io.github.quafadas.scautable.ConsoleFormat.*
   export io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
   export io.github.quafadas.scautable.HeaderOptions.*
+  export io.github.quafadas.scautable.TypeInferrer
+  export io.github.quafadas.scautable.TypeInferrer.Auto
+  export io.github.quafadas.scautable.TypeInferrer.StringType
+  export io.github.quafadas.scautable.TypeInferrer.FromTuple
+  export io.github.quafadas.scautable.TypeInferrer.fromTuple
 end table

@@ -21,7 +21,6 @@ import scala.collection.View.Single
 import io.github.quafadas.scautable.CSVUtils.*
 
 
-
 object CSV:
 
   /** Saves a URL to a local CSV returns a [[io.github.quafadas.scautable.CsvIterator]].
@@ -86,7 +85,7 @@ object CSV:
 
   transparent inline def absolutePath[T](inline csvContent: String, inline dataType: TypeInferrer): Any = absolutePath[T](csvContent, HeaderOptions.Default, dataType)
 
-  transparent inline def absolutePath[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${ readCsvAbolsutePath('path, 'headers, 'dataType) }
+  transparent inline def absolutePath[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${ readCsvAbsolutePath('path, 'headers, 'dataType) }
 
     /** Reads a CSV from a String and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -108,7 +107,7 @@ object CSV:
   private transparent inline def readHeaderlineAsCsv(path: String, csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using q: Quotes) =
     import q.reflect.*
     import io.github.quafadas.scautable.HeaderOptions.*
-    
+    import io.github.quafadas.scautable.TypeInferrer.*
 
     val source = Source.fromFile(path)
     val lineIterator: Iterator[String] = source.getLines()
@@ -168,12 +167,12 @@ object CSV:
     readHeaderlineAsCsv(path.toString, csvHeaders, dataType)
   end readCsvFromCurrentDir
 
-  def readCsvAbolsutePath(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
+  def readCsvAbsolutePath(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
     readHeaderlineAsCsv(path, csvHeaders, dataType)
-  end readCsvAbolsutePath
+  end readCsvAbsolutePath
 
   private def readCsvResource(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
     import quotes.reflect.*
