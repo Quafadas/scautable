@@ -15,5 +15,5 @@ object table:
   export io.github.quafadas.scautable.TypeInferrer.Auto
   export io.github.quafadas.scautable.TypeInferrer.StringType
   export io.github.quafadas.scautable.TypeInferrer.FromTuple
-  export io.github.quafadas.scautable.TypeInferrer.fromTuple
+  // export io.github.quafadas.scautable.TypeInferrer.fromTuple
 end table

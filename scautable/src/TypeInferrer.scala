@@ -4,11 +4,11 @@ import io.github.quafadas.scautable.CSVParser.*
 import io.github.quafadas.scautable.RowDecoder.*
 import scala.quoted.*
 
-enum TypeInferrer {
+enum TypeInferrer:
   case Auto
   case StringType
   case FromTuple[T]()
-}
+end TypeInferrer
 
 object TypeInferrer:
   inline def fromTuple[T]: TypeInferrer = TypeInferrer.FromTuple[T]()
@@ -21,6 +21,8 @@ object TypeInferrer:
     else if str.toDoubleOption.isDefined then TypeRepr.of[Double]
     else if str.toBooleanOption.isDefined then TypeRepr.of[Boolean]
     else TypeRepr.of[String]
+    end if
+  end inferTypeRepr
 
   def inferTypeAsType(using Quotes)(str: String): Type[?] =
     inferTypeRepr(str).asType
@@ -28,8 +30,8 @@ object TypeInferrer:
   def inferrer(using Quotes)(rows: Iterator[String]) =
     import quotes.reflect.*
 
-    if !rows.hasNext then
-      throw new IllegalArgumentException("CSV must contain at least one data line for type inference.")
+    if !rows.hasNext then throw new IllegalArgumentException("CSV must contain at least one data line for type inference.")
+    end if
 
     val line = rows.next()
     val rowParsed = CSVParser.parseLine(line)
@@ -41,3 +43,5 @@ object TypeInferrer:
     }
 
     tupleType
+  end inferrer
+end TypeInferrer
