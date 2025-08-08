@@ -8,6 +8,7 @@ enum TypeInferrer:
   case Auto
   case StringType
   case FromTuple[T]()
+  case FromTupled
 end TypeInferrer
 
 object TypeInferrer:

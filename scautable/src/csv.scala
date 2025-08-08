@@ -138,14 +138,14 @@ object CSV:
       case '{ $tup: hdrs } =>
         println(s"Headers: $headers")
         println(tup.show)
+        println(s"Data type: $dataType")
         dataType match
 
-          case '{ TypeInferrer.fromTuple[t] } =>
+          case '{ TypeInferrer.FromTuple } =>
+            println(s"Survived match")
+            constructWithTypes[hdrs & Tuple, Tuple](Expr(path), csvHeaders)
 
-            constructWithTypes[hdrs & Tuple, t & Tuple](Expr(path), csvHeaders)
-
-          case '{ TypeInferrer.StringType } =>
-            constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple](Expr(path), csvHeaders)
+          case '{ TypeInferrer.StringType } => constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple](Expr(path), csvHeaders)
 
           case '{ TypeInferrer.Auto } =>
             val inferredTypeRepr = TypeInferrer.inferrer(iter)
@@ -229,11 +229,15 @@ object CSV:
         new CsvIterator[Hdrs, Data](iterator, headers)
       }
 
+    println("match headers here")
     headerTupleExpr match
       case '{ $tup: hdrs } =>
+        println(s"Header match: $headers")
         dataType match
 
-          case '{ TypeInferrer.fromTuple[t] } =>
+          case '{ TypeInferrer.FromTuple[t]() } =>
+            println(s"Survived match")
+
             constructWithTypes[hdrs & Tuple, t & Tuple]
 
           case '{ TypeInferrer.StringType } =>
@@ -245,6 +249,7 @@ object CSV:
               case '[v] =>
                 constructWithTypes[hdrs & Tuple, v & Tuple]
             end match
+        end match
 
       case _ =>
         report.throwError("Could not infer literal header tuple.")
