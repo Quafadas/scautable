@@ -65,13 +65,13 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.resource("file.csv")
     * }}}
     */
-  transparent inline def resource[T](inline csvContent: String): Any = resource[T](csvContent, HeaderOptions.Default, TypeInferrer.StringType)
+  transparent inline def resource(inline csvContent: String): Any = resource(csvContent, HeaderOptions.Default, TypeInferrer.StringType)
 
-  transparent inline def resource[T](inline csvContent: String, inline headers: HeaderOptions): Any = resource[T](csvContent, headers, TypeInferrer.StringType)
+  transparent inline def resource(inline csvContent: String, inline headers: HeaderOptions): Any = resource(csvContent, headers, TypeInferrer.StringType)
 
-  transparent inline def resource[T](inline csvContent: String, inline dataType: TypeInferrer): Any = resource[T](csvContent, HeaderOptions.Default, dataType)
+  transparent inline def resource(inline csvContent: String, inline dataType: TypeInferrer): Any = resource(csvContent, HeaderOptions.Default, dataType)
 
-  transparent inline def resource[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${ readCsvResource('path, 'headers, 'dataType) }
+  transparent inline def resource(inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${ readCsvResource('path, 'headers, 'dataType) }
 
   /** Reads a CSV file from an absolute path and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -139,11 +139,15 @@ object CSV:
         println(s"Headers: $headers")
         println(tup.show)
         println(s"Data type: $dataType")
+        println(s"Data type show: ${dataType.show}")
         dataType match
+          case '{ TypeInferrer.FromTuple[t]() } =>
+            println(s"Survived match - local")
+            constructWithTypes[hdrs & Tuple, t & Tuple](Expr(path), csvHeaders)
 
-          case '{ TypeInferrer.FromTuple } =>
-            println(s"Survived match")
-            constructWithTypes[hdrs & Tuple, Tuple](Expr(path), csvHeaders)
+          case '{ io.github.quafadas.scautable.TypeInferrer.FromTuple[t]() } =>
+            println(s"Survived match - full package")
+            constructWithTypes[hdrs & Tuple, t & Tuple](Expr(path), csvHeaders)
 
           case '{ TypeInferrer.StringType } => constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple](Expr(path), csvHeaders)
 
@@ -158,6 +162,40 @@ object CSV:
                 println(s"Data type: $dataType")
                 val filePathExpr = Expr(path)
                 constructWithTypes[hdrs & Tuple, v & Tuple](filePathExpr, csvHeaders)
+            end match
+          case _: Expr[?] =>
+            // Fallback: try to match the tree structure manually for cases where exports change the path
+            import q.reflect.*
+            val tree = dataType.asTerm
+
+            // Helper function to unwrap Inlined nodes
+            def unwrapInlined(term: Term): Term = term match
+              case Inlined(_, _, body) => unwrapInlined(body)
+              case Typed(expr, _)      => unwrapInlined(expr)
+              case other               => other
+
+            val unwrapped = unwrapInlined(tree)
+
+            unwrapped match
+              case Apply(TypeApply(Select(Select(_, "FromTuple"), "apply"), List(tpe)), Nil) =>
+                println(s"Matched FromTuple via tree pattern")
+                tpe.tpe.asType match
+                  case '[t] => constructWithTypes[hdrs & Tuple, t & Tuple](Expr(path), csvHeaders)
+                  case _ =>
+                    println(s"Failed to extract type from ${tpe.show}")
+                    report.throwError(s"Could not extract type parameter from FromTuple")
+                end match
+              case Apply(TypeApply(Select(_, "FromTuple"), List(tpe)), Nil) =>
+                println(s"Matched direct FromTuple via tree pattern")
+                tpe.tpe.asType match
+                  case '[t] => constructWithTypes[hdrs & Tuple, t & Tuple](Expr(path), csvHeaders)
+                  case _ =>
+                    println(s"Failed to extract type from ${tpe.show}")
+                    report.throwError(s"Could not extract type parameter from FromTuple")
+                end match
+              case _ =>
+                println(s"Unsupported data type structure: ${unwrapped.show}")
+                report.throwError(s"Unsupported data type: $dataType")
             end match
         end match
 

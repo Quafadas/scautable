@@ -1,5 +1,6 @@
 import io.github.quafadas.table.*
 import NamedTuple.*
+import io.github.quafadas.scautable.NamedTupleIteratorExtensions.dropColumn
 
 class CSVSchemaSuite extends munit.FunSuite:
 //   test("Drop column by number") {
