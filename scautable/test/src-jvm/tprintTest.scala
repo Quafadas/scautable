@@ -49,7 +49,7 @@ class TPrintSuite extends munit.FunSuite:
     
     assert(prettyOutput.contains("CsvIterator"), s"Expected 'CsvIterator' in '$prettyOutput'")
     assert(prettyOutput.contains("\tname: String,"), s"Expected 'name: String' in '$prettyOutput'")
-    assert(prettyOutput.contains("age: String,"), s"Expected 'age: String' in '$prettyOutput'")
+    assert(prettyOutput.contains("\tage: String"), s"Expected 'age: String' in '$prettyOutput'")
     
     assert(prettyOutput.startsWith("CsvIterator["))
     assert(prettyOutput.endsWith("]"))
