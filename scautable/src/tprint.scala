@@ -12,7 +12,7 @@ object CsvIteratorTPrint:
     def prettyPrint(implicit tpc: TPrintColors): fansi.Str =
       val columnNames = csvIterator.headers
       val colTypes = List.fill(columnNames.size)("String")
-      val coltypes = columnNames.zip(colTypes).map { case (name, colType) =>
-        fansi.Str(s"$name: $colType,")
-      }.mkString("[\n\t", "\n\t", "\n]")
+      val coltypes = columnNames.zip(colTypes)
+        .map { case (name, colType) => fansi.Str(s"$name: $colType") }
+        .mkString("[\n\t", ",\n\t", "\n]")
       fansi.Str("CsvIterator") ++ fansi.Str(coltypes)
