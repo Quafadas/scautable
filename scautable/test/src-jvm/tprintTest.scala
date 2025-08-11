@@ -25,7 +25,6 @@ class TPrintSuite extends munit.FunSuite:
     // Use the extension method directly
     val prettyOutput = prettyPrint(csv).plainText
 
-    println(prettyOutput)
     
     // Verify the output contains the expected column information
     assert(prettyOutput.contains("CsvIterator"), s"Expected 'CsvIterator' in '$prettyOutput'")
@@ -47,7 +46,6 @@ class TPrintSuite extends munit.FunSuite:
     implicit val colors: TPrintColors = TPrintColors.BlackWhite
     
     val prettyOutput = prettyPrint(csv).plainText
-    println(prettyOutput)
     
     assert(prettyOutput.contains("CsvIterator"), s"Expected 'CsvIterator' in '$prettyOutput'")
     assert(prettyOutput.contains("\tname: String,"), s"Expected 'name: String' in '$prettyOutput'")
@@ -66,7 +64,6 @@ class TPrintSuite extends munit.FunSuite:
     implicit val colors: TPrintColors = TPrintColors.BlackWhite
     
     val prettyOutput = prettyPrint(csv).plainText
-    println(prettyOutput)
     
     assert(prettyOutput.contains("CsvIterator"), s"Expected 'CsvIterator' in '$prettyOutput'")
     assert(prettyOutput.contains("singleCol: String"), s"Expected 'singleCol: String' in '$prettyOutput'")
