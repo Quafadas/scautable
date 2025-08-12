@@ -20,7 +20,6 @@ import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
 import io.github.quafadas.scautable.CSVUtils.*
 
-
 object CSV:
 
   /** Saves a URL to a local CSV returns a [[io.github.quafadas.scautable.CsvIterator]].
@@ -71,7 +70,7 @@ object CSV:
 
   transparent inline def absolutePath[T](inline path: String, inline headers: HeaderOptions) = ${ readCsvAbolsutePath('path, 'headers) }
 
-    /** Reads a CSV from a String and returns a [[io.github.quafadas.scautable.CsvIterator]].
+  /** Reads a CSV from a String and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
     * Example:
     * {{{
@@ -80,7 +79,7 @@ object CSV:
     * }}}
     */
   transparent inline def fromString[T](inline csvContent: String): CsvIterator[?] = fromString[T](csvContent, HeaderOptions.Default)
-  
+
   transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions) = ${ readCsvFromString('csvContent, 'headers) }
 
   private transparent inline def readHeaderlineAsCsv(path: String, csvHeaders: Expr[HeaderOptions])(using q: Quotes) =
@@ -100,11 +99,12 @@ object CSV:
         val filePathExpr = Expr(path)
         '{
           val lines = scala.io.Source.fromFile($filePathExpr).getLines()
-          val (headers, iterator) = lines.headers(${csvHeaders})
+          val (headers, iterator) = lines.headers(${ csvHeaders })
           new CsvIterator[t & Tuple](iterator, headers)
         }
       case _ =>
         report.throwError(s"Could not infer literal tuple type from headers: ${headers}")
+    end match
 
   end readHeaderlineAsCsv
 
@@ -151,11 +151,10 @@ object CSV:
     import io.github.quafadas.scautable.HeaderOptions.*
 
     val content = csvContentExpr.valueOrAbort
-    if content.trim.isEmpty then
-      report.throwError("Empty CSV content provided.")
+    if content.trim.isEmpty then report.throwError("Empty CSV content provided.")
+    end if
     val lines = content.linesIterator
     val (headers, iter) = lines.headers(csvHeaders.valueOrAbort)
-
 
     if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
     end if
@@ -164,14 +163,14 @@ object CSV:
     headerTupleExpr match
       case '{ $tup: t } =>
         '{
-          val content = ${csvContentExpr}
+          val content = ${ csvContentExpr }
           val lines = content.linesIterator
-          val (headers, iterator) = lines.headers(${csvHeaders})
+          val (headers, iterator) = lines.headers(${ csvHeaders })
           new CsvIterator[t & Tuple](iterator, headers)
         }
       case _ =>
         report.throwError(s"Could not infer literal tuple type from headers: ${headers}")
+    end match
   end readCsvFromString
-
 
 end CSV

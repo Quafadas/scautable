@@ -10,15 +10,15 @@ import de.tobiasroeser.mill.vcs.version._
 import $packages._
 
 object Config {
-  val oslib = ivy"com.lihaoyi::os-lib:0.11.4"
+  val oslib = ivy"com.lihaoyi::os-lib:0.11.5"
   val scalatags = ivy"com.lihaoyi::scalatags::0.13.1"
-  val fansi = ivy"com.lihaoyi::fansi::0.5.0"
+  val fansi = ivy"com.lihaoyi::fansi::0.5.1"
 
 
 
   val laminar = ivy"com.raquo::laminar::17.2.1"
   val munit = ivy"org.scalameta::munit::1.1.1"
-  val scalaVersion = "3.7.1"
+  val scalaVersion = "3.7.2"
   val scalaJSVersion = "1.19.0"
 }
 
@@ -38,7 +38,7 @@ trait Common extends ScalaModule {
 trait CommonJS extends Common with ScalaJSModule {
   def scalaJSVersion = "1.19.0"
   override def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"org.scala-js::scalajs-dom::2.8.0",
+    ivy"org.scala-js::scalajs-dom::2.8.1",
     ivy"org.scala-js::scalajs-java-securerandom::1.0.0".withDottyCompat(scalaVersion()),
     Config.laminar
   )
