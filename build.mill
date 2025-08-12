@@ -10,7 +10,7 @@ import de.tobiasroeser.mill.vcs.version._
 import $packages._
 
 object Config {
-  val oslib = ivy"com.lihaoyi::os-lib:0.11.4"
+  val oslib = ivy"com.lihaoyi::os-lib:0.11.5"
   val scalatags = ivy"com.lihaoyi::scalatags::0.13.1"
   val fansi = ivy"com.lihaoyi::fansi::0.5.1"
 
