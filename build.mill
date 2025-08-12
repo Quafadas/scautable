@@ -18,7 +18,7 @@ object Config {
 
   val laminar = ivy"com.raquo::laminar::17.2.1"
   val munit = ivy"org.scalameta::munit::1.1.1"
-  val scalaVersion = "3.7.1"
+  val scalaVersion = "3.7.2"
   val scalaJSVersion = "1.19.0"
 }
 
