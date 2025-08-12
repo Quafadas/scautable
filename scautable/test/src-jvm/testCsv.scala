@@ -148,7 +148,7 @@ class CSVSuite extends munit.FunSuite:
     val out = dropped.toArray
     assertEquals(out.head, ("1", "7"))
     assertEquals(out.tail.head, ("3", "8"))
-    assertEquals(out.last, ("5", "9")) 
+    assertEquals(out.last, ("5", "9"))
 
   }
 

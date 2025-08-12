@@ -42,7 +42,7 @@ class CsvFromStringSuite extends FunSuite:
     inline val csvContent = "colA,colB,colA\n1,2,3"
     val csvIterator = CSV.fromString(csvContent, HeaderOptions.FromRows(1))
 
-    assertEquals(csvIterator.headers, List("colA", "colB", "colA")) 
+    assertEquals(csvIterator.headers, List("colA", "colB", "colA"))
 
     assert(csvIterator.hasNext)
     val row = csvIterator.next()
@@ -83,7 +83,7 @@ class CsvFromStringSuite extends FunSuite:
 
     assert(csvIterator.hasNext)
     val row1 = csvIterator.next()
-    assertEquals(row1.headerA, "1") 
+    assertEquals(row1.headerA, "1")
     assertEquals(row1.headerB, "2")
     assertEquals(row1.headerC, "3")
     assertEquals(row1.toTuple.toList, List("1", "2", "3"))
@@ -143,4 +143,3 @@ class CsvFromStringSuite extends FunSuite:
   }
 
 end CsvFromStringSuite
-
