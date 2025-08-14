@@ -1,7 +1,5 @@
-
 import io.github.quafadas.table.*
 import NamedTuple.*
-
 
 class CSVSchemaSuite extends munit.FunSuite:
     test("Drop column by number") {
@@ -10,3 +8,5 @@ class CSVSchemaSuite extends munit.FunSuite:
         val drp = csv.dropColumn[csv.Col[1]]
         println(csv.schemaGen)
     }
+end CSVSchemaSuite
+

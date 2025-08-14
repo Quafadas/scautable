@@ -20,7 +20,6 @@ import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
 import io.github.quafadas.scautable.CSVUtils.*
 
-
 object CSV:
 
   /** Saves a URL to a local CSV returns a [[io.github.quafadas.scautable.CsvIterator]].
@@ -87,7 +86,7 @@ object CSV:
 
   transparent inline def absolutePath[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${ readCsvAbsolutePath('path, 'headers, 'dataType) }
 
-    /** Reads a CSV from a String and returns a [[io.github.quafadas.scautable.CsvIterator]].
+  /** Reads a CSV from a String and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
     * Example:
     * {{{
@@ -95,6 +94,7 @@ object CSV:
     * val csv: CsvIterator[("colA", "colB")] = CSV.fromString(csvContent)
     * }}}
     */
+
   // transparent inline def fromString[T](inline csvContent: String): Any = fromString[T](csvContent, HeaderOptions.Default, TypeInferrer.StringType)
   transparent inline def fromString[T](inline csvContent: String): Any = fromString[T](csvContent, HeaderOptions.Default, TypeInferrer.StringType)
 
@@ -191,6 +191,7 @@ object CSV:
     import io.github.quafadas.scautable.TypeInferrer.*
 
     val content = csvContentExpr.valueOrAbort
+
     if content.trim.isEmpty then
       report.throwError("Empty CSV content provided.")
 
@@ -199,6 +200,7 @@ object CSV:
 
     if headers.length != headers.distinct.length then
       report.info("Possible duplicated headers detected.")
+
     end if
 
     val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
@@ -230,6 +232,5 @@ object CSV:
 
       case _ =>
         report.throwError("Could not infer literal header tuple.")
-
 
 end CSV
