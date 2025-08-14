@@ -10,7 +10,7 @@ Our first move, is to tell the compiler, where the file may be found. `CSV.resou
 ```scala mdoc sc:nocompile
 import io.github.quafadas.table.*
 
-def csv : CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+def csv : CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 def firstRows: Iterator[(col1: String, col2: String, col3: String)] = csv.take(2)
 
 println(firstRows.toArray.consoleFormatNt(fansi = false))
@@ -107,9 +107,9 @@ Iterators are cheap to create, but I usually read all data into a `val` via a ca
 If you are in the situation where you have a large number of duplicate headers, consider de-duplication.
 
 ```scala sc:nocompile
-def csvDup: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA")] = CSV.resource("dups.csv")
+def csvDup: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA"), (String, String, String, String, String, String)] = CSV.resource("dups.csv")
 
-def dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_5")] = CSV.deduplicateHeader(csvDup)
+def dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_5"), (String, String, String, String, String, String)] = CSV.deduplicateHeader(csvDup)
 ```
 
 ### Example

@@ -34,15 +34,15 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("csv from resource compiles and typechecks") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
-    val titanic: CsvIterator[("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked")] =
+    val titanic: CsvIterator[("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"), (String, String, String, String, String, String, String, String, String, String, String, String)] =
       CSV.resource("titanic.csv")
     // val wide = CSV.resource("wide.csv")
   }
 
   test("column safety") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"),(String, String, String)] = CSV.resource("simple.csv")
 
     assert(
       !compileErrors("csv.column[\"notcol\"]").isEmpty()
@@ -83,7 +83,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("columns") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     assert(
       !compileErrors("csv.columns[(\"notcol\")]").isEmpty()
@@ -132,7 +132,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("column") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     val column2 = csv.column["col2"]
     val col2 = column2.toArray
@@ -142,7 +142,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("drop column") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     val dropped = csv.dropColumn["col2"]
     val out = dropped.toArray
@@ -162,7 +162,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("Drop column, mapColumn, then select another") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     def dropped = csv.dropColumn["col2"].mapColumn["col3", Int](_.toInt)
 
@@ -203,7 +203,8 @@ class CSVSuite extends munit.FunSuite:
           "Column20",
           "Column21",
           "Column22"
-      )
+      ),
+      (String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String)
     ] = CSV.resource("wide22.csv")
     val wide23 = CSV.resource("wide23.csv")
     val out: Array[String] = wide22.column["Column21"].toArray
@@ -218,13 +219,13 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("reading data") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     assertEquals(csv.toArray.mkString(","), """(1,2,7),(3,4,8),(5,6,9)""")
   }
 
   test("add columns") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     val added = csv
       .addColumn["col3Times3", Int](_.col3.toInt * 3)
@@ -247,7 +248,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("schema gen") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
     val schema = csv.schemaGen
     assertNoDiff(
       schema,
@@ -270,7 +271,7 @@ import CsvSchema.*"""
   }
 
   test("rename column") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     val renamed: Iterator[(col1: String, col2Renamed: String, col3: String)] = csv.renameColumn["col2", "col2Renamed"]
     val out = renamed.toArray
@@ -280,7 +281,7 @@ import CsvSchema.*"""
   }
 
   test("force column type") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     val renamed: Iterator[(col1: String, col2Renamed: String, col3: String)] = csv.renameColumn["col2", "col2Renamed"].forceColumnType["col2Renamed", String]
     val out = renamed.toArray
@@ -327,7 +328,7 @@ import CsvSchema.*"""
   }
 
   test("console print") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
     assertNoDiff(
       csv.toArray.consoleFormatNt(),
       """| |col1|col2|col3|
@@ -344,7 +345,7 @@ import CsvSchema.*"""
   }
 
   test("header indexes") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
     assertEquals(csv.headerIndex("col1"), 0)
     assertEquals(csv.headerIndex("col2"), 1)
     assertEquals(csv.headerIndex("col3"), 2)
@@ -406,7 +407,7 @@ import CsvSchema.*"""
   }
 
   test("CSV.resource with Manual headers parses data_without_headers.csv correctly") {
-    val csv = CSV.resource("data_without_headers.csv", HeaderOptions.Manual("name", "age", "profession"))
+    val csv: CsvIterator[("name", "age", "profession"), (String, Int, String)]  = CSV.resource("data_without_headers.csv", HeaderOptions.Manual("name", "age", "profession"), TypeInferrer.Auto)
 
     assertEquals(csv.headers, List("name", "age", "profession"))
 
@@ -415,15 +416,15 @@ import CsvSchema.*"""
     assertEquals(rows.length, 3)
 
     assertEquals(rows(0).name, "Alice")
-    assertEquals(rows(0).age, "25")
+    assertEquals(rows(0).age, 25)
     assertEquals(rows(0).profession, "Engineer")
 
     assertEquals(rows(1).name, "Bob")
-    assertEquals(rows(1).age, "30")
+    assertEquals(rows(1).age, 30)
     assertEquals(rows(1).profession, "Designer")
 
     assertEquals(rows(2).name, "Charlie")
-    assertEquals(rows(2).age, "22")
+    assertEquals(rows(2).age, 22)
     assertEquals(rows(2).profession, "Student")
   }
 
