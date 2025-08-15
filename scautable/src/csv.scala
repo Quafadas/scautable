@@ -143,6 +143,19 @@ object CSV:
               case '[v] =>
                 constructWithTypes[hdrs & Tuple, v & Tuple]
             }
+          case '{ TypeInferrer.FirstN($nn) } =>
+            val n = nn.valueOrAbort
+            val inferredTypeRepr = InferrerOps.inferrerFirstN(iter, n)
+            inferredTypeRepr.asType match {
+              case '[v] =>
+                constructWithTypes[hdrs & Tuple, v & Tuple]
+            }
+
+          // TODO: Implement FirstN case - will need special handling
+          case _ =>
+            report.throwError(s"Unsupported TypeInferrer: ${dataType.show}")
+
+        end match
 
       case _ =>
         report.throwError("Could not infer literal header tuple.")
@@ -214,6 +227,8 @@ object CSV:
         new CsvIterator[Hdrs, Data](iterator, headers)
       }
 
+    type NN = Int & Singleton
+
     headerTupleExpr match
       case '{ $tup: hdrs } =>
         dataType match
@@ -230,6 +245,20 @@ object CSV:
               case '[v] =>
                 constructWithTypes[hdrs & Tuple, v & Tuple]
             }
+
+          // TODO: Implement FirstN case - will need special handling
+          case '{ TypeInferrer.FirstN($nn) } =>
+            val n = nn.valueOrAbort
+            val inferredTypeRepr = InferrerOps.inferrerFirstN(iter, n)
+            inferredTypeRepr.asType match {
+              case '[v] =>
+                constructWithTypes[hdrs & Tuple, v & Tuple]
+            }
+
+          case _ =>
+            report.throwError(s"Unsupported TypeInferrer: ${dataType.show}")
+
+        end match
 
       case _ =>
         report.throwError("Could not infer literal header tuple.")
