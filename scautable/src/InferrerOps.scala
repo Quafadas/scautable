@@ -7,7 +7,6 @@ import io.github.quafadas.table.TypeInferrer
 import scala.quoted.*
 
 object InferrerOps:
-  inline def fromTuple[T]: TypeInferrer = TypeInferrer.FromTuple[T]()
 
   def inferTypeRepr(using Quotes)(str: String): quotes.reflect.TypeRepr =
     import quotes.reflect.*
