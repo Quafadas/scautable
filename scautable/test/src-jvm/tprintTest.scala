@@ -6,8 +6,8 @@ import pprint.TPrintColors
 class TPrintSuite extends munit.FunSuite:
 
   test("CsvIterator TPrint should render type info") {    
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
-    val tprint = summon[TPrint[CsvIterator[("col1", "col2", "col3")]]]
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val tprint = summon[TPrint[CsvIterator[("col1", "col2", "col3"), (String, String, String)]]]
     implicit val colors: TPrintColors = TPrintColors.BlackWhite    
     val rendered = tprint.render.toString()    
     // Just verify the output contains CsvIterator - the exact format doesn't matter as much
@@ -18,7 +18,7 @@ class TPrintSuite extends munit.FunSuite:
     import io.github.quafadas.scautable.CsvIteratorTPrint.*
     
     // Create a CSV iterator with known columns
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
     
     implicit val colors: TPrintColors = TPrintColors.BlackWhite
     
@@ -41,7 +41,7 @@ class TPrintSuite extends munit.FunSuite:
     import io.github.quafadas.scautable.CsvIteratorTPrint.*
     
     // Test with different column names
-    val csv: CsvIterator[("name", "age")] = CSV.fromString("name,age\nAlice,25\nBob,30")
+    val csv: CsvIterator[("name", "age"), (String, String)] = CSV.fromString("name,age\nAlice,25\nBob,30")
     
     implicit val colors: TPrintColors = TPrintColors.BlackWhite
     
