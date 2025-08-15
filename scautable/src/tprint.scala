@@ -13,13 +13,13 @@ object CsvIteratorTPrint:
   import scala.annotation.tailrec
 
 
-  inline def getTypeNames[T <: Tuple](implicit tpc: TPrintColors): List[String] =
+  inline def getTypeNames[T <: Tuple](using tpc: TPrintColors): List[String] =
     inline erasedValue[T] match
       case _: EmptyTuple => Nil
       case _: (h *: t) => summonInline[TPrint[h]].render(tpc).toString :: getTypeNames[t]
 
   extension [K <: Tuple, V <: Tuple](csvIterator: CsvIterator[K, V])
-    inline def prettyPrint(implicit tpc: TPrintColors): fansi.Str =
+    inline def prettyPrint(using tpc: TPrintColors): fansi.Str =
       val columnNames = csvIterator.headers
 
       val colTypes = getTypeNames[V]

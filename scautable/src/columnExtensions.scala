@@ -22,6 +22,16 @@ object NamedTupleIteratorExtensions:
 
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 
+    inline def info: fansi.Str = 
+      val headers = constValueTuple[K].toList.map(_.toString())
+
+      val colTypes = CsvIteratorTPrint.getTypeNames[V]
+      val coltypes = headers.zipAll(colTypes, "<missing>", "<unknown>")
+        .map { case (name, colType) => fansi.Color.Red(name) ++ fansi.Str(": ") ++ fansi.Color.Green(colType) }
+        .mkString("[\n\t", ",\n\t", "\n]")
+      fansi.Str(coltypes)
+
+
     inline def numericTypeTest: (List[ConversionAcc], Long) =
       val headers = constValueTuple[K].toList.map(_.toString())
       val headerAcc = headers.map(_ => ConversionAcc(0, 0, 0))
