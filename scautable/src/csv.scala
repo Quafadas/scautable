@@ -19,6 +19,7 @@ import ColumnTyped.*
 import scala.math.Fractional.Implicits.*
 import scala.collection.View.Single
 import io.github.quafadas.scautable.CSVUtils.*
+import io.github.quafadas.table.TypeInferrer
 
 object CSV:
 
@@ -107,7 +108,7 @@ object CSV:
   private transparent inline def readHeaderlineAsCsv(path: String, csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using q: Quotes) =
     import q.reflect.*
     import io.github.quafadas.scautable.HeaderOptions.*
-    import io.github.quafadas.scautable.TypeInferrer.*
+    
 
     val source = Source.fromFile(path)
     val lineIterator: Iterator[String] = source.getLines()
@@ -130,14 +131,14 @@ object CSV:
       case '{ $tup: hdrs } =>
         dataType match
 
-          case '{ TypeInferrer.fromTuple[t] } =>
+          case '{ TypeInferrer.FromTuple[t]() } =>
             constructWithTypes[hdrs & Tuple, t & Tuple]
 
           case '{ TypeInferrer.StringType } =>
             constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
 
           case '{ TypeInferrer.Auto } =>
-            val inferredTypeRepr = TypeInferrer.inferrer(iter)
+            val inferredTypeRepr = InferrerOps.inferrer(iter)
             inferredTypeRepr.asType match {
               case '[v] =>
                 constructWithTypes[hdrs & Tuple, v & Tuple]
@@ -188,7 +189,7 @@ object CSV:
   private def readCsvFromString(csvContentExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
     import quotes.reflect.*
     import io.github.quafadas.scautable.HeaderOptions.*
-    import io.github.quafadas.scautable.TypeInferrer.*
+    import io.github.quafadas.scautable.InferrerOps.*
 
     val content = csvContentExpr.valueOrAbort
 
@@ -217,14 +218,14 @@ object CSV:
       case '{ $tup: hdrs } =>
         dataType match
 
-          case '{ TypeInferrer.fromTuple[t] } =>
+          case '{ TypeInferrer.FromTuple[t]() } =>
             constructWithTypes[hdrs & Tuple, t & Tuple]
 
           case '{ TypeInferrer.StringType } =>
             constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
 
           case '{ TypeInferrer.Auto } =>
-            val inferredTypeRepr = TypeInferrer.inferrer(iter)
+            val inferredTypeRepr = InferrerOps.inferrer(iter)
             inferredTypeRepr.asType match {
               case '[v] =>
                 constructWithTypes[hdrs & Tuple, v & Tuple]
