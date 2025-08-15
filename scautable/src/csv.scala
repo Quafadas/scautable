@@ -137,7 +137,7 @@ object CSV:
           case '{ TypeInferrer.StringType } =>
             constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
 
-          case '{ TypeInferrer.Auto } =>
+          case '{ TypeInferrer.FirstRow } =>
             val inferredTypeRepr = InferrerOps.inferrer(iter)
             inferredTypeRepr.asType match {
               case '[v] =>
@@ -224,7 +224,7 @@ object CSV:
           case '{ TypeInferrer.StringType } =>
             constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
 
-          case '{ TypeInferrer.Auto } =>
+          case '{ TypeInferrer.FirstRow } =>
             val inferredTypeRepr = InferrerOps.inferrer(iter)
             inferredTypeRepr.asType match {
               case '[v] =>

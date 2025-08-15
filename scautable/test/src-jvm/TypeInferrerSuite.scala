@@ -48,14 +48,14 @@ class TypeInferrerSuite extends munit.FunSuite:
   }
 
   // ---------------------------
-  // TypeInferrer.Auto
+  // TypeInferrer.FirstRow
   // ---------------------------
 
-  test("TypeInferrer.Auto should automatically detect numeric and string columns") {
+  test("TypeInferrer.FirstRow should automatically detect numeric and string columns") {
     val csv = CSV.resource(
       "data_without_headers.csv",
       HeaderOptions.Manual("name", "age", "profession"),
-      TypeInferrer.Auto
+      TypeInferrer.FirstRow
     )
 
     assertEquals(csv.headers, List("name", "age", "profession"))
@@ -76,11 +76,11 @@ class TypeInferrerSuite extends munit.FunSuite:
     assertEquals(rows(2).profession, "Student")
   }
 
-    test("TypeInferrer.Auto should fail compilation if accessed with wrong type") {
+    test("TypeInferrer.FirstRow should fail compilation if accessed with wrong type") {
     val csv = CSV.resource(
       "data_without_headers.csv",
       HeaderOptions.Manual("name", "age", "profession"),
-      TypeInferrer.Auto
+      TypeInferrer.FirstRow
     )
 
     assert(

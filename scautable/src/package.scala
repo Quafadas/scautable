@@ -14,7 +14,7 @@ object table:
 
 
   enum TypeInferrer {
-    case Auto
+    case FirstRow
     case StringType
     case FromTuple[T]()
   }
