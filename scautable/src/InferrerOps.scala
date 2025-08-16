@@ -2,16 +2,10 @@ package io.github.quafadas.scautable
 
 import io.github.quafadas.scautable.CSVParser.*
 import io.github.quafadas.scautable.RowDecoder.*
+
 import scala.quoted.*
 
-enum TypeInferrer {
-  case Auto
-  case StringType
-  case FromTuple[T]()
-}
-
-object TypeInferrer:
-  inline def fromTuple[T]: TypeInferrer = TypeInferrer.FromTuple[T]()
+object InferrerOps:
 
   def inferTypeRepr(using Quotes)(str: String): quotes.reflect.TypeRepr =
     import quotes.reflect.*
