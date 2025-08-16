@@ -160,4 +160,40 @@ class TypeInferrerSuite extends munit.FunSuite:
     )
   }
 
+  // ---------------------------
+  // TypeInferrer.FirstN[N] Tests
+  // ---------------------------
+
+  test("FirstN type inference changes with length") {
+    val csv5: CsvIterator[
+      ("name", "age", "height", "active"), 
+      (String, Int, Double, Boolean)
+    ] = CSV.resource(
+      "first_n_test.csv",      
+      TypeInferrer.FirstN(5)
+    )
+
+    val csv1: CsvIterator[
+      ("name", "age", "height", "active"), 
+      (String, Int, Int, Boolean)
+    ] = CSV.resource(
+      "first_n_test.csv",      
+      TypeInferrer.FirstN(1)
+    )
+
+
+  }
+
+  test("FirstN edge cases and error handling") {
+    
+    // 1. FirstN[0] or FirstN[-1] should fail with meaningful error
+    // 2. FirstN[N] where N > available rows should work with available data
+    // 3. Empty CSV should fail with meaningful error
+    // 4. Inconsistent column counts should fail with meaningful error
+    
+    assume(false, "FirstN error handling specified")
+  }
+
+
+
 end TypeInferrerSuite
