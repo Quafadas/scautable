@@ -189,7 +189,6 @@ object CSV:
   private def readCsvFromString(csvContentExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
     import quotes.reflect.*
     import io.github.quafadas.scautable.HeaderOptions.*
-    import io.github.quafadas.scautable.InferrerOps.*
 
     val content = csvContentExpr.valueOrAbort
 
