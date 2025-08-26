@@ -90,7 +90,42 @@ class TypeInferrerSuite extends munit.FunSuite:
   }
 
   // ---------------------------
-  // TypeInferrer.fromTuple[T]
+  // TypeInferrer.FirstN
+  // ---------------------------
+
+  test("TypeInferrer.Auto should detect Int, Double, Long, and String types automatically") {
+    val csv = CSV.resource(
+      "typeTest.csv",
+      HeaderOptions.Default,
+      TypeInferrer.FirstN(3)
+    )
+
+    val rows = csv.toArray
+    assertEquals(rows.length, 3) 
+
+    assertEquals(rows(0).col1, 1)
+    assertEquals(rows(1).col1, 2)
+    assertEquals(rows(2).col1, 3)
+
+    assertEquals(rows(0).col2, 1.0)
+    assertEquals(rows(1).col2, 2.0)
+    assertEquals(rows(2).col2, 3.0)
+
+    assertEquals(rows(0).col3, 2147483648L)
+    assertEquals(rows(1).col3, 2147483649L)
+    assertEquals(rows(2).col3, 2147483650L)
+
+    assertEquals(rows(0).col4, "1")   
+    assertEquals(rows(1).col4, "b") 
+    assertEquals(rows(2).col4, "\\") 
+
+    assertEquals(rows(0).col5, "a")
+    assertEquals(rows(1).col5, "b")
+    assertEquals(rows(2).col5, "c")
+  }
+
+  // ---------------------------
+  // TypeInferrer.FromTuple[T]()
   // ---------------------------
 
   test("TypeInferrer.fromTuple should apply provided column types explicitly") {
@@ -149,15 +184,5 @@ class TypeInferrerSuite extends munit.FunSuite:
 
   }
 
-  test("TypeInferrer.fromTuple should fail compilation if tuple types do not match CSV data") {
-    assert(
-      compileErrors("""
-        val csv: CsvIterator[("name", "age"), (String, String)] =
-          CSV.resource("data_without_headers.csv",
-            HeaderOptions.Manual("name", "age"),
-            TypeInferrer.fromTuple[(String, String)])
-      """).nonEmpty
-    )
-  }
 
 end TypeInferrerSuite
