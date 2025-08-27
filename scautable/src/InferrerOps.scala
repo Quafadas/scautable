@@ -17,10 +17,10 @@ object InferrerOps:
     def inferMostGeneralType(using Quotes): quotes.reflect.TypeRepr =
       import quotes.reflect.*
       val base =
-        if couldBeBoolean     then TypeRepr.of[Boolean]
-        else if couldBeInt    then TypeRepr.of[Int]
-        else if couldBeLong   then TypeRepr.of[Long]
-        else if couldBeDouble then TypeRepr.of[Double]
+        if couldBeInt          then TypeRepr.of[Int]
+        else if couldBeBoolean then TypeRepr.of[Boolean]
+        else if couldBeLong    then TypeRepr.of[Long]
+        else if couldBeDouble  then TypeRepr.of[Double]
         else TypeRepr.of[String]
 
       if seenEmpty then TypeRepr.of[Option].appliedTo(base) else base
@@ -33,7 +33,7 @@ object InferrerOps:
         couldBeInt     = current.couldBeInt     && str.toIntOption.isDefined,
         couldBeLong    = current.couldBeLong    && str.toLongOption.isDefined,
         couldBeDouble  = current.couldBeDouble  && str.toDoubleOption.isDefined,
-        couldBeBoolean = current.couldBeBoolean && str.toBooleanOption.isDefined
+        couldBeBoolean = current.couldBeBoolean && (str.toBooleanOption.isDefined || str == "0" || str == "1" )
       )
 
 
