@@ -93,7 +93,7 @@ class TypeInferrerSuite extends munit.FunSuite:
   // TypeInferrer.FirstN
   // ---------------------------
 
-  test("TypeInferrer.Auto should detect Int, Double, Long, and String types automatically") {
+  test("TypeInferrer.FirstN should detect Int, Double, Long, and String types automatically") {
     val csv = CSV.resource(
       "typeTest.csv",
       HeaderOptions.Default,
@@ -124,6 +124,33 @@ class TypeInferrerSuite extends munit.FunSuite:
     assertEquals(rows(2).col5, "c")
   }
 
+  test("TypeInferrer.FirstN should detect Int, Double, Long, and String types with missing values") {
+    val csv = CSV.resource(
+      "typeTestWithMissing.csv",
+      HeaderOptions.Default,
+      TypeInferrer.FirstN(3)
+    )
+
+    val rows = csv.toArray
+    assertEquals(rows.length, 3) 
+
+    assertEquals(rows(0).col1, Some(1))
+    assertEquals(rows(1).col1, Some(2))
+    assertEquals(rows(2).col1, None)
+
+    assertEquals(rows(0).col2, Some(1.0))
+    assertEquals(rows(1).col2, None)
+    assertEquals(rows(2).col2, Some(3.5))
+
+    assertEquals(rows(0).col3, Some(2147483648L))
+    assertEquals(rows(1).col3, Some(2147483649L))
+    assertEquals(rows(2).col3, None)
+
+    assertEquals(rows(0).col4, "hello")
+    assertEquals(rows(1).col4, "world")
+    assertEquals(rows(2).col4, "!")
+  }
+  
   // ---------------------------
   // TypeInferrer.FromTuple[T]()
   // ---------------------------

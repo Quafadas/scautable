@@ -11,23 +11,31 @@ object InferrerOps:
     couldBeInt: Boolean     = true,
     couldBeLong: Boolean    = true,
     couldBeDouble: Boolean  = true,
-    couldBeBoolean: Boolean = true
+    couldBeBoolean: Boolean = true,
+    seenEmpty: Boolean      = false
   ):
     def inferMostGeneralType(using Quotes): quotes.reflect.TypeRepr =
       import quotes.reflect.*
-      if couldBeBoolean     then TypeRepr.of[Boolean]
-      else if couldBeInt    then TypeRepr.of[Int]
-      else if couldBeLong   then TypeRepr.of[Long]
-      else if couldBeDouble then TypeRepr.of[Double]
-      else TypeRepr.of[String]
+      val base =
+        if couldBeBoolean     then TypeRepr.of[Boolean]
+        else if couldBeInt    then TypeRepr.of[Int]
+        else if couldBeLong   then TypeRepr.of[Long]
+        else if couldBeDouble then TypeRepr.of[Double]
+        else TypeRepr.of[String]
+
+      if seenEmpty then TypeRepr.of[Option].appliedTo(base) else base
 
   def inferTypeReprForValue(current: ColumnTypeInfo, str: String): ColumnTypeInfo =
-    current.copy(
-      couldBeInt     = current.couldBeInt     && str.toIntOption.isDefined,
-      couldBeLong    = current.couldBeLong    && str.toLongOption.isDefined,
-      couldBeDouble  = current.couldBeDouble  && str.toDoubleOption.isDefined,
-      couldBeBoolean = current.couldBeBoolean && str.toBooleanOption.isDefined
-    )
+    if str.isEmpty then
+      current.copy(seenEmpty = true) 
+    else
+      current.copy(
+        couldBeInt     = current.couldBeInt     && str.toIntOption.isDefined,
+        couldBeLong    = current.couldBeLong    && str.toLongOption.isDefined,
+        couldBeDouble  = current.couldBeDouble  && str.toDoubleOption.isDefined,
+        couldBeBoolean = current.couldBeBoolean && str.toBooleanOption.isDefined
+      )
+
 
   def inferMostGeneralType(using Quotes)(values: Seq[String]): quotes.reflect.TypeRepr =
     import quotes.reflect.*
