@@ -1,6 +1,6 @@
 # Headers
 
-Scautable supports flexible header handling using the new `HeaderOptions` enum. This allows fine-grained control over how headers are extracted or constructed from CSV input.
+Scautable supports flexible header handling using the `HeaderOptions` enum. This allows fine-grained control over how headers are extracted or constructed from CSV input.
 
 
 ## Available Options

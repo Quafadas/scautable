@@ -1,8 +1,6 @@
 # Type Inference
 
-Scautable supports a bouqet of type inference strategies it's `TypeInferrer` enum that you may pass when reading a CSV file. 
-
-The varying strategies are discussed below. 
+Scautable supports a bouqet of type inference strategies via it's `TypeInferrer` enum. The varying strategies are discussed below. 
 
 ## String Type
 
