@@ -1,6 +1,6 @@
 package io.github.quafadas.scautable
 
-trait PlatformSpecific:
+private[scautable] trait PlatformSpecific:
 
   /** With scaladoc
     */

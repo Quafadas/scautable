@@ -1,8 +1,8 @@
 package io.github.quafadas.scautable
 
-case class ConversionAcc(validInts: Long, validDoubles: Long, validLongs: Long)
+private case class ConversionAcc(validInts: Long, validDoubles: Long, validLongs: Long)
 
-def recommendConversion(acc: List[ConversionAcc], rowCount: Long): String =
+private def recommendConversion(acc: List[ConversionAcc], rowCount: Long): String =
   def percentage(validCount: Long): Double = (validCount.toDouble / rowCount) * 100
 
   acc

@@ -5,7 +5,7 @@ import io.github.quafadas.scautable.RowDecoder.*
 
 import scala.quoted.*
 
-object InferrerOps:
+private[scautable] object InferrerOps:
 
   case class ColumnTypeInfo(
     couldBeInt: Boolean     = true,
