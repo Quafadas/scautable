@@ -14,10 +14,10 @@ One line CSV import.
 ```scala
 import io.github.quafadas.table.*
 
-def csv : CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
-def firstRows: Iterator[(col1: String, col2: String, col3: String)] = csv.take(2)
+val csv : CsvIterator[("col1", "col2", "col3"), (Int, Int, Int)] = CSV.resource("simple.csv", TypeInferrer.FromAllRows)
+val  data = LazyList.from(csv).take(2)
 
-firstRows.toArray.ptbln
+data.ptbln
 // | |col1|col2|col3|
 // +-+----+----+----+
 // |0|   1|   2|   7|
