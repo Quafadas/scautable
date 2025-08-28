@@ -8,8 +8,8 @@
       "type": "scala",
       "request": "launch",
       "name": "test",
-      "buildTarget": "scautable.jvm.test",
-      "testClass": "io.github.quafadas.scautable.CSVSuite",
+      "buildTarget": "scautable.test.jvm",
+      "testClass": "io.github.quafadas.scautable.TypeInferrerSuite",
       "args": [
         "-oD"
       ]
