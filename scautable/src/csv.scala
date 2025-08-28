@@ -144,6 +144,12 @@ object CSV:
                 constructWithTypes[hdrs & Tuple, v & Tuple]
             }
 
+          case '{ TypeInferrer.FirstN(${Expr(n)}) } =>
+            val inferredTypeRepr = InferrerOps.inferrer(iter, n)
+            inferredTypeRepr.asType match {
+              case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+            }
+
       case _ =>
         report.throwError("Could not infer literal header tuple.")
 
@@ -228,6 +234,12 @@ object CSV:
             inferredTypeRepr.asType match {
               case '[v] =>
                 constructWithTypes[hdrs & Tuple, v & Tuple]
+            }
+
+          case '{ TypeInferrer.FirstN(${Expr(n)}) } =>
+            val inferredTypeRepr = InferrerOps.inferrer(iter, n)
+            inferredTypeRepr.asType match {
+              case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             }
 
       case _ =>
