@@ -138,14 +138,27 @@ object CSV:
             constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
 
           case '{ TypeInferrer.FirstRow } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, true)
             inferredTypeRepr.asType match {
               case '[v] =>
                 constructWithTypes[hdrs & Tuple, v & Tuple]
             }
+          
+          case '{ TypeInferrer.FromAllRows } =>
+            val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue)
+            inferredTypeRepr.asType match {
+              case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+            }
 
-          case '{ TypeInferrer.FirstN(${Expr(n)}) } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter, n)
+          case '{ TypeInferrer.FirstN(${Expr(n)}) } =>                                  
+            val inferredTypeRepr = InferrerOps.inferrer(iter, true, n)
+            inferredTypeRepr.asType match {
+              case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+            }
+
+          case '{ TypeInferrer.FirstN(${Expr(n)}, ${Expr(preferIntToBoolean)}) } =>
+            println(preferIntToBoolean)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n)
             inferredTypeRepr.asType match {
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             }
@@ -230,14 +243,26 @@ object CSV:
             constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
 
           case '{ TypeInferrer.FirstRow } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, true)
             inferredTypeRepr.asType match {
               case '[v] =>
                 constructWithTypes[hdrs & Tuple, v & Tuple]
             }
 
+          case '{ TypeInferrer.FromAllRows } =>
+            val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue)
+            inferredTypeRepr.asType match {
+              case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+            }
+
           case '{ TypeInferrer.FirstN(${Expr(n)}) } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter, n)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, true, n)
+            inferredTypeRepr.asType match {
+              case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+            }
+
+          case '{ TypeInferrer.FirstN(${Expr(n)}, ${Expr(preferIntToBoolean)}) } =>
+            val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n)
             inferredTypeRepr.asType match {
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             }

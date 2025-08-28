@@ -211,5 +211,14 @@ class TypeInferrerSuite extends munit.FunSuite:
 
   }
 
+  test("That boolean is preferred to Int where set") {
+    // These two imports are equivalent
+    val csvAll: CsvIterator[("c1", "c2"), (Int, Boolean)] = CSV.fromString("c1,c2\n0,0\n1,1\n2,1", TypeInferrer.FromAllRows)
+    val csv: CsvIterator[("c1", "c2"), (Int, Boolean)] = CSV.fromString("c1,c2\n0,0\n1,1\n2,1", TypeInferrer.FirstN(Int.MaxValue , false))    
+    val row1 = csv.next()
+    assertEquals(row1.c1, 0)
+    assertEquals(row1.c2, false)
+  }
+
 
 end TypeInferrerSuite

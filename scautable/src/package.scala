@@ -15,7 +15,8 @@ object table:
 
   enum TypeInferrer {
     case FirstRow
-    case FirstN(n: Int)
+    case FirstN(n: Int, preferIntToBoolean: Boolean = true)
+    case FromAllRows
     case StringType
     case FromTuple[T]()
   }
