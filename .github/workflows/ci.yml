@@ -7,7 +7,7 @@ on:
       - "v*"
   pull_request:
     branches:
-      - main
+      - "*"
 
 permissions:
   id-token: write
@@ -47,17 +47,12 @@ jobs:
       - uses: actions/setup-java@main
         with:
           distribution: 'temurin'
-          java-version: 17
-      - name: Setup GPG secrets
-        run: |
-          gpg --version
-          cat <(echo "${{ secrets.PUBLISH_SECRET_KEY }}") | base64 --decode | gpg --batch --import
-          gpg --list-secret-keys --keyid-format LONG
+          java-version: 21
       - name: Publish to Maven Central
-        run: ./mill --import "ivy:com.lihaoyi::mill-contrib-sonatypecentral:" mill.contrib.sonatypecentral.SonatypeCentralPublishModule/publishAll --publishArtifacts __.publishArtifacts
+        run: ./mill mill.javalib.SonatypeCentralPublishModule/
         env:
-          MILL_PGP_PASSPHRASE: ${{ secrets.PUBLISH_SECRET_KEY_PASSWORD }}
-          MILL_PGP_SECRET_BASE64: ${{ secrets.PUBLISH_SECRET_KEY }}
+          MILL_PGP_PASSPHRASE: ${{ secrets.MILL_PGP_PASSPHRASE  }}
+          MILL_PGP_SECRET_BASE64: ${{ secrets.MILL_PGP_SECRET_BASE64 }}
           MILL_SONATYPE_PASSWORD: ${{ secrets.PUBLISH_PASSWORD }}
           MILL_SONATYPE_USERNAME: ${{ secrets.PUBLISH_USER }}
           
@@ -69,34 +64,34 @@ jobs:
     steps:
       - uses: actions/setup-java@v4
         with:
-          java-version: 17
+          java-version: 21
           distribution: 'temurin'
       - uses: actions/checkout@main
         with:
           fetch-depth: 0
           fetch-tags: true
-      - run: ./mill site.publishDocs
+      - run: ./mill site.siteGen
 
   site:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
     needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-java@v4
         with:
-          java-version: 17
+          java-version: 21
           distribution: 'temurin'
       - uses: actions/checkout@main
         with:
           fetch-depth: 0
           fetch-tags: true
-      - run: ./mill site.publishDocs
+      - run: ./mill site.siteGen
       - name: Setup Pages
         uses: actions/configure-pages@main
       - uses: actions/upload-artifact@main
         with:
           name: page
-          path: out/site/publishDocs.dest
+          path: out/site/laika/generateSite.dest
           if-no-files-found: error
 
   deploy:

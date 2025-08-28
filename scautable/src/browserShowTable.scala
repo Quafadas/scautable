@@ -14,7 +14,7 @@ import scala.annotation.nowarn
 
 /** This is a simple library to render a scala case class as an html table. It assumes the presence of a [[HtmlTableRender]] instance for each type in the case class.
   */
-object scautable extends PlatformSpecific:
+object HtmlRenderer extends PlatformSpecific:
 
   // Aggressively copy-pasta-d from here; https://blog.philipp-martini.de/blog/magic-mirror-scala3/
   protected inline def getTypeclassInstances[A <: Tuple]: List[HtmlTableRender[Any]] =
@@ -131,7 +131,7 @@ object scautable extends PlatformSpecific:
         // table(tbody(header,rows))
         a match
           case p: Product =>
-            td(scautable(p, false)(using this))
+            td(HtmlRenderer(p, false)(using this))
           // case q: Seq[Product] =>
           //   scautable(q)(using this)
 
@@ -303,4 +303,4 @@ object scautable extends PlatformSpecific:
     apply(a.map(_.toTuple), true, names)
   end nt
 
-end scautable
+end HtmlRenderer

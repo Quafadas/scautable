@@ -19,6 +19,8 @@ object Decoder:
       str.toLowerCase match
         case "true"  => Some(true)
         case "false" => Some(false)
+        case "0" => Some(false)
+        case "1" => Some(true)
         case _       => None
 
   inline given Decoder[String] with

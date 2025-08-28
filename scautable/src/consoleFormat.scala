@@ -52,7 +52,7 @@ object ConsoleFormat:
     end consoleFormatNt
   end extension
 
-  inline def makeFancy(s: String, i: Int): Str =
+  private inline def makeFancy(s: String, i: Int): Str =
     val idx = i % colours.length
     colours(idx)(s)
   end makeFancy

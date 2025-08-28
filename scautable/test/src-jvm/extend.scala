@@ -8,8 +8,8 @@ import scala.compiletime.ops.int.S
 
 class ExtendSuite extends munit.FunSuite:
 
-  import scautable.*
-  import scautable.given
+  import HtmlRenderer.*
+  import HtmlRenderer.given
 
   test("extendable") {
 
@@ -21,7 +21,7 @@ class ExtendSuite extends munit.FunSuite:
     val custom = Seq(Customize(LocalDate.of(2025, 1, 1), 1))
     assertEquals(
       """<table id="scautable" class="display"><thead><tr><th>t</th><th>i</th></tr></thead><tbody><tr><td>2025-01-01</td><td>1</td></tr></tbody></table>""",
-      scautable(custom).toString()
+      HtmlRenderer(custom).toString()
     )
   }
 
@@ -35,7 +35,7 @@ class ExtendSuite extends munit.FunSuite:
 
     assertEquals(
       """<table id="scautable" class="display"><thead><tr><th>col1</th><th>col2</th><th>col3</th></tr></thead><tbody><tr><td>a</td><td>1</td><td>2.0</td></tr><tr><td>b</td><td>2</td><td>3.0</td></tr><tr><td>c</td><td>3</td><td>4.0</td></tr></tbody></table>""",
-      scautable.nt(nt).toString()
+      HtmlRenderer.nt(nt).toString()
     )
   }
 

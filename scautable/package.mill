@@ -6,7 +6,7 @@ import mill.scalajslib._
 import mill.scalajslib.api._
 import build.Config
 
-object `package` extends RootModule {
+object `package` extends Module {
 
   trait SharedModule extends build.Common with PlatformScalaModule
 
@@ -14,9 +14,9 @@ object `package` extends RootModule {
 
 
   object jvm extends SharedModule with ScalaModule with build.PublishModule {
-    override def ivyDeps= super.ivyDeps() ++ Agg(
-      ivy"org.apache.poi:poi:5.4.1",
-      ivy"org.apache.poi:poi-ooxml:5.4.1",
+    override def mvnDeps= super.mvnDeps() ++ Seq(
+      mvn"org.apache.poi:poi:5.4.1",
+      mvn"org.apache.poi:poi-ooxml:5.4.1",
     )
   }
 

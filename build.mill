@@ -1,32 +1,33 @@
-package build
+//| mill-version: 1.0.4
+//| mill-jvm-version: 21
+//| mvnDeps:
+//| - io.github.quafadas:millSite_mill1_3.7:0.0.50
 
-import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
+package build
 
 import mill._, mill.scalalib._, mill.scalajslib._
 import mill._, scalalib._, publish._
 
-import de.tobiasroeser.mill.vcs.version._
-
-import $packages._
+import mill.util.VcsVersion
 
 object Config {
-  val oslib = ivy"com.lihaoyi::os-lib:0.11.5"
-  val scalatags = ivy"com.lihaoyi::scalatags::0.13.1"
-  val fansi = ivy"com.lihaoyi::fansi::0.5.1"
+  val oslib = mvn"com.lihaoyi::os-lib:0.11.5"
+  val scalatags = mvn"com.lihaoyi::scalatags::0.13.1"
+  val fansi = mvn"com.lihaoyi::fansi::0.5.1"
 
 
 
-  val laminar = ivy"com.raquo::laminar::17.2.1"
-  val munit = ivy"org.scalameta::munit::1.1.1"
+  val laminar = mvn"com.raquo::laminar::17.2.1"
+  val munit = mvn"org.scalameta::munit::1.1.1"
   val scalaVersion = "3.7.2"
   val scalaJSVersion = "1.19.0"
 }
 
-//  mill --import ivy:com.lihaoyi::mill-contrib-bloop: mill.contrib.bloop.Bloop/install
+// mill __.compiledClassesAndSemanticDbFiles
 trait Common extends ScalaModule {
   def scalaVersion = Config.scalaVersion
 
-  override def ivyDeps = super.ivyDeps() ++ Agg(
+  override def mvnDeps = super.mvnDeps() ++ Seq(
     Config.scalatags,
     Config.oslib,
     Config.fansi
@@ -37,9 +38,9 @@ trait Common extends ScalaModule {
 
 trait CommonJS extends Common with ScalaJSModule {
   def scalaJSVersion = "1.19.0"
-  override def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"org.scala-js::scalajs-dom::2.8.1",
-    ivy"org.scala-js::scalajs-java-securerandom::1.0.0".withDottyCompat(scalaVersion()),
+  override def mvnDeps = super.mvnDeps() ++ Seq(
+    mvn"org.scala-js::scalajs-dom::2.8.1",
+    mvn"org.scala-js::scalajs-java-securerandom::1.0.0".withDottyCompat(scalaVersion()),
     Config.laminar
   )
 }
@@ -48,9 +49,9 @@ trait CommonJS extends Common with ScalaJSModule {
 trait PublishModule extends mill.scalalib.PublishModule {
   override def artifactName = "scautable"
 
-  override def publishVersion = T{ VcsVersion.vcsState().format() }
+  override def publishVersion = Task{ VcsVersion.vcsState().format() }
 
-  override def pomSettings = T {
+  override def pomSettings = Task {
     PomSettings(
       description = "Automatically generate html tables from scala case classes",
       organization = "io.github.quafadas",
@@ -68,7 +69,7 @@ trait PublishModule extends mill.scalalib.PublishModule {
 trait CommonTests extends TestModule.Munit {
 
   // override def testFramework = "munit.runner.Framework"
-  override def ivyDeps = super.ivyDeps() ++ Agg(
+  override def mvnDeps = super.mvnDeps() ++ Seq(
     Config.munit
   )
 }

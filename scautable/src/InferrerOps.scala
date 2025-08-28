@@ -5,7 +5,7 @@ import io.github.quafadas.scautable.RowDecoder.*
 
 import scala.quoted.*
 
-object InferrerOps:
+private[scautable] object InferrerOps:
 
   case class ColumnTypeInfo(
     couldBeInt: Boolean     = true,
@@ -14,14 +14,21 @@ object InferrerOps:
     couldBeBoolean: Boolean = true,
     seenEmpty: Boolean      = false
   ):
-    def inferMostGeneralType(using Quotes): quotes.reflect.TypeRepr =
+    def inferMostGeneralType(preferIntToBoolean: Boolean)(using Quotes): quotes.reflect.TypeRepr =
       import quotes.reflect.*
       val base =
-        if couldBeInt          then TypeRepr.of[Int]
-        else if couldBeBoolean then TypeRepr.of[Boolean]
-        else if couldBeLong    then TypeRepr.of[Long]
-        else if couldBeDouble  then TypeRepr.of[Double]
-        else TypeRepr.of[String]
+        if preferIntToBoolean then
+          if couldBeInt           then TypeRepr.of[Int]
+          else if couldBeBoolean  then TypeRepr.of[Boolean]
+          else if couldBeLong     then TypeRepr.of[Long]
+          else if couldBeDouble   then TypeRepr.of[Double]
+          else TypeRepr.of[String]
+        else
+          if couldBeBoolean     then TypeRepr.of[Boolean]
+          else if couldBeInt    then TypeRepr.of[Int]          
+          else if couldBeLong   then TypeRepr.of[Long]
+          else if couldBeDouble then TypeRepr.of[Double]
+          else TypeRepr.of[String]
 
       if seenEmpty then TypeRepr.of[Option].appliedTo(base) else base
 
@@ -37,16 +44,16 @@ object InferrerOps:
       )
 
 
-  def inferMostGeneralType(using Quotes)(values: Seq[String]): quotes.reflect.TypeRepr =
+  def inferMostGeneralType(using Quotes)(values: Seq[String], preferIntToBoolean: Boolean): quotes.reflect.TypeRepr =
     import quotes.reflect.*
     
     if values.isEmpty then TypeRepr.of[String]
     else
       val initial = ColumnTypeInfo()
       val resultInfo = values.foldLeft(initial)(inferTypeReprForValue)
-      resultInfo.inferMostGeneralType
+      resultInfo.inferMostGeneralType(preferIntToBoolean)
 
-  def inferrer(using Quotes)(rows: Iterator[String], numRows: Int = 1) =
+  def inferrer(using Quotes)(rows: Iterator[String], preferIntToBoolean: Boolean, numRows: Int = 1) =
     import quotes.reflect.*
 
     validateInput(rows, numRows)
@@ -60,7 +67,7 @@ object InferrerOps:
     val columns = parsedRows.transpose
 
     val elementTypesRepr: List[TypeRepr] = columns.map { columnValues =>
-      inferMostGeneralType(columnValues)
+      inferMostGeneralType(columnValues, preferIntToBoolean)
     }
 
     val tupleType: TypeRepr = elementTypesRepr.foldRight(TypeRepr.of[EmptyTuple]) { (tpe, acc) =>

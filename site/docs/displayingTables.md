@@ -1,22 +1,14 @@
----
-title: Displaying Tables
----
 
+# Displaying Tables
 
-```scala
-
-//> using dep io.github.quafadas::scautable:{{projectVersion}}
-
-```
-
-# In console
+## In console
 
 In scripts or conosle, fansi formatting is strongly preferred. 
 
 ```scala mdoc sc:nocompile
 import io.github.quafadas.table.*
 
-def csv = CSV.resource("simple.csv")
+def csv = CSV.fromString("col1,col2,col3\n1,2,7\n3,4,8\n5,6,9")
 csv.toSeq.consoleFormatNt(fansi = false)
 
 // This  much better in a console / script, but ugly in browser
@@ -27,7 +19,7 @@ csv.toSeq.ptbln
 
 ```
 
-# In browser (currently untested with named tuples)
+## In browser (currently untested with named tuples)
 
 ```scala
 import io.github.quafadas.table.*
@@ -54,14 +46,3 @@ Will pop open a browser... using https://datatables.net
 ![desktop](../_assets/desktop.png)
 
 And your case classes are now easily visible and searchable.
-
-```scala
-
-
-```
-
-# Scala JS
-
-I love scala JS, so it cross compiles, and gives you back a scalatags table. This is of questionable usefulness, but it's fun.
-
-TODO : Laminar integration, which nobody wants but would be cool.

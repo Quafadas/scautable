@@ -18,7 +18,7 @@ import scala.math.Fractional.Implicits.*
 import scala.annotation.implicitNotFound
 
 object NamedTupleIteratorExtensions:
-  val rand = new scala.util.Random
+  private val rand = new scala.util.Random
 
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 

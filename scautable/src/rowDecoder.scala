@@ -4,10 +4,10 @@ import scala.compiletime.{erasedValue, summonInline}
 import io.github.quafadas.scautable.Decoder
 
 
-trait RowDecoder[T]:
+private[scautable] trait RowDecoder[T]:
   def decodeRow(row: List[String]): Option[T]
 
-object RowDecoder:
+private[scautable] object RowDecoder:
   inline def summonAllDecoders[T <: Tuple]: List[Decoder[?]] =
     inline erasedValue[T] match
       case _: EmptyTuple => Nil
