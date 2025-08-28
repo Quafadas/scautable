@@ -11,9 +11,8 @@ Auto Magically generate and view searchable html tables for a `Seq[A]`
 
 `//> using dep io.github.quafadas::scautable::`${version.latest}
 
+![Example](../assets/minimal.png)
+
 ## Mill
 `mvn"io.github.quafadas::scautable::`${version.latest}"
 
-```scala mdoc:scastie
-1 + 1 
-```

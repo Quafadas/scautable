@@ -11,14 +11,16 @@ This is essentially "Safe Mode". it does nothing other than read the strings. It
 ```scala mdoc
 import io.github.quafadas.table.*
 
-inline val csvContent = "Name,Age\nAlice,30\nBob,24\nJim, 50"
+inline val csvContent = "Name,Age\nAlice,30\nBob,24\nJim,50"
 
-CSV.fromString(csvContent, TypeInferrer.StringType)
+val c: CsvIterator[("Name", "Age"), (String, String)] = CSV.fromString(csvContent, TypeInferrer.StringType)
+
+c.foreach(println)
 ```
 
 ## FirstN
 
-The compiler will read the firstN rows of the CSV file. It will test every cells for the firstN rows, whether they can be decoded as 
+The compiler will read the firstN rows of the CSV file. It will test every cell, in every column, for the firstN rows, whether they can be decoded as 
 
 - Boolean
 - Int
@@ -42,17 +44,20 @@ CSV.fromString(csvContent, TypeInferrer.FirstRow)
 Is firstN, but with Rows set to be `Int.MaxValue`.
 
 ```scala mdoc
-CSV.fromString(csvContent, TypeInferrer.FromAllRows)
+val tmp: CsvIterator[("Name", "Age"), (String, Int)]= CSV.fromString(csvContent, TypeInferrer.FromAllRows)
+
+tmp.foreach(println)
 ```
 ## FromTuple
 
 You take "manual" control of the decoding process.
 
 ```scala mdoc
-CSV.fromString(
+val csv1: CsvIterator[("Name", "Age"), (String, Option[Double])] = CSV.fromString(
   csvContent,
   TypeInferrer.FromTuple[(String, Option[Double])]()
 )
+csv1.foreach(println)
 
 ```
 
