@@ -23,3 +23,8 @@ object Decoder:
 
   inline given Decoder[String] with
     def decode(str: String): Option[String] = Some(str)
+
+  inline given [T](using d: Decoder[T]): Decoder[Option[T]] with
+    def decode(str: String): Option[Option[T]] =
+      if str.isEmpty then Some(None)
+      else d.decode(str).map(Some(_))
