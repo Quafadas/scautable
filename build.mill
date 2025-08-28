@@ -13,7 +13,7 @@ object Config {
   val oslib = ivy"com.lihaoyi::os-lib:0.11.5"
   val scalatags = ivy"com.lihaoyi::scalatags::0.13.1"
   val fansi = ivy"com.lihaoyi::fansi::0.5.1"
-
+  val pprint = ivy"com.lihaoyi::pprint::0.9.3"
 
 
   val laminar = ivy"com.raquo::laminar::17.2.1"
@@ -29,7 +29,8 @@ trait Common extends ScalaModule {
   override def ivyDeps = super.ivyDeps() ++ Agg(
     Config.scalatags,
     Config.oslib,
-    Config.fansi
+    Config.fansi,
+    Config.pprint
   )
   override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-Xmax-inlines", "128")
 }

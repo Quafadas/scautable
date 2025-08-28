@@ -17,6 +17,8 @@ import io.github.quafadas.scautable.ColumnTyped.IsNumeric
 import io.github.quafadas.scautable.ColumnTyped.GetTypeAtName
 import io.github.quafadas.scautable.ColumnTyped.AllAreColumns
 import scala.concurrent.Future
+import io.github.quafadas.scautable.CsvIteratorTPrint
+import scala.util.Try
 
 enum Gender:
   case Male, Female, Unknown
@@ -46,15 +48,16 @@ end Gender
   */
 @main def titanic =
 
-  val titanic = CSV.resource("titanic.csv")
+  val titanic = CSV.resource("titanic.csv", TypeInferrer.Auto)
 
-  val data = titanic.toSeq
-    .mapColumn["Sex", Gender]((x: String) => Gender.valueOf(x.capitalize))
-    .dropColumn["PassengerId"]
-    .mapColumn["Age", Option[Double]](_.toDoubleOption)
-    .mapColumn["Survived", Boolean](_ == "1")
-    .mapColumn["Fare", Double](_.toDouble)
-    .addColumn["AgeIsDefined", Boolean](_.Age.isDefined)
+  val data = LazyList.from(
+    titanic
+      .mapColumn["Sex", Gender]((x: String) => Gender.valueOf(x.capitalize))
+      .dropColumn["PassengerId"]
+      .mapColumn["Age", Option[Double]](a =>Try(a.toDouble).toOption)
+      .mapColumn["Survived", Boolean](_ == 1)
+      .addColumn["AgeIsDefined", Boolean](_.Age.isDefined)
+  )
 
   val surived: (survivied: Int, total: Int, pct: Double) = data
     .column["Survived"]
