@@ -46,7 +46,7 @@ end Gender
   */
 @main def titanic =
 
-  val titanic = CSV.resource("titanic.csv", TypeInferrer.FirstN(1000))
+  val titanic = CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
 
   val data = LazyList.from(
     titanic
