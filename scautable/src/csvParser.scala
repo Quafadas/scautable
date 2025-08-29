@@ -12,19 +12,30 @@ private[scautable] object CSVParser:
     var inQuotes = false
     val cellBuffer = new StringBuilder
     val result = scala.collection.mutable.ListBuffer.empty[String]
+    var i = 0
 
-    for char <- line do
+    while i < line.length do
+      val char = line.charAt(i)
+
       char match
         case `quote` if !inQuotes =>
           // Start of quoted section
           inQuotes = true
 
         case `quote` if inQuotes =>
-          // End of quoted section (peek ahead to handle escaped quotes)
-          if cellBuffer.nonEmpty && cellBuffer.last == quote then
-            cellBuffer.deleteCharAt(cellBuffer.length - 1) // Handle escaped quote
-            cellBuffer.append(char)
-          else inQuotes = false
+          // Check for RFC 4180 double-quote escaping
+          if i + 1 < line.length && line.charAt(i + 1) == quote then
+            // RFC 4180: doubled quote within quotes becomes a single quote
+            cellBuffer.append(quote)
+            i += 1 // Skip the next quote
+          else
+            // End of quoted section
+            inQuotes = false
+
+        case '\\' if inQuotes && i + 1 < line.length && line.charAt(i + 1) == quote =>
+          // Handle backslash-escaped quotes
+          cellBuffer.append(quote)
+          i += 1 // Skip the escaped quote
 
         case `delimiter` if !inQuotes =>
           // Delimiter outside quotes ends the current cell
@@ -34,7 +45,9 @@ private[scautable] object CSVParser:
         case _ =>
           // Add character to the current cell
           cellBuffer.append(char)
-    end for
+
+      i += 1
+    end while
 
     // Append the last cell, if any
     result.append(cellBuffer.toString)
