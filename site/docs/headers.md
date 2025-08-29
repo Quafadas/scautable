@@ -31,7 +31,7 @@ import io.github.quafadas.table.*
 import io.github.quafadas.scautable.HeaderOptions
 
 val manual = CSV.fromString("1,2,3", HeaderOptions.Manual("a", "b", "c"))
-manual.headers 
+manual.headers
 manual.toSeq
 ```
 
@@ -70,3 +70,13 @@ HeaderOptions.FromRows(merge = 1, dropFirst = 0)
 ```
 
 Which corresponds to the traditional single-row header handling.
+
+### Header deduplication
+
+If you are in the situation where you have a large number of duplicate headers, consider de-duplication.
+
+```scala sc:nocompile
+val csvDup: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA"), (String, String, String, String, String, String)] = CSV.resource("dups.csv")
+
+val dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_5"), (String, String, String, String, String, String)] = CSV.deduplicateHeader(csvDup)
+```

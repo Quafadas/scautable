@@ -20,6 +20,11 @@
           "field": "Col2",
           "type": "quantitative"
         }
+          ,
+          "tooltip": [
+            { "field": "Col1", "type": "quantitative", "title": "Col1" },
+            { "field": "Col2", "type": "quantitative", "title": "Col2" }
+          ]
       }
     },
     {

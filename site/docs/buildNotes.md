@@ -2,6 +2,8 @@
 
 ## scala-cli
 
+I found using the resource folder directive to be a convienient and portable way of working with CSV files
+
 ```scala sc:nocompile
 //> using scala 3.7.1
 //> using dep io.github.quafadas::scautable:{{latest}}
@@ -10,13 +12,11 @@
 import io.github.quafadas.table.*
 
 @main def checkCsv =
-  def csv = CSV.resource("boston_robberies.csv")
+  def csv = CSV.resource("cereals.csv")
 
   csv.take(10).toSeq.ptbln
 
 ```
-
-![Example](../assets/minimal.png)
 
 ## Mill
 

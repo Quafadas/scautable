@@ -1,10 +1,12 @@
 # Type Inference
 
-Scautable supports a bouqet of type inference strategies via it's `TypeInferrer` enum. The varying strategies are discussed below. 
+Scautable supports a bouqet of type inference strategies via it's `TypeInferrer` enum. The varying strategies are discussed below.
+
+Scautable targets "small". If you ask the compiler to infer the types of all rows in a 10 million row CSV file, strange things may begin to happen.
 
 ## String Type
 
-This is essentially "Safe Mode". it does nothing other than read the strings. It should fail, _only_ if the CSV is poorly formed. 
+This is essentially "Safe Mode". it does nothing other than read the strings. It should fail, _only_ if the CSV is poorly formed.
 
 ```scala mdoc
 import io.github.quafadas.table.*
@@ -18,7 +20,7 @@ c.foreach(println)
 
 ## FirstN
 
-The compiler will read the firstN rows of the CSV file. It will test every cell, in every column, for the firstN rows, whether they can be decoded as 
+The compiler will read the firstN rows of the CSV file. It will test every cell, in every column, for the firstN rows, whether they can be decoded as
 
 - Boolean
 - Int
@@ -59,14 +61,14 @@ csv1.foreach(println)
 
 ```
 
-Using this strategy, is it possible to decode the CSV to custom types. 
+Using this strategy, is it possible to decode the CSV to custom types.
 
 ```scala mdoc
 import io.github.quafadas.scautable.Decoder
 
 enum Status:
       case Active, Inactive
-      
+
 inline given Decoder[Status] with
   def decode(str: String): Option[Status] =
     str match

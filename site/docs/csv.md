@@ -3,7 +3,7 @@
 
 # Getting started
 
-Our first move, is to tell the compiler, where the file may be found. `CSV.resource` is a macro which reads the column headers and injects them into the compilers type system. Here; we inline a string for the compiler to analyze.
+Our first move, is to tell the _compiler_, where your CSV file may be found. `CSV.resource` is a macro which reads the column headers and injects them into the compilers type system. Here; we inline a string for the compiler to analyze.
 
 
 ```scala mdoc
@@ -31,12 +31,16 @@ import io.github.quafadas.table.*
 val csv_resource = CSV.resource("simple.csv")
 val csv_abs = CSV.absolutePath("/users/simon/absolute/path/simple.csv")
 val csv_url = CSV.url("https://example.com/simple.csv")
+/**
+ * Note: this reads from the _compilers_ current working directory. If you are compiling via bloop through scala-cli, for example, then this will * read the temporary directory _bloop_ is running in, _not_ your project directory.
+ */
+val csv_pwd = CSV.pwd("file.csv")
 
 ```
 
 ## Strongly Typed CSVs
 
-We expose a small number of "column" methods, which allow coumn manipulation. They deal with the typelevel bookingkeeping surrounding named tuples.
+Scautable analyzes the CSV file and provides types and names for the columns. That means should get IDE support, auto complete, error messages for non sensical code, etc.
 
 
 ```scala mdoc
@@ -49,7 +53,7 @@ val experiment = asList
 println(experiment.consoleFormatNt(fansi = false))
 
 ```
-Note, that one cannot make column name typos - the compiler will catch them. If you try to map a column which doesn't exist, the compiler will complain.
+e.g. one cannot make column name typos because they are embedded in the type system.
 
 ```scala mdoc:fail sc:nocompile
  val nope = experiment.mapColumn["not_col1", Double](_.toDouble)
@@ -59,7 +63,7 @@ Note, that one cannot make column name typos - the compiler will catch them. If 
 
 ### Column Operations
 
-Let's have a look at the remainder of column manipulation;
+Let's have a look at the some column manipulation helpers;
 
 - `dropColumn`
 - `addColumn`
@@ -90,28 +94,3 @@ We can delegate all such concerns, to the standard library in the usual way - as
 colmanipuluation.filter(_.col4_renamed > 20).groupMapReduce(_.col1)(_.col4_renamed)(_ + _)
 
 ```
-Otherwise, we can use fold and friends to achieve similar over the `Iterator` (i haven't written our the grouping below)
-
-```scala mdoc sc:nocompile
-colmanipuluation.filter(_.col4_renamed > 20).foldLeft(0.0)(_ + _.col4_renamed)
-```
-
-### Why are the iterators `def`?
-
-Because if you make them `val` and try to read them a second time, you'll get a `StreamClosedException`.
-
-Iterators are cheap to create, but I usually read all data into a `val` via a call to `toSeq` to avoid traversing the file multiple times.
-
-### Header deduplication
-
-If you are in the situation where you have a large number of duplicate headers, consider de-duplication.
-
-```scala sc:nocompile
-val csvDup: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA"), (String, String, String, String, String, String)] = CSV.resource("dups.csv")
-
-val dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_5"), (String, String, String, String, String, String)] = CSV.deduplicateHeader(csvDup)
-```
-
-### Example
-
-Here's a [scastie](https://scastie.scala-lang.org/Quafadas/2JoRN3v8SHK63uTYGtKdlw/26) to a scastie which does some manipulation on the Titanic dataset.

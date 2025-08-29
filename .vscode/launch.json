@@ -13,6 +13,16 @@
       "args": [
         "-oD"
       ]
-    }
+    },
+    {
+      "type": "scala",
+      "request": "launch",
+      "name": "example",
+      "buildTarget": "examples",
+      "mainClass": "cereals",
+      "args": [
+        "-oD"
+      ]
+    },
   ]
 }

@@ -46,15 +46,14 @@ end Gender
   */
 @main def titanic =
 
-  val titanic = CSV.resource("titanic.csv")
+  val titanic = CSV.resource("titanic.csv", TypeInferrer.FirstN(1000))
 
-  val data = titanic.toSeq
-    .mapColumn["Sex", Gender]((x: String) => Gender.valueOf(x.capitalize))
-    .dropColumn["PassengerId"]
-    .mapColumn["Age", Option[Double]](_.toDoubleOption)
-    .mapColumn["Survived", Boolean](_ == "1")
-    .mapColumn["Fare", Double](_.toDouble)
-    .addColumn["AgeIsDefined", Boolean](_.Age.isDefined)
+  val data = LazyList.from(
+    titanic
+      .dropColumn["PassengerId"]
+      .addColumn["AgeIsDefined", Boolean](_.Age.isDefined)
+  )
+
 
   val surived: (survivied: Int, total: Int, pct: Double) = data
     .column["Survived"]
@@ -67,7 +66,7 @@ end Gender
   data.toArray.take(20).ptbln
   // scautable.desktopShowNt(dataArr) // Will pop up a browser window with the data
 
-  val sex: Seq[(Gender, Int)] = dataArr.map(_.Sex).groupMapReduce(identity)(_ => 1)(_ + _).toSeq
+  val sex = dataArr.map(_.Sex).groupMapReduce(identity)(_ => 1)(_ + _).toSeq
 
   val age = dataArr.map(_.Age).groupMapReduce(identity)(_ => 1)(_ + _).toList
 
