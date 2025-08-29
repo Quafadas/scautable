@@ -32,10 +32,34 @@ private[scautable] object CSVParser:
             // End of quoted section
             inQuotes = false
 
-        case '\\' if inQuotes && i + 1 < line.length && line.charAt(i + 1) == quote =>
-          // Handle backslash-escaped quotes
-          cellBuffer.append(quote)
-          i += 1 // Skip the escaped quote
+        case '\\' if inQuotes && i + 1 < line.length =>
+          // Handle backslash-escaped characters
+          val nextChar = line.charAt(i + 1)
+          nextChar match
+            case 'n' =>
+              // Escaped linefeed
+              cellBuffer.append('\n')
+              i += 1
+            case 'r' =>
+              // Escaped carriage return
+              cellBuffer.append('\r')
+              i += 1
+            case '\\' =>
+              // Escaped backslash
+              cellBuffer.append('\\')
+              i += 1
+            case `delimiter` =>
+              // Escaped delimiter
+              cellBuffer.append(delimiter)
+              i += 1
+            case `quote` =>
+              // Escaped quote character
+              cellBuffer.append(quote)
+              i += 1
+            case _ =>
+              // Unknown escape sequence - treat backslash literally
+              cellBuffer.append('\\')
+              // Don't increment i, let the next character be processed normally
 
         case `delimiter` if !inQuotes =>
           // Delimiter outside quotes ends the current cell

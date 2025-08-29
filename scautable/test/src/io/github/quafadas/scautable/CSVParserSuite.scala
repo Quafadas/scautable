@@ -116,3 +116,52 @@ class CSVParserSuite extends FunSuite:
     val result = CSVParser.parseLine(line)
     assertEquals(result, List("", "field2", "field3"))
   }
+
+  // Tests for full escape character support (ESCAPE specification)
+  test("parseLine should handle backslash-escaped linefeeds") {
+    val line = "field1,\"field2 with \\n newline\",field3"
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("field1", "field2 with \n newline", "field3"))
+  }
+
+  test("parseLine should handle backslash-escaped carriage returns") {
+    val line = "field1,\"field2 with \\r return\",field3"
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("field1", "field2 with \r return", "field3"))
+  }
+
+  test("parseLine should handle backslash-escaped delimiters") {
+    val line = "field1,\"field2 with \\, comma\",field3"
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("field1", "field2 with , comma", "field3"))
+  }
+
+  test("parseLine should handle backslash-escaped backslashes") {
+    val line = "field1,\"field2 with \\\\ backslash\",field3"
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("field1", "field2 with \\ backslash", "field3"))
+  }
+
+  test("parseLine should handle custom delimiter with backslash-escaped delimiter") {
+    val line = "field1;\"field2 with \\; semicolon\";field3"
+    val result = CSVParser.parseLine(line, delimiter = ';')
+    assertEquals(result, List("field1", "field2 with ; semicolon", "field3"))
+  }
+
+  test("parseLine should handle multiple escape sequences in one field") {
+    val line = "field1,\"field2 with \\n\\r\\, and \\\" escapes\",field3"
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("field1", "field2 with \n\r, and \" escapes", "field3"))
+  }
+
+  test("parseLine should handle backslash at end of field (not escaping anything)") {
+    val line = "field1,\"field2 ends with \\\\\",field3"
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("field1", "field2 ends with \\", "field3"))
+  }
+
+  test("parseLine should handle invalid escape sequences by treating backslash literally") {
+    val line = "field1,\"field2 with \\z invalid escape\",field3"
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("field1", "field2 with \\z invalid escape", "field3"))
+  }
