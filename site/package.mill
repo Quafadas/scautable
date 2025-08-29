@@ -10,7 +10,11 @@ object `package` extends SiteModule {
     VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
   }
 
+  override def repoLink = Task(
+    build.scautable.jvm.pomSettings().url
+  )
+
   override def unidocTitle = Task("Scautable API")
-  
+
   override def unidocDeps = Seq(build.scautable.jvm)
 }
