@@ -1,3 +1,4 @@
+Scautable: One line CSV import and dataframe utilities based on scala's `NamedTuple`.
 
 [docs](https://quafadas.github.io/scautable/docs/index.html)
 

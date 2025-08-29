@@ -1,5 +1,7 @@
 # Getting Started
 
+Scautable: One line CSV import and dataframe utilities based on scala's `NamedTuple`.
+
 ## Scala CLI
 
 `//> using dep io.github.quafadas::scautable::`${version.latest}
