@@ -55,7 +55,7 @@ jobs:
           MILL_PGP_SECRET_BASE64: ${{ secrets.MILL_PGP_SECRET_BASE64 }}
           MILL_SONATYPE_PASSWORD: ${{ secrets.PUBLISH_PASSWORD }}
           MILL_SONATYPE_USERNAME: ${{ secrets.PUBLISH_USER }}
-          
+
   # Check that we can _generate_ the docs, but don't run upload / pages actions to actually deploy them for pull requests.
   site_pr_check:
     if: github.event_name == 'pull_request'
@@ -73,7 +73,7 @@ jobs:
       - run: ./mill site.siteGen
 
   site:
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     steps:
