@@ -1,8 +1,8 @@
 import io.github.quafadas.table.*
 
-import viz.PlotTargets.websocket
+
 import viz.Plottable.*
-import viz.vegaFlavour
+
 import upickle.default.ReadWriter.join
 import viz.Macros.Implicits.given_Writer_T
 // import viz.NamedTupleReadWriter.given_ReadWriter_T
@@ -45,7 +45,7 @@ end Gender
   * The "view" urls will be updated with the data from the example. The last part of the URL, is the "description" field of the chart.
   */
 @main def titanic =
-
+  import viz.PlotTargets.websocket
   val titanic = CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
 
   val data = LazyList.from(
@@ -116,7 +116,8 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
       @implicitNotFound("Column ${S} not found")
       ev: IsColumn[S, K] =:= true,
       s: ValueOf[S]
-  ): Unit =
+  )(using ctx: viz.LowPriorityPlotTarget): Unit =
+    import viz.vegaFlavour
     val oneCol = data.column[S]
     val spec = os.resource / "pieChart.vg.json"
     val dataGrouped = oneCol.groupMapReduce(identity)(_ => 1)(_ + _).toSeq
@@ -150,7 +151,8 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
       s: ValueOf[S],
       @implicitNotFound("Column ${S} is not numeric")
       numeric: Numeric[GetTypeAtName[K, S, V]]
-  ): Unit =
+  )(using ctx: viz.LowPriorityPlotTarget): Unit =
+    import viz.vegaFlavour
     val oneCol = data.column[S]
     val spec = os.resource / "histogram.vg.json"
     val colName: String = s.value
@@ -188,7 +190,8 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
       numeric1: Numeric[GetTypeAtName[K, S1, V]],
       @implicitNotFound("Column ${S2} is not numeric")
       numeric2: Numeric[GetTypeAtName[K, S2, V]]
-  ): Unit =
+  )(using ctx: viz.LowPriorityPlotTarget): Unit =
+    import viz.vegaFlavour
     val column1 = data.column[S1]
     val column2 = data.column[S2]
     val zipped = column1.zip(column2)
@@ -233,7 +236,8 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
       numeric1: Numeric[GetTypeAtName[K, S1, V]],
       @implicitNotFound("Column ${S2} is not numeric")
       numeric2: Numeric[GetTypeAtName[K, S2, V]]
-  ): Unit =
+  )(using ctx: viz.LowPriorityPlotTarget): Unit =
+    import viz.vegaFlavour
     val column1 = data.column[S1]
     val column2 = data.column[S2]
     val zipped = column1.zip(column2)
@@ -276,7 +280,8 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
       numeric1: Numeric[GetTypeAtName[K, S1, V]],
       @implicitNotFound("Column ${S2} is not numeric")
       numeric2: Numeric[GetTypeAtName[K, S2, V]]
-  ): Unit =
+  )(using ctx: viz.LowPriorityPlotTarget): Unit =
+    import viz.vegaFlavour
     val column1 = data.column[S1]
     val column2 = data.column[S2]
     val zipped = column1.zip(column2)
@@ -293,6 +298,7 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
         `type` = "quantitative"
       )
     )
+    println("here")
     spec.plot(
       List(
         spec =>

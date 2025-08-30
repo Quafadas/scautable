@@ -4,11 +4,12 @@ import io.github.quafadas.table.*
 
 // import viz.PlotTargets.desktopBrowser
 import viz.*
-import viz.PlotTargets.websocket
+
 import viz.vegaFlavour
 
 
 @main def cereals =
+  import viz.PlotTargets.desktopBrowser
   val data = CSV.resource("cereals.csv", TypeInferrer.FirstN(1000))
 
   val cereals = LazyList.from(data)
@@ -22,5 +23,3 @@ import viz.vegaFlavour
 
   println("plot regression")
   cereals.plotRegression["calories", "protein"]
-  cereals.plotRegression["fiber", "protein"]
-  cereals.plotScatter["fiber", "protein"]
