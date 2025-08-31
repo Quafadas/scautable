@@ -1,12 +1,7 @@
 import viz.Macros.Implicits.given_Writer_T
 
 import io.github.quafadas.table.*
-
-// import viz.PlotTargets.desktopBrowser
 import viz.*
-
-import viz.vegaFlavour
-
 
 @main def cereals =
   import viz.PlotTargets.desktopBrowser
@@ -22,4 +17,5 @@ import viz.vegaFlavour
   cereals.take(10).ptbln
 
   println("plot regression")
-  cereals.plotRegression["calories", "protein"]
+  cereals.plotScatter["calories", "protein"]
+  cereals.plotHistogram["protein"]
