@@ -1,7 +1,7 @@
 //| mill-version: 1.0.4
 //| mill-jvm-version: 21
 //| mvnDeps:
-//| - io.github.quafadas:millSite_mill1_3.7:0.0.50
+//| - io.github.quafadas:millSite_mill1_3.7:0.0.52
 
 package build
 
