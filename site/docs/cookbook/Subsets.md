@@ -31,3 +31,5 @@ val csv = Seq(headers) ++ subset.map(_.toList.mkString(","))
 
 ```
 This materialises the entire CSV in memory. It would also be possible to write a simple streaming transformation using similar constructs.
+
+Note that this approach is rather primitive, and doesn't consider things like escaping quotes or commas within fields, as it isn't something I've needed yet.
