@@ -140,24 +140,6 @@ object NamedTupleIteratorExtensions:
       columns[SelectFromTuple[K, Negate[NumericColsIdx[V]]]](using ev1)
     end nonNumericCols
 
-    // inline def resolve[ST <: Tuple]: SelectFromTuple[K, TupleContainsIdx[ST, K]] =
-    //   ("Pclass", "Age", "SibSp", "Parch", "Fare").asInstanceOf[SelectFromTuple[K, TupleContainsIdx[ST, K]]]
-    // inline def resolveT[ST <: Tuple]: GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V] =
-    //   (1, Some(2.0), 1, 1, 2.0).asInstanceOf[GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]]
-
-    // inline def resolveNT[ST <: Tuple]: NamedTuple[
-    //   SelectFromTuple[K, TupleContainsIdx[ST, K]],
-    //   GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]
-    // ] =
-    //   (1, Some(2.0), 1, 1, 2.0)
-    //     .withNames[("Pclass", "Age", "SibSp", "Parch", "Fare")]
-    //     .asInstanceOf[
-    //       NamedTuple[
-    //         SelectFromTuple[K, TupleContainsIdx[ST, K]],
-    //         GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]
-    //       ]
-    //     ]
-
     inline def columns[ST <: Tuple](using
         @implicitNotFound("Not all columns in ${ST} were found")
         ev: AllAreColumns[ST, K] =:= true
@@ -370,8 +352,6 @@ object NamedTupleIteratorExtensions:
 
     inline def renameColumn[From <: String, To <: String](using
         ev: IsColumn[From, K] =:= true,
-        FROM: ValueOf[From],
-        TO: ValueOf[To],
         bf: BuildFrom[CC[NamedTuple[K, V]], NamedTuple[ReplaceOneName[K, From, To], V], CC[NamedTuple[ReplaceOneName[K, From, To], V]]]
     ): CC[NamedTuple[ReplaceOneName[K, From, To], V]] =
       bf.fromSpecific(nt)(nt.view.map(_.withNames[ReplaceOneName[K, From, To]].asInstanceOf[NamedTuple[ReplaceOneName[K, From, To], V]]))

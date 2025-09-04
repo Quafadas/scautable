@@ -5,26 +5,24 @@
 
 package build
 
-import mill._, mill.scalalib._, mill.scalajslib._
-import mill._, scalalib._, publish._
+import mill.*, mill.scalalib.*, mill.scalajslib.*
+import mill.*, scalalib.*, publish.*
 
 import mill.util.VcsVersion
 
-object Config {
+object Config:
   val oslib = mvn"com.lihaoyi::os-lib:0.11.5"
   val scalatags = mvn"com.lihaoyi::scalatags::0.13.1"
   val fansi = mvn"com.lihaoyi::fansi::0.5.1"
-
-
 
   val laminar = mvn"com.raquo::laminar::17.2.1"
   val munit = mvn"org.scalameta::munit::1.1.1"
   val scalaVersion = "3.7.2"
   val scalaJSVersion = "1.19.0"
-}
+end Config
 
 // mill __.compiledClassesAndSemanticDbFiles
-trait Common extends ScalaModule {
+trait Common extends ScalaModule:
   def scalaVersion = Config.scalaVersion
 
   override def mvnDeps = super.mvnDeps() ++ Seq(
@@ -33,23 +31,21 @@ trait Common extends ScalaModule {
     Config.fansi
   )
   override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-Xmax-inlines", "128")
-}
+end Common
 
-
-trait CommonJS extends Common with ScalaJSModule {
+trait CommonJS extends Common with ScalaJSModule:
   def scalaJSVersion = "1.19.0"
   override def mvnDeps = super.mvnDeps() ++ Seq(
     mvn"org.scala-js::scalajs-dom::2.8.1",
     mvn"org.scala-js::scalajs-java-securerandom::1.0.0".withDottyCompat(scalaVersion()),
     Config.laminar
   )
-}
+end CommonJS
 
-
-trait PublishModule extends mill.scalalib.PublishModule {
+trait PublishModule extends mill.scalalib.PublishModule:
   override def artifactName = "scautable"
 
-  override def publishVersion = Task{ VcsVersion.vcsState().format() }
+  override def publishVersion = Task(VcsVersion.vcsState().format())
 
   override def pomSettings = Task {
     PomSettings(
@@ -63,17 +59,16 @@ trait PublishModule extends mill.scalalib.PublishModule {
       )
     )
   }
+end PublishModule
 
-}
-
-trait CommonTests extends TestModule.Munit {
+trait CommonTests extends TestModule.Munit:
 
   // override def testFramework = "munit.runner.Framework"
   override def mvnDeps = super.mvnDeps() ++ Seq(
     Config.munit
   )
-}
+end CommonTests
 
-trait ShareCompileResources extends ScalaModule {
+trait ShareCompileResources extends ScalaModule:
   override def compileResources = super.compileResources() ++ resources()
-}
+end ShareCompileResources
