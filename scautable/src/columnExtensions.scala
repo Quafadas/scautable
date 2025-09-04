@@ -119,8 +119,8 @@ object NamedTupleIteratorExtensions:
 
     inline def numericCols: Iterator[
       NamedTuple[
-        SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, NumericColsIdx[V]], K]],
-        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, NumericColsIdx[V]], K]], V]
+        SelectFromTuple[K, NumericColsIdx[V]], 
+        GetTypesAtNames[K, SelectFromTuple[K, NumericColsIdx[V]], V]        
       ]
     ] =
       val ev1 = summonInline[AllAreColumns[SelectFromTuple[K, NumericColsIdx[V]], K] =:= true]
@@ -129,8 +129,8 @@ object NamedTupleIteratorExtensions:
 
     inline def nonNumericCols: Iterator[
       NamedTuple[
-        SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K]],
-        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K]], V]
+        SelectFromTuple[K, Negate[NumericColsIdx[V]]], 
+        GetTypesAtNames[K, SelectFromTuple[K, Negate[NumericColsIdx[V]]], V]        
       ]
     ] =
       val ev1 = summonInline[
@@ -162,13 +162,13 @@ object NamedTupleIteratorExtensions:
         ev: AllAreColumns[ST, K] =:= true
     ): Iterator[
       NamedTuple[
-        SelectFromTuple[K, TupleContainsIdx[ST, K]],
-        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]
+        ST,
+        GetTypesAtNames[K, ST, V]
       ]
     ] =
       val headers = constValueTuple[K].toList.map(_.toString())
       // val types  = constValueTuple[SelectFromTuple[V, TupleContainsIdx[ST, K]]].toList.map(_.toString())
-      val selectedHeaders = constValueTuple[SelectFromTuple[K, TupleContainsIdx[ST, K]]].toList.map(_.toString())
+      val selectedHeaders = constValueTuple[ST].toList.map(_.toString())
 
       // Preserve the existing column order
       val idxes = selectedHeaders.map(headers.indexOf(_)).filterNot(_ == -1)
@@ -177,7 +177,7 @@ object NamedTupleIteratorExtensions:
       // println(s"selectedHeaders $selectedHeaders")
       // println(s"idxes $idxes")
 
-      itr.map[NamedTuple[SelectFromTuple[K, TupleContainsIdx[ST, K]], GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]]] { (x: NamedTuple[K, V]) =>
+      itr.map{ (x: NamedTuple[K, V]) =>
         val tuple = x.toTuple
 
         // println("in tuple")
@@ -188,11 +188,11 @@ object NamedTupleIteratorExtensions:
         }
 
         selected
-          .withNames[SelectFromTuple[K, TupleContainsIdx[ST, K]]]
+          .withNames[ST]
           .asInstanceOf[
             NamedTuple[
-              SelectFromTuple[K, TupleContainsIdx[ST, K]],
-              GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]
+              ST,
+              GetTypesAtNames[K, ST, V]
             ]
           ]
       }
@@ -269,11 +269,11 @@ object NamedTupleIteratorExtensions:
     inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A): Seq[NamedTuple[Tuple.Append[K, S], Tuple.Append[V, A]]] =
       nt.toIterator.addColumn[S, A](fct).toSeq
 
-    inline def numericCols: Seq[
+    inline def numericCols: Seq[      
       NamedTuple[
-        SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, NumericColsIdx[V]], K]],
-        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, NumericColsIdx[V]], K]], V]
-      ]
+        SelectFromTuple[K, NumericColsIdx[V]], 
+        GetTypesAtNames[K, SelectFromTuple[K, NumericColsIdx[V]], V]        
+      ]    
     ] =
       val ev1 = summonInline[AllAreColumns[SelectFromTuple[K, NumericColsIdx[V]], K] =:= true]
       columns[SelectFromTuple[K, NumericColsIdx[V]]](using ev1)
@@ -281,8 +281,8 @@ object NamedTupleIteratorExtensions:
 
     inline def nonNumericCols: Seq[
       NamedTuple[
-        SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K]],
-        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K]], V]
+        SelectFromTuple[K, Negate[NumericColsIdx[V]]], 
+        GetTypesAtNames[K, SelectFromTuple[K, Negate[NumericColsIdx[V]]], V]        
       ]
     ] =
       val ev1 = summonInline[
@@ -296,8 +296,8 @@ object NamedTupleIteratorExtensions:
         ev: AllAreColumns[ST, K] =:= true
     ): Seq[
       NamedTuple[
-        SelectFromTuple[K, TupleContainsIdx[ST, K]],
-        GetTypesAtNames[K, SelectFromTuple[K, TupleContainsIdx[ST, K]], V]
+        ST,
+        GetTypesAtNames[K, ST, V]
       ]
     ] =
       nt.toIterator.columns[ST](using ev).toSeq
