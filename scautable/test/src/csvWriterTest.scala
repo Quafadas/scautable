@@ -196,47 +196,4 @@ Smith","line break"," spaced """"
     assertEquals(parsedTuples, originalTuples)
   }
 
-  test("writeCsv creates file correctly") {
-    val data = Vector(
-      (col1 = "1", col2 = "2"),
-      (col1 = "3", col2 = "4")
-    )
-    
-    val tmpFile = os.temp(prefix = "test", suffix = ".csv")
-    
-    try {
-      data.writeCsv(tmpFile)
-      
-      val fileContent = os.read(tmpFile)
-      val expected = """col1,col2
-1,2
-3,4"""
-      
-      assertEquals(fileContent, expected)
-    } finally {
-      if (os.exists(tmpFile)) os.remove(tmpFile)
-    }
-  }
-
-  test("writeCsv without headers") {
-    val data = Vector(
-      (col1 = "1", col2 = "2"),
-      (col1 = "3", col2 = "4")
-    )
-    
-    val tmpFile = os.temp(prefix = "test", suffix = ".csv")
-    
-    try {
-      data.writeCsv(tmpFile, includeHeaders = false)
-      
-      val fileContent = os.read(tmpFile)
-      val expected = """1,2
-3,4"""
-      
-      assertEquals(fileContent, expected)
-    } finally {
-      if (os.exists(tmpFile)) os.remove(tmpFile)
-    }
-  }
-
 end CSVWriterSuite

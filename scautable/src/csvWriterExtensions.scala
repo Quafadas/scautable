@@ -2,6 +2,7 @@ package io.github.quafadas.scautable
 
 import scala.compiletime.*
 import scala.collection.BuildFrom
+import scala.NamedTuple.*
 
 /** Extension methods for writing NamedTuple collections to CSV format.
   */
@@ -34,22 +35,6 @@ object CSVWriterExtensions:
       
       (headerLine ++ dataLines).mkString("\n")
     end toCsv
-    
-    /** Writes the iterator to a CSV file.
-      *
-      * @param path The file path to write to
-      * @param includeHeaders Whether to include column headers as the first line
-      * @param delimiter The delimiter character (default: comma)
-      * @param quote The quote character (default: double quote)
-      */
-    def writeCsv(
-        path: os.Path,
-        includeHeaders: Boolean = true,
-        delimiter: Char = ',',
-        quote: Char = '"'
-    ): Unit =
-      os.write.over(path, toCsv(includeHeaders, delimiter, quote))
-    end writeCsv
 
   end extension
 
@@ -80,22 +65,6 @@ object CSVWriterExtensions:
       
       (headerLine ++ dataLines).mkString("\n")
     end toCsv
-    
-    /** Writes the iterable to a CSV file.
-      *
-      * @param path The file path to write to
-      * @param includeHeaders Whether to include column headers as the first line
-      * @param delimiter The delimiter character (default: comma)
-      * @param quote The quote character (default: double quote)
-      */
-    def writeCsv(
-        path: os.Path,
-        includeHeaders: Boolean = true,
-        delimiter: Char = ',',
-        quote: Char = '"'
-    ): Unit =
-      os.write.over(path, toCsv(includeHeaders, delimiter, quote))
-    end writeCsv
 
   end extension
 
