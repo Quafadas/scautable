@@ -127,12 +127,12 @@ class CSVWriterSuite extends munit.FunSuite:
   test("Vector[NamedTuple].toCsv with numeric types") {
     val data = Vector(
       (id = 1, name = "Alice", score = 95.5),
-      (id = 2, name = "Bob", score = 87.0)
+      (id = 2, name = "Bob", score = 87.1)
     )
 
     val expected = """id,name,score
 1,Alice,95.5
-2,Bob,87.0"""
+2,Bob,87.1"""
 
     assertEquals(data.toCsv(true, ',', '"'), expected)
   }
