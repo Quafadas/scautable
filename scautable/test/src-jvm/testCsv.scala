@@ -103,6 +103,19 @@ class CSVSuite extends munit.FunSuite:
 
   }
 
+  test("column order") {
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+
+    // If this compiles, then the column order is preserved
+    val selectCols: Iterator[(col3: String, col2: String, col1: String)] = csv.columns[("col3", "col2", "col1")]
+    val ll = LazyList.from(selectCols)
+    assert(ll.head.col1 == "1")
+    assert(ll.head.col3 == "7")
+    assert(ll.last.col3 == "9")
+
+
+  }
+
   test("numeric and non numeric cols") {
     enum Gender:
       case Male, Female

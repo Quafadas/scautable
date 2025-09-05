@@ -4,7 +4,7 @@ import scalatags.Text.all.*
 import java.time.LocalDate
 
 
-class MySuite extends munit.FunSuite:
+class HtmlRenderSuite extends munit.FunSuite:
 
   import HtmlRenderer.*
   import HtmlRenderer.given
@@ -162,4 +162,3 @@ class MySuite extends munit.FunSuite:
       HtmlRenderer(test2, true).toString()
     )
   }
-end MySuite
