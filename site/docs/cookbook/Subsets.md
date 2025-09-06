@@ -20,16 +20,34 @@ val subset = data
 ```
 
 ```scala mdoc
-val headers = constValueTuple[myCols].toList.mkString(",")
+val csv = subset.toCsv(includeHeaders = true, delimiter = ',', quote = '"')
 
-subset.consoleFormatNt(fansi = false)
+```
+```scala mdoc:compile-only
 
-val csv = Seq(headers) ++ subset.map(_.toList.mkString(","))
-
-// Now pick a file writing library you like. os-lib is not in scope, but if it was...
-// os.write.over(os.pwd / "subset.csv", csv.mkString("\n"))
+os.write.over(os.pwd / "subset.csv", csv)
 
 ```
 This materialises the entire CSV in memory. It would also be possible to write a simple streaming transformation using similar constructs.
 
-Note that this approach is rather primitive, and doesn't consider things like escaping quotes or commas within fields, as it isn't something I've needed yet.
+## Streaming
+
+One may stream a transformation to another file with relative ease.
+
+```scala mdoc:compile-only
+
+val csvStrings: Iterator[String] = datarator
+  .filter(_.Sex == "female")
+  .columns[myCols]
+  .toCsv(includeHeaders = true, delimiter = ',', quote = '"')
+
+val fileStream = os.write.outputStream(os.pwd / "test.csv")
+
+csvStrings.foreach{s =>
+  fileStream.write(s.getBytes)
+  fileStream.write('\n')
+}
+
+
+
+```
