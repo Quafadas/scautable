@@ -17,6 +17,7 @@ import ColumnTyped.*
 import scala.math.Fractional.Implicits.*
 import scala.annotation.implicitNotFound
 import scala.collection.BuildFrom
+import scala.collection.Factory
 
 object NamedTupleIteratorExtensions:
   private val rand = new scala.util.Random
@@ -240,6 +241,75 @@ object NamedTupleIteratorExtensions:
   end extension
 
   extension [CC[X] <: Iterable[X], K <: Tuple, V <: Tuple](nt: CC[NamedTuple[K, V]])
+
+
+    inline def transposeColumns: NamedTuple[K, Tuple.Map[V, CC]] =
+      import scala.compiletime.ops.int.*
+      import scala.compiletime.constValue
+
+      // Convert to List of tuples for easier processing
+      val rowList = nt.toList
+      val size = rowList.size
+
+      if size == 0 then
+        // Handle empty case - create empty collections for each column type
+        val emptyTuple = createEmptyTranspose[V]
+        emptyTuple.withNames[K]
+      else
+        // Get all values for each column position
+        val transposedTuple = transposeValues[V](rowList, 0)
+        transposedTuple.withNames[K]
+
+    // Helper to create empty collections for each type in the tuple
+    private inline def createEmptyTranspose[Vs <: Tuple]: Tuple.Map[Vs, CC] =
+      inline erasedValue[Vs] match
+        case _: EmptyTuple => EmptyTuple
+        case _: (h *: t) =>
+          val bf = summonInline[BuildFrom[CC[NamedTuple[K, V]], h, CC[h]]]
+          bf.fromSpecific(nt)(Iterator.empty) *: createEmptyTranspose[t]
+
+    // Helper to transpose values recursively
+    private inline def transposeValues[Vs <: Tuple](rows: List[NamedTuple[K, V]], colIndex: Int): Tuple.Map[Vs, CC] =
+      inline erasedValue[Vs] match
+        case _: EmptyTuple => EmptyTuple
+        case _: (h *: t) =>
+          val bf = summonInline[BuildFrom[CC[NamedTuple[K, V]], h, CC[h]]]
+          val columnValues = rows.map(_.toTuple.productElement(colIndex).asInstanceOf[h])
+          bf.fromSpecific(nt)(columnValues) *: transposeValues[t](rows, colIndex + 1)
+
+    inline def transposeColumnsAs[Target[_]]: NamedTuple[K, Tuple.Map[V, Target]] =
+      import scala.compiletime.ops.int.*
+      import scala.compiletime.constValue
+
+      // Convert to List of tuples for easier processing
+      val rowList = nt.toList
+      val size = rowList.size
+
+      if size == 0 then
+        // Handle empty case - create empty collections for each column type
+        val emptyTuple = createEmptyTransposeTarget[V, Target]
+        emptyTuple.withNames[K]
+      else
+        // Get all values for each column position
+        val transposedTuple = transposeValuesTarget[V, Target](rowList, 0)
+        transposedTuple.withNames[K]
+
+    // Helper to create empty collections for each type in the tuple with target collection type
+    private inline def createEmptyTransposeTarget[Vs <: Tuple, Target[_]]: Tuple.Map[Vs, Target] =
+      inline erasedValue[Vs] match
+        case _: EmptyTuple => EmptyTuple
+        case _: (h *: t) =>
+          val factory = summonInline[Factory[h, Target[h]]]
+          factory.fromSpecific(Iterator.empty) *: createEmptyTransposeTarget[t, Target]
+
+    // Helper to transpose values recursively with target collection type
+    private inline def transposeValuesTarget[Vs <: Tuple, Target[_]](rows: List[NamedTuple[K, V]], colIndex: Int): Tuple.Map[Vs, Target] =
+      inline erasedValue[Vs] match
+        case _: EmptyTuple => EmptyTuple
+        case _: (h *: t) =>
+          val factory = summonInline[Factory[h, Target[h]]]
+          val columnValues = rows.map(_.toTuple.productElement(colIndex).asInstanceOf[h])
+          factory.fromSpecific(columnValues) *: transposeValuesTarget[t, Target](rows, colIndex + 1)
 
     inline def column[S <: String](using
         @implicitNotFound("Column ${S} not found")
