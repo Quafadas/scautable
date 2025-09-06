@@ -3,7 +3,7 @@ package io.github.quafadas.scautable
 import scala.annotation.tailrec
 
 private[scautable] object CSVUtils:
-  def uniquifyHeaders(headers: List[String]): List[String] =
+  inline def uniquifyHeaders(headers: List[String]): List[String] =
     if headers.toSet.sizeCompare(headers) == 0 then headers
     else
       val (newHeaders, _) = headers.foldLeft((List.empty[String], Map.empty[String, Int])):
