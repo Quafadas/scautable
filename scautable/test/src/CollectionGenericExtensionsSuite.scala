@@ -99,7 +99,7 @@ class CollectionGenericExtensionsSuite extends munit.FunSuite:
       (name = "Charlie", age = 35, score = 92.0)
     )
 
-    val transposed = data.transposeColumns
+    val transposed = data.toColumnOriented
 
     // Verify the transposed structure has the right column names
     assertEquals(transposed.name, List("Alice", "Bob", "Charlie"))
@@ -116,8 +116,8 @@ class CollectionGenericExtensionsSuite extends munit.FunSuite:
       (x = 3, y = 4)
     )
 
-    val seqTransposed = seqData.transposeColumns
-    val listTransposed = listData.transposeColumns
+    val seqTransposed = seqData.toColumnOriented
+    val listTransposed = listData.toColumnOriented
 
     // Verify content
     assertEquals(seqTransposed.x.toList, List(1, 3))
@@ -138,7 +138,7 @@ class CollectionGenericExtensionsSuite extends munit.FunSuite:
       (id = 3, name = "Charlie", active = true)
     )
 
-    val transposed = data.transposeColumns
+    val transposed = data.toColumnOriented
 
     assertEquals(transposed.id, List(1, 2, 3))
     assertEquals(transposed.name, List("Alice", "Bob", "Charlie"))
@@ -149,7 +149,7 @@ class CollectionGenericExtensionsSuite extends munit.FunSuite:
       (a = "hello", b = 42, c = 3.14)
     )
 
-    val transposed = data.transposeColumns
+    val transposed = data.toColumnOriented
 
     assertEquals(transposed.a, List("hello"))
     assertEquals(transposed.b, List(42))
@@ -158,12 +158,12 @@ class CollectionGenericExtensionsSuite extends munit.FunSuite:
   test("transposeColumns with empty collection"):
     val data: List[(name: String, age: Int)] = List.empty
 
-    val transposed = data.transposeColumns
+    val transposed = data.toColumnOriented
 
     assertEquals(transposed.name, List.empty)
     assertEquals(transposed.age, List.empty)
 
-  test("transposeColumnsAs with target collection type"):
+  test("toColumnOrientedAs with target collection type"):
     val data = List(
       (name = "Alice", age = 25, score = 95.0),
       (name = "Bob", age = 30, score = 87.0),
@@ -171,32 +171,32 @@ class CollectionGenericExtensionsSuite extends munit.FunSuite:
     )
 
     // Transpose to Array
-    val transposedToArray = data.transposeColumnsAs[Array]
+    val transposedToArray = data.toColumnOrientedAs[Array]
     assertEquals(transposedToArray.name.toList, List("Alice", "Bob", "Charlie"))
     assertEquals(transposedToArray.age.toList, List(25, 30, 35))
     assertEquals(transposedToArray.score.toList, List(95.0, 87.0, 92.0))
-    
+
     // Verify it's actually an Array
     assert(transposedToArray.name.isInstanceOf[Array[String]], "name column should be Array[String]")
     assert(transposedToArray.age.isInstanceOf[Array[Int]], "age column should be Array[Int]")
     assert(transposedToArray.score.isInstanceOf[Array[Double]], "score column should be Array[Double]")
 
     // Transpose to Vector
-    val transposedToVector = data.transposeColumnsAs[Vector]
+    val transposedToVector = data.toColumnOrientedAs[Vector]
     assertEquals(transposedToVector.name, Vector("Alice", "Bob", "Charlie"))
     assertEquals(transposedToVector.age, Vector(25, 30, 35))
     assertEquals(transposedToVector.score, Vector(95.0, 87.0, 92.0))
-    
+
     // Verify it's actually a Vector
     assert(transposedToVector.name.isInstanceOf[Vector[String]], "name column should be Vector[String]")
     assert(transposedToVector.age.isInstanceOf[Vector[Int]], "age column should be Vector[Int]")
     assert(transposedToVector.score.isInstanceOf[Vector[Double]], "score column should be Vector[Double]")
 
-  test("transposeColumnsAs with target collection type for empty data"):
+  test("toColumnOrientedAs with target collection type for empty data"):
     val data: List[(name: String, age: Int)] = List.empty
 
-    val transposedToArray = data.transposeColumnsAs[Array]
-    val transposedToVector = data.transposeColumnsAs[Vector]
+    val transposedToArray = data.toColumnOrientedAs[Array]
+    val transposedToVector = data.toColumnOrientedAs[Vector]
 
     assertEquals(transposedToArray.name.length, 0)
     assertEquals(transposedToArray.age.length, 0)
@@ -209,14 +209,14 @@ class CollectionGenericExtensionsSuite extends munit.FunSuite:
     assert(transposedToVector.name.isInstanceOf[Vector[String]], "empty name column should be Vector[String]")
     assert(transposedToVector.age.isInstanceOf[Vector[Int]], "empty age column should be Vector[Int]")
 
-  test("transposeColumnsAs target type with mixed data types"):
+  test("toColumnOrientedAs target type with mixed data types"):
     val data = Seq(
       (id = 1, name = "Alice", active = true),
       (id = 2, name = "Bob", active = false)
     )
 
-    val transposedToArray = data.transposeColumnsAs[Array]
-    
+    val transposedToArray = data.toColumnOrientedAs[Array]
+
     assertEquals(transposedToArray.id.toList, List(1, 2))
     assertEquals(transposedToArray.name.toList, List("Alice", "Bob"))
     assertEquals(transposedToArray.active.toList, List(true, false))
@@ -226,7 +226,7 @@ class CollectionGenericExtensionsSuite extends munit.FunSuite:
     assert(transposedToArray.name.isInstanceOf[Array[String]], "name column should be Array[String]")
     assert(transposedToArray.active.isInstanceOf[Array[Boolean]], "active column should be Array[Boolean]")
 
-  test("transposeColumnsAs example usage"):
+  test("toColumnOrientedAs example usage"):
     // Example showing different target collection types
     val data = List(
       (name = "Alice", age = 25),
@@ -234,17 +234,17 @@ class CollectionGenericExtensionsSuite extends munit.FunSuite:
     )
 
     // Using the original method (preserves original collection type)
-    val transposedList = data.transposeColumns
+    val transposedList = data.toColumnOriented
     assertEquals(transposedList.name, List("Alice", "Bob"))
     assert(transposedList.name.isInstanceOf[List[String]], "should preserve List type")
 
     // Using the new method to convert to Array
-    val transposedArray = data.transposeColumnsAs[Array]
+    val transposedArray = data.toColumnOrientedAs[Array]
     assertEquals(transposedArray.name.toList, List("Alice", "Bob"))
     assert(transposedArray.name.isInstanceOf[Array[String]], "should convert to Array")
 
     // Using the new method to convert to Vector
-    val transposedVector = data.transposeColumnsAs[Vector]
+    val transposedVector = data.toColumnOrientedAs[Vector]
     assertEquals(transposedVector.name, Vector("Alice", "Bob"))
     assert(transposedVector.name.isInstanceOf[Vector[String]], "should convert to Vector")
 

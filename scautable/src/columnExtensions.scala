@@ -243,7 +243,7 @@ object NamedTupleIteratorExtensions:
   extension [CC[X] <: Iterable[X], K <: Tuple, V <: Tuple](nt: CC[NamedTuple[K, V]])
 
 
-    inline def transposeColumns: NamedTuple[K, Tuple.Map[V, CC]] =
+    inline def toColumnOriented: NamedTuple[K, Tuple.Map[V, CC]] =
       import scala.compiletime.ops.int.*
       import scala.compiletime.constValue
 
@@ -277,7 +277,7 @@ object NamedTupleIteratorExtensions:
           val columnValues = rows.map(_.toTuple.productElement(colIndex).asInstanceOf[h])
           bf.fromSpecific(nt)(columnValues) *: transposeValues[t](rows, colIndex + 1)
 
-    inline def transposeColumnsAs[Target[_]]: NamedTuple[K, Tuple.Map[V, Target]] =
+    inline def toColumnOrientedAs[Target[_]]: NamedTuple[K, Tuple.Map[V, Target]] =
       import scala.compiletime.ops.int.*
       import scala.compiletime.constValue
 
