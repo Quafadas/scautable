@@ -428,4 +428,212 @@ class StatsSuite extends munit.FunSuite:
       assertEqualsDouble(iterable.`0.75`, iterator.`0.75`, 0.1)
     }
 
+  test("Iterator nonNumericSummary should compute basic statistics for string data"):
+    val data = Iterator(
+      (name = "Alice", city = "New York"),
+      (name = "Bob", city = "Boston"),
+      (name = "Charlie", city = "New York"),
+      (name = "Diana", city = "Chicago"),
+      (name = "Eve", city = "New York")
+    )
+
+    val result = data.nonNumericSummary
+
+    // Check that we have results for both columns
+    assertEquals(result.length, 2)
+
+    // Find the 'city' column statistics
+    val cityStats = result.find(_.name == "city").get
+    assertEquals(cityStats.uniqueEntries, 3) // New York, Boston, Chicago
+    assertEquals(cityStats.mostFrequent, Some("New York"))
+    assertEquals(cityStats.frequency, 3)
+    assert(cityStats.sample.contains("New York"))
+
+    // Find the 'name' column statistics
+    val nameStats = result.find(_.name == "name").get
+    assertEquals(nameStats.uniqueEntries, 5) // All unique names
+    assert(nameStats.frequency <= 1) // Each name appears once
+
+  test("Iterator nonNumericSummary should handle empty iterator"):
+    val data = Iterator.empty[(name: String, city: String)]
+
+    val result = data.nonNumericSummary
+
+    assertEquals(result, List.empty)
+
+  test("Iterator nonNumericSummary should handle single element"):
+    val data = Iterator((name = "Alice", city = "New York"))
+
+    val result = data.nonNumericSummary
+
+    assertEquals(result.length, 2)
+    val nameStats = result.find(_.name == "name").get
+    assertEquals(nameStats.uniqueEntries, 1)
+    assertEquals(nameStats.mostFrequent, Some("Alice"))
+    assertEquals(nameStats.frequency, 1)
+
+  test("Iterator nonNumericSummary should handle Option values with None"):
+    val data = Iterator(
+      (name = "Alice", category = Some("A")),
+      (name = "Bob", category = Some("B")),
+      (name = "Charlie", category = None),
+      (name = "Diana", category = Some("A"))
+    )
+
+    val result = data.nonNumericSummary
+
+    // Find the 'category' column statistics
+    val categoryStats = result.find(_.name == "category").get
+    assertEquals(categoryStats.uniqueEntries, 2) // A, B (None is excluded)
+    assertEquals(categoryStats.mostFrequent, Some("A"))
+    assertEquals(categoryStats.frequency, 2)
+
+  test("Iterator nonNumericSummary results should match Iterable nonNumericSummary results"):
+    val baseData = List(
+      (name = "Alice", city = "New York", department = "Engineering"),
+      (name = "Bob", city = "Boston", department = "Sales"),
+      (name = "Charlie", city = "New York", department = "Engineering"),
+      (name = "Diana", city = "Chicago", department = "Marketing")
+    )
+
+    val iterableResult = baseData.nonNumericSummary
+    val iteratorResult = baseData.iterator.nonNumericSummary
+
+    assertEquals(iterableResult.length, iteratorResult.length)
+
+    for ((iterable, iterator) <- iterableResult.zip(iteratorResult)) {
+      assertEquals(iterable.name, iterator.name)
+      assertEquals(iterable.uniqueEntries, iterator.uniqueEntries)
+      assertEquals(iterable.mostFrequent, iterator.mostFrequent)
+      assertEquals(iterable.frequency, iterator.frequency)
+      // Note: Sample might differ due to random shuffle, so we don't test exact equality
+      assert(iterable.sample.nonEmpty == iterator.sample.nonEmpty)
+    }
+
+  test("nonNumericSummary should compute basic statistics for string data"):
+    val data = List(
+      (name = "Alice", city = "New York"),
+      (name = "Bob", city = "Boston"),
+      (name = "Charlie", city = "New York"),
+      (name = "Diana", city = "Chicago"),
+      (name = "Eve", city = "New York")
+    )
+
+    val result = data.nonNumericSummary
+
+    // Check that we have results for both columns
+    assertEquals(result.length, 2)
+
+    // Find the 'city' column statistics
+    val cityStats = result.find(_.name == "city").get
+    assertEquals(cityStats.uniqueEntries, 3) // New York, Boston, Chicago
+    assertEquals(cityStats.mostFrequent, Some("New York"))
+    assertEquals(cityStats.frequency, 3)
+    assert(cityStats.sample.contains("New York"))
+    assert(cityStats.sample.contains("Boston") || cityStats.sample.contains("Chicago"))
+
+    // Find the 'name' column statistics
+    val nameStats = result.find(_.name == "name").get
+    assertEquals(nameStats.uniqueEntries, 5) // All unique names
+    assert(nameStats.frequency <= 1) // Each name appears once
+    assert(nameStats.sample.nonEmpty)
+
+  test("nonNumericSummary should handle Option types and None values"):
+    val data = List(
+      (name = "Alice", category = Some("A")),
+      (name = "Bob", category = Some("B")),
+      (name = "Charlie", category = None),
+      (name = "Diana", category = Some("A")),
+      (name = "Eve", category = Some("A"))
+    )
+
+    val result = data.nonNumericSummary
+
+    // Find the 'category' column statistics
+    val categoryStats = result.find(_.name == "category").get
+    assertEquals(categoryStats.uniqueEntries, 2) // A, B (None is excluded)
+    assertEquals(categoryStats.mostFrequent, Some("A"))
+    assertEquals(categoryStats.frequency, 3)
+
+  test("nonNumericSummary should handle empty and all-None data"):
+    val data = List(
+      (name = "Alice", category = None),
+      (name = "Bob", category = None),
+      (name = "Charlie", category = None)
+    )
+
+    val result = data.nonNumericSummary
+
+    // Find the 'category' column statistics
+    val categoryStats = result.find(_.name == "category").get
+    assertEquals(categoryStats.uniqueEntries, 0) // No non-None values
+    assertEquals(categoryStats.mostFrequent, None)
+    assertEquals(categoryStats.frequency, 0)
+    assertEquals(categoryStats.sample, "")
+
+  test("nonNumericSummary should truncate long samples"):
+    // Create data with long string values to test truncation
+    val longString1 = "ThisIsAVeryLongStringThatShouldBeTruncatedWhenUsedInSample"
+    val longString2 = "AnotherVeryLongStringForTestingPurposes"
+    val longString3 = "YetAnotherLongStringToMakeSureTruncationWorks"
+    
+    val data = List(
+      (id = 1, description = longString1),
+      (id = 2, description = longString2),
+      (id = 3, description = longString3)
+    )
+
+    val result = data.nonNumericSummary
+    val descStats = result.find(_.name == "description").get
+    
+    assertEquals(descStats.uniqueEntries, 3)
+    assert(descStats.sample.length <= 75, s"Sample should be truncated to 75 chars, but was ${descStats.sample.length}")
+    if descStats.sample.length == 75 then
+      assert(descStats.sample.endsWith("..."), "Long samples should end with '...'")
+
+  test("summary should compute both numeric and non-numeric statistics for Iterable"):
+    val data = List(
+      (name = "Alice", age = 25, city = "New York", salary = Some(50000.0)),
+      (name = "Bob", age = 30, city = "Boston", salary = Some(60000.0)),
+      (name = "Charlie", age = 35, city = "New York", salary = Some(70000.0)),
+      (name = "Diana", age = 28, city = "Chicago", salary = Option.empty[Double])
+    )
+
+    val result = data.summary
+
+    // Check numeric results (age and salary columns)
+    assertEquals(result.numeric.length, 2)
+    val ageStats = result.numeric.find(_.name == "age").get
+    assertEquals(ageStats.typ, "Int")
+    assertEquals(ageStats.mean, 29.5, 0.1)
+
+    val salaryStats = result.numeric.find(_.name == "salary").get
+    assertEquals(salaryStats.typ, "Double")
+    assertEquals(salaryStats.mean, 60000.0, 0.1)
+
+    // Check non-numeric results (name and city columns)
+    assertEquals(result.nonNumeric.length, 4) // All columns get analyzed for non-numeric stats
+    val cityStats = result.nonNumeric.find(_.name == "city").get
+    assertEquals(cityStats.uniqueEntries, 3) // New York, Boston, Chicago
+    assertEquals(cityStats.mostFrequent, Some("New York"))
+    assertEquals(cityStats.frequency, 2)
+
+    val nameStats = result.nonNumeric.find(_.name == "name").get
+    assertEquals(nameStats.uniqueEntries, 4) // All unique names
+
+  test("summary should handle data with only non-numeric columns"):
+    val data = List(
+      (name = "Alice", city = "New York", status = "Active"),
+      (name = "Bob", city = "Boston", status = "Inactive")
+    )
+
+    val result = data.summary
+
+    assertEquals(result.numeric, List.empty) // No numeric columns
+    assertEquals(result.nonNumeric.length, 3) // name, city, status
+
+    val nameStats = result.nonNumeric.find(_.name == "name").get
+    assertEquals(nameStats.uniqueEntries, 2)
+    assertEquals(nameStats.frequency, 1) // Each name appears once
+
 end StatsSuite
