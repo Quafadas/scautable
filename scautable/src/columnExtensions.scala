@@ -24,60 +24,6 @@ object NamedTupleIteratorExtensions:
 
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 
-    inline def numericTypeTest: (List[ConversionAcc], Long) =
-      val headers = constValueTuple[K].toList.map(_.toString())
-      val headerAcc = headers.map(_ => ConversionAcc(0, 0, 0))
-
-      itr.foldLeft[List[ConversionAcc] *: Long *: EmptyTuple]((headerAcc, 0L)) { case (acc: (List[ConversionAcc], Long), elem: NamedTuple[K, V]) =>
-        val list = elem.toList
-          .asInstanceOf[List[String]]
-          .zip(acc._1)
-          .map { case (str, acc) =>
-            (
-              ConversionAcc(
-                acc.validInts + str.toIntOption.fold(0)(_ => 1),
-                acc.validDoubles + str.toDoubleOption.fold(0)(_ => 1),
-                acc.validLongs + str.toLongOption.fold(0)(_ => 1)
-              )
-            )
-          }
-
-        (list, acc._2 + 1L)
-
-      }
-    end numericTypeTest
-
-    inline def formatTypeTest: String =
-      val headers = constValueTuple[K].toList.map(_.toString())
-      val (asList, n) = numericTypeTest
-      val intReport = (
-        "int" *: listToTuple(
-          for (acc <- asList) yield (acc.validInts / n.toDouble).formatAsPercentage
-        )
-      )
-      val doubleReported = "doubles" *: listToTuple(
-        for (acc <- asList) yield (acc.validDoubles / n.toDouble).formatAsPercentage
-      )
-      val longReported = "long" *: listToTuple(
-        for (acc <- asList) yield (acc.validLongs / n.toDouble).formatAsPercentage
-      )
-      val recommendation = "recommendation" *: listToTuple(
-        for (acc <- asList) yield recommendConversion(List(acc), n)
-      )
-
-      val ntList = Seq(
-        intReport,
-        doubleReported,
-        longReported,
-        recommendation
-      )
-
-      ConsoleFormat.consoleFormat_(headers = "conversion % to" +: headers, fancy = true, table = ntList)
-    end formatTypeTest
-
-    inline def showTypeTest: Unit =
-      println(formatTypeTest)
-
     inline def sample(frac: Double, inline deterministic: Boolean = false): Iterator[NamedTuple[K, V]] =
       if deterministic then itr.zipWithIndex.filter { case (_, idx) => idx % (1 / frac) == 0 }.map(_._1)
       else itr.filter(_ => rand.nextDouble() < frac)

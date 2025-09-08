@@ -9,29 +9,6 @@ import scala.compiletime.ops.int.S
 
 class CSVSuite extends munit.FunSuite:
 
-  test("type test") {
-    def csv = CSV.resource("typeTest.csv")
-
-    val tt = csv.headers.zip(csv.numericTypeTest._1)
-    assert(tt.length == csv.headers.length)
-
-    assert(tt.head._2 == ConversionAcc(3, 3, 3)) // All ints are valid double and long
-    assert(tt(1)._2 == ConversionAcc(0, 3, 0))
-    assert(tt(2)._2 == ConversionAcc(0, 3, 3))
-    assert(tt(3)._2 == ConversionAcc(1, 1, 1))
-    assert(tt.last._2 == ConversionAcc(0, 0, 0))
-
-    assertNoDiff(
-      csv.formatTypeTest,
-      """| |conversion % to|   col1|   col2|   col3|  col4|  col5|
-+-+---------------+-------+-------+-------+------+------+
-|0|            int|100.00%|  0.00%|  0.00%|33.33%| 0.00%|
-|1|        doubles|100.00%|100.00%|100.00%|33.33%| 0.00%|
-|2|           long|100.00%|  0.00%|100.00%|33.33%| 0.00%|
-|3| recommendation|    Int| Double|   Long|String|String|
-+-+---------------+-------+-------+-------+------+------+"""
-    )
-  }
 
   test("csv from resource compiles and typechecks") {
     val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")

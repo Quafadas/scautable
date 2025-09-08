@@ -18,7 +18,7 @@ Source: [Kaggle](https://www.kaggle.com/datasets/crawford/80-cereals)
 
 ```scala
 //> using scala 3.7.2
-//> using dep io.github.quafadas::scautable::0.0.25
+//> using dep io.github.quafadas::scautable::0.0.27
 //> using resourceDir resources
 
 import io.github.quafadas.table.*
@@ -37,7 +37,7 @@ import io.github.quafadas.table.*
   data.take(20).ptbln
 
   println("Hot cereals: ")
-  data.collect{
+  println(data.collect{
     case row if row.`type` == "H" =>
       (name = row.name, made_by = row.manufacturer, sugar = row.sugars, salt = row.sodium)
   }.ptbln
@@ -55,3 +55,43 @@ import io.github.quafadas.table.*
 - pretty printing to console for `Product` types
 - Auto-magically generate html tables from case classes
 - Searchable, sortable browser GUI for your tables
+
+### 5 second CSV quickstart
+
+```scala mdoc:silent
+import io.github.quafadas.table.*
+val data = CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
+
+// This doesn't display well on a website because of the ANSI...
+data.toSeq.describe
+// But these lines should be all you need to get an overview of the data.
+
+
+
+// In order to make it look nice on a website
+val (numerics, categoricals) = LazyList.from(
+  CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
+).summary
+```
+```scala mdoc:invisible:reset
+import io.github.quafadas.table.*
+def data2 = CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
+val (numerics, categoricals) = LazyList.from(data2).summary
+```
+In order to make it look nice on a website
+```scala mdoc
+
+println(  
+    numerics
+      .mapColumn["mean", String](s => "%.2f".format(s))      
+      .mapColumn["0.25", String](s => "%.2f".format(s))
+      .mapColumn["0.75", String](s => "%.2f".format(s))
+      .consoleFormatNt(fansi = false)
+)
+
+println(
+  categoricals
+  .mapColumn["sample", String](_.take(20))
+  .consoleFormatNt(fansi = false)
+)
+```

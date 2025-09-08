@@ -27,9 +27,13 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - uses: coursier/cache-action@v6.4
-      - name: Compile
+      - name: Compile JS
+        run: ./mill scautable.js.compile
+      - name: Compile JVM
+        run: ./mill scautable.jvm.compile
+      - name: Compile All
         run: ./mill __.compile
-      - name: test
+      - name: test All
         run: ./mill scautable.test._
       - name: Publish artifacts
         run: ./mill -i __.publishArtifacts

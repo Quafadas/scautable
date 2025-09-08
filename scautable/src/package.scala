@@ -11,7 +11,7 @@ object table:
   export io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
   export io.github.quafadas.scautable.CSVWriterExtensions.*
   export io.github.quafadas.scautable.HeaderOptions.*
-
+  export io.github.quafadas.scautable.Stats.*
 
   /**
    * Enumeration of strategies for inferring column types when reading CSV files.
