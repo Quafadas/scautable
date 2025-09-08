@@ -25,15 +25,21 @@ object Stats:
         val digest = TDigest.createDigest(100)
 
         // We'll start with empty stats
-        val base = value match {
-          case _ => (sum = 0.0, count = 0, mean = 0.0, digest = digest)
-        }
+        val base = (sum = 0.0, count = 0, mean = 0.0, digest = digest)
 
+        // Enhanced runtime type detection that handles Option types properly
         val typ = value match {
           case v: Double => (typ = "Double")
           case i: Int    => (typ = "Int")
           case l: Long   => (typ = "Long")
-          case _         => ???
+          case Some(v: Double) => (typ = "Double")
+          case Some(i: Int) => (typ = "Int")
+          case Some(l: Long) => (typ = "Long")
+          case None =>
+            // For None values, we need to look ahead in the data to infer type
+            // This is a limitation - we'll mark as Unknown and fix during processing
+            (typ = "Unknown")
+          case _         => (typ = "Unknown")
         }
         typ ++ base
     }
@@ -57,11 +63,38 @@ object Stats:
                   case _ => 0.0 // fallback instead of ???
                 }
 
-                digestA.add(incADouble)
-                val newSum = sum + incADouble
-                val newCount = count + 1
-                val newMean = if newCount == 0 then 0.0 else newSum / newCount
-                (typ = typ, sum = newSum, count = newCount, mean = newMean, digest = digestA)
+                val shouldIncludeValue = incA match {
+                  case v: Double => true
+                  case v: Int => true
+                  case v: Long => true
+                  case Some(_) => true
+                  case None => false
+                  case _ => false
+                }
+
+                if shouldIncludeValue then
+                  digestA.add(incADouble)
+                  val newSum = sum + incADouble
+                  val newCount = count + 1
+                  val newMean = if newCount == 0 then 0.0 else newSum / newCount
+
+                  // Update type if it was Unknown and we now have a real value
+                  val updatedTyp = if typ == "Unknown" then
+                    incA match {
+                      case v: Double => "Double"
+                      case i: Int => "Int"
+                      case l: Long => "Long"
+                      case Some(v: Double) => "Double"
+                      case Some(i: Int) => "Int"
+                      case Some(l: Long) => "Long"
+                      case _ => "Unknown"
+                    }
+                  else typ
+
+                  (typ = updatedTyp, sum = newSum, count = newCount, mean = newMean, digest = digestA)
+                else
+                  // Don't include None values in statistics
+                  (typ = typ, sum = sum, count = count, mean = mean, digest = digestA)
             }
         }
         result.asInstanceOf[NamedTuple[K, Tuple.Map[V, StatsContext]]]
@@ -72,7 +105,6 @@ object Stats:
         .map { case (name, res) => (name = name) ++ res }
         .map{
           p =>
-            println(p)
             (name = p.name, typ = p.typ, mean = p.mean, min = p.digest.getMin, `0.25` = p.digest.quantile(0.25), median = p.digest.quantile(0.5), `0.75` = p.digest.quantile(0.75), max = p.digest.getMax)
         }
 
