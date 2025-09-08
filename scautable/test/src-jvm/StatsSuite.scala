@@ -1,7 +1,6 @@
 package io.github.quafadas.scautable
 
 import io.github.quafadas.table.*
-import io.github.quafadas.scautable.Stats.*
 import com.tdunning.math.stats.TDigest
 
 class StatsSuite extends munit.FunSuite:
@@ -320,5 +319,108 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(populationStats.mean, 1766666.6666666667, 10.0)
     assertEquals(populationStats.min, 1000000.0, 0.1)
     assertEquals(populationStats.max, 2500000.0, 0.1)
+
+  // Tests for Iterator extension
+  test("Iterator summary should compute basic statistics for Integer data"):
+    val data = List(
+      (id = 1, value = 10),
+      (id = 2, value = 20),
+      (id = 3, value = 30),
+      (id = 4, value = 40),
+      (id = 5, value = 50)
+    ).iterator
+
+    val result = data.summary
+
+    // Check that we have results for both columns
+    assertEquals(result.length, 2)
+
+    // Find the 'value' column statistics
+    val valueStats = result.find(_.name == "value").get
+    assertEquals(valueStats.typ, "Int")
+    assertEquals(valueStats.mean, 30.0)
+    assertEquals(valueStats.min, 10.0)
+    assertEquals(valueStats.max, 50.0)
+    assertEquals(valueStats.median, 30.0, 0.1) // TDigest is approximate
+
+    // Find the 'id' column statistics
+    val idStats = result.find(_.name == "id").get
+    assertEquals(idStats.typ, "Int")
+    assertEquals(idStats.mean, 3.0)
+    assertEquals(idStats.min, 1.0)
+    assertEquals(idStats.max, 5.0)
+
+  test("Iterator summary should compute basic statistics for Double data"):
+    val data = List(
+      (name = "Alice", score = 95.5),
+      (name = "Bob", score = 87.2),
+      (name = "Charlie", score = 92.8),
+      (name = "Diana", score = 89.1)
+    ).iterator
+
+    val result = data.summary
+
+    // Find the 'score' column statistics (name column won't be processed as numeric)
+    val scoreStats = result.find(_.name == "score").get
+    assertEquals(scoreStats.typ, "Double")
+    assertEquals(scoreStats.mean, 91.15, 0.01)
+    assertEquals(scoreStats.min, 87.2, 0.01)
+    assertEquals(scoreStats.max, 95.5, 0.01)
+
+  test("Iterator summary should handle single element"):
+    val data = List((id = 1, value = 42.0)).iterator
+    val result = data.summary
+    
+    assertEquals(result.length, 2)
+    
+    val valueStats = result.find(_.name == "value").get
+    assertEquals(valueStats.typ, "Double")
+    assertEquals(valueStats.mean, 42.0)
+    assertEquals(valueStats.min, 42.0)
+    assertEquals(valueStats.max, 42.0)
+    assertEquals(valueStats.median, 42.0)
+
+  test("Iterator summary should handle Option values with None"):
+    val data = List(
+      (score = Some(95.5), count = Some(100), population = Some(1000000L)),
+      (score = None, count = None, population = None),
+      (score = Some(87.2), count = Some(150), population = Some(2500000L)),
+      (score = Some(92.8), count = Some(125), population = Some(1800000L))
+    ).iterator
+
+    val result = data.summary
+
+    // Score column should be detected as Double and handle None values
+    val scoreStats = result.find(_.name == "score").get
+    assertEquals(scoreStats.typ, "Double")
+    // Should compute stats for 95.5, 87.2, 92.8 (3 values, ignoring None)
+    assertEqualsDouble(scoreStats.mean, 91.83333333333333, 0.1)
+    assertEqualsDouble(scoreStats.min, 87.2, 0.1)
+    assertEqualsDouble(scoreStats.max, 95.5, 0.1)
+
+  test("Iterator summary results should match Iterable summary results"):
+    val originalData = List(
+      (id = 1, value = 10.5, count = 100L),
+      (id = 2, value = 20.5, count = 200L),
+      (id = 3, value = 30.5, count = 300L),
+      (id = 4, value = 40.5, count = 400L)
+    )
+    
+    val iterableResult = originalData.summary
+    val iteratorResult = originalData.iterator.summary
+    
+    assertEquals(iterableResult.length, iteratorResult.length)
+    
+    // Compare each column's statistics
+    for ((iterable, iterator) <- iterableResult.zip(iteratorResult)) {
+      assertEquals(iterable.name, iterator.name)
+      assertEquals(iterable.typ, iterator.typ)
+      assertEqualsDouble(iterable.mean, iterator.mean, 0.0001)
+      assertEqualsDouble(iterable.min, iterator.min, 0.0001)
+      assertEqualsDouble(iterable.max, iterator.max, 0.0001)
+      assertEqualsDouble(iterable.median, iterator.median, 0.1) // TDigest approximation
+      assertEqualsDouble(iterable.`0.25`, iterator.`0.25`, 0.1)
+      assertEqualsDouble(iterable.`0.75`, iterator.`0.75`, 0.1)
+    }
 
 end StatsSuite

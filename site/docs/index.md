@@ -18,7 +18,7 @@ Source: [Kaggle](https://www.kaggle.com/datasets/crawford/80-cereals)
 
 ```scala
 //> using scala 3.7.2
-//> using dep io.github.quafadas::scautable::0.0.25
+//> using dep io.github.quafadas::scautable::0.0.27
 //> using resourceDir resources
 
 import io.github.quafadas.table.*
@@ -37,7 +37,7 @@ import io.github.quafadas.table.*
   data.take(20).ptbln
 
   println("Hot cereals: ")
-  data.collect{
+  println(data.collect{
     case row if row.`type` == "H" =>
       (name = row.name, made_by = row.manufacturer, sugar = row.sugars, salt = row.sodium)
   }.ptbln
@@ -55,3 +55,23 @@ import io.github.quafadas.table.*
 - pretty printing to console for `Product` types
 - Auto-magically generate html tables from case classes
 - Searchable, sortable browser GUI for your tables
+
+### 5 second CSV quickstart
+
+```scala mdoc:silent
+import io.github.quafadas.table.*
+val data = CSV.resource("cereals.csv", TypeInferrer.FromAllRows)
+
+LazyList.from(data).numericCols.summary.ptbln
+```
+In order to make it look nice on a website
+```scala mdoc
+println(
+  LazyList.from(data)
+    .numericCols
+    .summary
+    .mapColumn["mean", String](s => "%.2f".format(s))
+    .consoleFormatNt(fansi = false)
+)
+
+```
