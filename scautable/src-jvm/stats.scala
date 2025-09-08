@@ -7,6 +7,7 @@ import io.github.quafadas.scautable.ColumnTyped.*
 import io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
 import scala.collection.BuildFrom
 import scala.Tuple.Map
+import scala.Tuple.Fold
 
 
 object Stats:
@@ -67,7 +68,16 @@ object Stats:
         }
         result.asInstanceOf[NamedTuple[K, Tuple.Map[V, StatsContext]]]
       }
-      val headers : List[String] = constValueTuple[SelectFromTuple[K, NumericColsIdx[V]]].toList.asInstanceOf[List[String]]
+      val headers : List[String] = constValueTuple[K].toList.map(_.toString())
+      val asList: List[(typ : String, sum : Double, count : Int, mean : Double, digest : TDigest)] = res.toList.asInstanceOf[List[(typ : String, sum : Double, count : Int, mean : Double, digest : TDigest)]]
+      headers.zip(asList)
+        .map { case (name, res) => (name = name) ++ res }
+        .map{
+          p =>
+            println(p)
+            (name = p.name, typ = p.typ, mean = p.mean, min = p.digest.getMin, `0.25` = p.digest.quantile(0.25), median = p.digest.quantile(0.5), `0.75` = p.digest.quantile(0.75), max = p.digest.getMax)
+        }
+
 
   end extension
 
