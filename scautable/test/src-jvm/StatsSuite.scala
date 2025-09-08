@@ -14,7 +14,7 @@ class StatsSuite extends munit.FunSuite:
       (id = 5, value = 50)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
 
     // Check that we have results for both columns
     assertEquals(result.length, 2)
@@ -42,7 +42,7 @@ class StatsSuite extends munit.FunSuite:
       (name = "Diana", score = 89.1)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
 
     // Find the 'score' column statistics (name column won't be processed as numeric)
     val scoreStats = result.find(_.name == "score").get
@@ -59,7 +59,7 @@ class StatsSuite extends munit.FunSuite:
       (id = 4L, population = 1500000L)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
 
     val populationStats = result.find(_.name == "population").get
     assertEquals(populationStats.typ, "Long")
@@ -81,7 +81,7 @@ class StatsSuite extends munit.FunSuite:
       (value = 10)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
     val valueStats = result.find(_.name == "value").get
 
     // Check percentiles (allowing for TDigest approximation)
@@ -96,7 +96,7 @@ class StatsSuite extends munit.FunSuite:
       (intVal = 30, doubleVal = 30.5, longVal = 300L)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
 
     assertEquals(result.length, 3)
 
@@ -117,7 +117,7 @@ class StatsSuite extends munit.FunSuite:
       (value = 42)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
     val valueStats = result.find(_.name == "value").get
 
     assertEquals(valueStats.mean, 42.0)
@@ -136,7 +136,7 @@ class StatsSuite extends munit.FunSuite:
       (value = 10)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
     val valueStats = result.find(_.name == "value").get
 
     assertEquals(valueStats.mean, 0.0)
@@ -150,7 +150,7 @@ class StatsSuite extends munit.FunSuite:
       (value = 0.3)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
     val valueStats = result.find(_.name == "value").get
 
     // Use assertEqualsDouble for better floating point comparison
@@ -165,7 +165,7 @@ class StatsSuite extends munit.FunSuite:
       (temperature = 24.8, humidity = 62.1, pressure = 1014.10)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
 
     assertEquals(result.length, 3)
     assert(result.exists(_.name == "temperature"))
@@ -181,7 +181,7 @@ class StatsSuite extends munit.FunSuite:
       (value = 100)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
     val valueStats = result.find(_.name == "value").get
 
     assertEquals(valueStats.mean, 100.0)
@@ -200,7 +200,7 @@ class StatsSuite extends munit.FunSuite:
       (id = 5, score = Some(88.0), bonus = None)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
 
     // Should have statistics for all columns that have numeric values
     val idStats = result.find(_.name == "id").get
@@ -234,7 +234,7 @@ class StatsSuite extends munit.FunSuite:
       (id = 5, optionalInt = None, optionalLong = None)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
 
     // Should have statistics for all columns
     assertEquals(result.length, 3)
@@ -269,7 +269,7 @@ class StatsSuite extends munit.FunSuite:
       (id = 3, optionalValue = None)
     )
 
-    val result = data.summary
+    val result = data.numericSummary
 
     // Should still have statistics for the id column
     val idStats = result.find(_.name == "id").get
@@ -291,7 +291,7 @@ class StatsSuite extends munit.FunSuite:
       (id = 4, score = Some(92.8), count = Some(125), population = Some(1800000L))
     )
 
-    val result = data.summary
+    val result = data.numericSummary
 
     // Should have statistics for all columns
     assertEquals(result.length, 4)
@@ -330,7 +330,7 @@ class StatsSuite extends munit.FunSuite:
       (id = 5, value = 50)
     ).iterator
 
-    val result = data.summary
+    val result = data.numericSummary
 
     // Check that we have results for both columns
     assertEquals(result.length, 2)
@@ -358,7 +358,7 @@ class StatsSuite extends munit.FunSuite:
       (name = "Diana", score = 89.1)
     ).iterator
 
-    val result = data.summary
+    val result = data.numericSummary
 
     // Find the 'score' column statistics (name column won't be processed as numeric)
     val scoreStats = result.find(_.name == "score").get
@@ -369,12 +369,12 @@ class StatsSuite extends munit.FunSuite:
 
   test("Iterator summary should handle empty iterator"):
     val data = List((id = 1, value = 42.0)).iterator.take(0) // Create an empty iterator with known types
-    val result = data.summary
+    val result = data.numericSummary
     assertEquals(result.length, 0)
 
   test("Iterator summary should handle single element"):
     val data = List((id = 1, value = 42.0)).iterator
-    val result = data.summary
+    val result = data.numericSummary
     
     assertEquals(result.length, 2)
     
@@ -393,7 +393,7 @@ class StatsSuite extends munit.FunSuite:
       (score = Some(92.8), count = Some(125), population = Some(1800000L))
     ).iterator
 
-    val result = data.summary
+    val result = data.numericSummary
 
     // Score column should be detected as Double and handle None values
     val scoreStats = result.find(_.name == "score").get
@@ -411,8 +411,8 @@ class StatsSuite extends munit.FunSuite:
       (id = 4, value = 40.5, count = 400L)
     )
     
-    val iterableResult = originalData.summary
-    val iteratorResult = originalData.iterator.summary
+    val iterableResult = originalData.numericSummary
+    val iteratorResult = originalData.iterator.numericSummary
     
     assertEquals(iterableResult.length, iteratorResult.length)
     

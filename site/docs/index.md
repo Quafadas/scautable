@@ -62,14 +62,18 @@ import io.github.quafadas.table.*
 import io.github.quafadas.table.*
 val data = CSV.resource("cereals.csv", TypeInferrer.FromAllRows)
 
-LazyList.from(data).numericCols.summary.ptbln
+data.numericCols.numericSummary.ptbln
+```
+```scala mdoc:invisible:reset
+import io.github.quafadas.table.*
+val data = CSV.resource("cereals.csv", TypeInferrer.FromAllRows)
 ```
 In order to make it look nice on a website
 ```scala mdoc
 println(
   LazyList.from(data)
     .numericCols
-    .summary
+    .numericSummary
     .mapColumn["mean", String](s => "%.2f".format(s))
     .consoleFormatNt(fansi = false)
 )

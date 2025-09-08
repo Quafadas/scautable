@@ -19,7 +19,46 @@ object Stats:
     summon[Numeric[T]].toDouble(value)
 
   extension [K <: Tuple, V <: Tuple](nt: Iterator[NamedTuple[K, V]])
-    inline def summary = 
+    /**
+      * Computes comprehensive statistical summaries for all numeric columns in the dataset.
+      *
+      * This method processes an `Iterator` of `NamedTuple`s and calculates descriptive statistics
+      * for each column that contains numeric data (Int, Long, Double, or Option-wrapped versions).
+      * Non-numeric columns are ignored. The computation uses T-Digest for efficient quantile estimation,
+      * making it suitable for large datasets.
+      *
+      * The method handles missing values gracefully:
+      * - `None` values in `Option` types are excluded from calculations
+      * - Columns with all missing values will show appropriate default values
+      * - Type inference works even when the first few values are missing
+      *
+      * @note This method consumes the iterator. If you need to preserve the data, 
+      *       consider converting to a collection first using the `Iterable` version.
+      *
+      * @return A list of named tuples, one per numeric column, containing:
+      *         - `name`: Column name (String)
+      *         - `typ`: Detected data type ("Int", "Long", "Double", or "Unknown")
+      *         - `mean`: Arithmetic mean of non-missing values
+      *         - `min`: Minimum value
+      *         - `0.25`: 25th percentile (first quartile)
+      *         - `median`: 50th percentile (median)
+      *         - `0.75`: 75th percentile (third quartile)  
+      *         - `max`: Maximum value
+      *
+      * @example {{{
+      * val data = Iterator(
+      *   (name = "Alice", age = 25, salary = 50000.0),
+      *   (name = "Bob", age = 30, salary = 60000.0),
+      *   (name = "Charlie", age = 35, salary = None)
+      * )
+      * val stats = data.numericSummary
+      * // Returns statistics for 'age' and 'salary' columns only
+      * // 'name' column is ignored as it's non-numeric
+      * }}}
+      *
+      * @see [[numericSummary]] for the `Iterable` version that doesn't consume the collection
+      */
+    inline def numericSummary = 
       if !nt.hasNext then
         // Empty iterator case
         List.empty
@@ -122,7 +161,7 @@ object Stats:
 
   extension [K <: Tuple, V <: Tuple](nt: Iterable[NamedTuple[K, V]])
 
-    inline def zeroStatsValue = nt.head.map[StatsContext] {
+    private inline def zeroStatsValue = nt.head.map[StatsContext] {
       [T] => (value: T) =>
         val digest = TDigest.createDigest(100)
 
@@ -146,7 +185,49 @@ object Stats:
         typ ++ base
     }
 
-    inline def summary =
+    /**
+      * Computes comprehensive statistical summaries for all numeric columns in the dataset.
+      *
+      * This method processes an `Iterable` of `NamedTuple`s and calculates descriptive statistics
+      * for each column that contains numeric data (Int, Long, Double, or Option-wrapped versions).
+      * Non-numeric columns are ignored. The computation uses T-Digest for efficient quantile estimation,
+      * making it suitable for large datasets.
+      *
+      * The method handles missing values gracefully:
+      * - `None` values in `Option` types are excluded from calculations
+      * - Columns with all missing values will show appropriate default values
+      * - Type inference works even when the first few values are missing
+      *
+      * @note Unlike the `Iterator` version, this method does not consume the collection,
+      *       allowing for multiple statistical computations on the same dataset.
+      *
+      * @return A list of named tuples, one per numeric column, containing:
+      *         - `name`: Column name (String)
+      *         - `typ`: Detected data type ("Int", "Long", "Double", or "Unknown")
+      *         - `mean`: Arithmetic mean of non-missing values
+      *         - `min`: Minimum value
+      *         - `0.25`: 25th percentile (first quartile)
+      *         - `median`: 50th percentile (median)
+      *         - `0.75`: 75th percentile (third quartile)  
+      *         - `max`: Maximum value
+      *
+      * @example {{{
+      * val data = List(
+      *   (name = "Alice", age = 25, salary = 50000.0),
+      *   (name = "Bob", age = 30, salary = 60000.0),
+      *   (name = "Charlie", age = 35, salary = None)
+      * )
+      * val stats = data.numericSummary
+      * // Returns statistics for 'age' and 'salary' columns only
+      * // 'name' column is ignored as it's non-numeric
+      * 
+      * // Can be called multiple times since data is not consumed
+      * val moreStats = data.numericSummary
+      * }}}
+      *
+      * @see [[numericSummary]] for the `Iterator` version
+      */
+    inline def numericSummary =
       val zeroValue = nt.zeroStatsValue
       val res = nt.foldLeft(zeroValue) { (acc, row) =>
         val result = acc.zip(row).map[StatsContext] {
