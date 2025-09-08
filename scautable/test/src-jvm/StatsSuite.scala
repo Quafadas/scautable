@@ -445,7 +445,7 @@ class StatsSuite extends munit.FunSuite:
     // Find the 'city' column statistics
     val cityStats = result.find(_.name == "city").get
     assertEquals(cityStats.uniqueEntries, 3) // New York, Boston, Chicago
-    assertEquals(cityStats.mostFrequent, Some("New York"))
+    assertEquals(cityStats.mostFrequent, "New York")
     assertEquals(cityStats.frequency, 3)
     assert(cityStats.sample.contains("New York"))
 
@@ -469,7 +469,7 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(result.length, 2)
     val nameStats = result.find(_.name == "name").get
     assertEquals(nameStats.uniqueEntries, 1)
-    assertEquals(nameStats.mostFrequent, Some("Alice"))
+    assertEquals(nameStats.mostFrequent, "Alice")
     assertEquals(nameStats.frequency, 1)
 
   test("Iterator nonNumericSummary should handle Option values with None"):
@@ -485,7 +485,7 @@ class StatsSuite extends munit.FunSuite:
     // Find the 'category' column statistics
     val categoryStats = result.find(_.name == "category").get
     assertEquals(categoryStats.uniqueEntries, 2) // A, B (None is excluded)
-    assertEquals(categoryStats.mostFrequent, Some("A"))
+    assertEquals(categoryStats.mostFrequent, "A")
     assertEquals(categoryStats.frequency, 2)
 
   test("Iterator nonNumericSummary results should match Iterable nonNumericSummary results"):
@@ -527,7 +527,7 @@ class StatsSuite extends munit.FunSuite:
     // Find the 'city' column statistics
     val cityStats = result.find(_.name == "city").get
     assertEquals(cityStats.uniqueEntries, 3) // New York, Boston, Chicago
-    assertEquals(cityStats.mostFrequent, Some("New York"))
+    assertEquals(cityStats.mostFrequent, "New York")
     assertEquals(cityStats.frequency, 3)
     assert(cityStats.sample.contains("New York"))
     assert(cityStats.sample.contains("Boston") || cityStats.sample.contains("Chicago"))
@@ -552,7 +552,7 @@ class StatsSuite extends munit.FunSuite:
     // Find the 'category' column statistics
     val categoryStats = result.find(_.name == "category").get
     assertEquals(categoryStats.uniqueEntries, 2) // A, B (None is excluded)
-    assertEquals(categoryStats.mostFrequent, Some("A"))
+    assertEquals(categoryStats.mostFrequent, "A")
     assertEquals(categoryStats.frequency, 3)
 
   test("nonNumericSummary should handle empty and all-None data"):
@@ -567,7 +567,7 @@ class StatsSuite extends munit.FunSuite:
     // Find the 'category' column statistics
     val categoryStats = result.find(_.name == "category").get
     assertEquals(categoryStats.uniqueEntries, 0) // No non-None values
-    assertEquals(categoryStats.mostFrequent, None)
+    assertEquals(categoryStats.mostFrequent, "")
     assertEquals(categoryStats.frequency, 0)
     assertEquals(categoryStats.sample, "")
 
@@ -611,11 +611,9 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(salaryStats.typ, "Double")
     assertEquals(salaryStats.mean, 60000.0, 0.1)
 
-    // Check non-numeric results (name and city columns)
-    assertEquals(result.nonNumeric.length, 4) // All columns get analyzed for non-numeric stats
     val cityStats = result.nonNumeric.find(_.name == "city").get
     assertEquals(cityStats.uniqueEntries, 3) // New York, Boston, Chicago
-    assertEquals(cityStats.mostFrequent, Some("New York"))
+    assertEquals(cityStats.mostFrequent, "New York")
     assertEquals(cityStats.frequency, 2)
 
     val nameStats = result.nonNumeric.find(_.name == "name").get

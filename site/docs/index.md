@@ -60,22 +60,38 @@ import io.github.quafadas.table.*
 
 ```scala mdoc:silent
 import io.github.quafadas.table.*
-val data = CSV.resource("cereals.csv", TypeInferrer.FromAllRows)
+val data = CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
 
-data.numericCols.numericSummary.ptbln
+// This doesn't display well on a website because of the ANSI...
+data.toSeq.describe
+// But these lines should be all you need to get an overview of the data.
+
+
+
+// In order to make it look nice on a website
+val (numerics, categoricals) = LazyList.from(
+  CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
+).summary
 ```
 ```scala mdoc:invisible:reset
 import io.github.quafadas.table.*
-val data = CSV.resource("cereals.csv", TypeInferrer.FromAllRows)
+def data2 = CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
+val (numerics, categoricals) = LazyList.from(data2).summary
 ```
 In order to make it look nice on a website
 ```scala mdoc
-println(
-  LazyList.from(data)
-    .numericCols
-    .numericSummary
-    .mapColumn["mean", String](s => "%.2f".format(s))
-    .consoleFormatNt(fansi = false)
+
+println(  
+    numerics
+      .mapColumn["mean", String](s => "%.2f".format(s))      
+      .mapColumn["0.25", String](s => "%.2f".format(s))
+      .mapColumn["0.75", String](s => "%.2f".format(s))
+      .consoleFormatNt(fansi = false)
 )
 
+println(
+  categoricals
+  .mapColumn["sample", String](_.take(20))
+  .consoleFormatNt(fansi = false)
+)
 ```

@@ -232,7 +232,7 @@ object Stats:
           val result = acc.zip(row).map[NonNumericStatsContext] {
             [T] => (t: T) =>
               t match {
-                case ((uniqueValues: Set[String], counts: scala.collection.mutable.Map[String, Int]), newValue) =>
+                case ((uniqueValues: Set[String] @unchecked, counts: scala.collection.mutable.Map[String, Int] @unchecked), newValue) =>
                   val stringValue = newValue match {
                     case None => ""  // Skip None values
                     case Some(v) => v.toString
@@ -268,7 +268,7 @@ object Stats:
             val sampleString = sampleValues.mkString(", ")
             val truncatedSample = if sampleString.length > 75 then sampleString.take(72) + "..." else sampleString
             
-            (name = name, uniqueEntries = uniqueEntries, mostFrequent = mostFrequent, frequency = frequency, sample = truncatedSample)
+            (name = name, uniqueEntries = uniqueEntries, mostFrequent = mostFrequent.getOrElse(""), frequency = frequency, sample = truncatedSample)
           }
 
 
@@ -363,7 +363,7 @@ object Stats:
         val result = acc.zip(row).map[NonNumericStatsContext] {
           [T] => (t: T) =>
             t match {
-              case ((uniqueValues: Set[String], counts: scala.collection.mutable.Map[String, Int]), newValue) =>
+              case ((uniqueValues: Set[String] @unchecked, counts: scala.collection.mutable.Map[String, Int] @unchecked), newValue) =>
                 val stringValue = newValue match {
                   case None => ""  // Skip None values
                   case Some(v) => v.toString
@@ -399,7 +399,7 @@ object Stats:
           val sampleString = sampleValues.mkString(", ")
           val truncatedSample = if sampleString.length > 75 then sampleString.take(72) + "..." else sampleString
           
-          (name = name, uniqueEntries = uniqueEntries, mostFrequent = mostFrequent, frequency = frequency, sample = truncatedSample)
+          (name = name, uniqueEntries = uniqueEntries, mostFrequent = mostFrequent.getOrElse(""), frequency = frequency, sample = truncatedSample)
         }
 
 
