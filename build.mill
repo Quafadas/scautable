@@ -30,7 +30,7 @@ trait Common extends ScalaModule:
     Config.oslib,
     Config.fansi
   )
-  override def scalacOptions = super.scalacOptions() ++ Seq("-Xmax-inlines", "1028")
+  override def scalacOptions = super.scalacOptions() ++ Seq("-Xmax-inlines", "128")
 end Common
 
 trait CommonJS extends Common with ScalaJSModule:
