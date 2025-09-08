@@ -18,12 +18,6 @@ object Stats:
   private inline def processNumericValue[T: Numeric](value: T): Double =
     summon[Numeric[T]].toDouble(value)
 
-  extension [K <: Tuple, V <: Tuple](nt: NamedTuple[K, V])
-
-    inline def numericColNames =  constValueTuple[SelectFromTuple[K, NumericColsIdx[V]]].toList.asInstanceOf[List[String]]
-
-  end extension
-
   extension [K <: Tuple, V <: Tuple](nt: Iterable[NamedTuple[K, V]])
 
     inline def zeroStatsValue = nt.head.map[StatsContext] {
@@ -52,10 +46,14 @@ object Stats:
             t match {
               case ((typ: String, sum: Double, count: Int, mean: Double, digestA: TDigest), incA) =>
                 // Use helper function for type-safe numeric conversion
+
                 val incADouble = incA match {
                   case v: Double => processNumericValue(v)
                   case v: Int => processNumericValue(v)
                   case v: Long => processNumericValue(v)
+                  case Some(v: Double) => v
+                  case Some(i: Int) => processNumericValue(i)
+                  case Some(l: Long) => processNumericValue(l)
                   case _ => 0.0 // fallback instead of ???
                 }
 
