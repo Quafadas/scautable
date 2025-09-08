@@ -367,6 +367,11 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(scoreStats.min, 87.2, 0.01)
     assertEquals(scoreStats.max, 95.5, 0.01)
 
+  test("Iterator summary should handle empty iterator"):
+    val data = List((id = 1, value = 42.0)).iterator.take(0) // Create an empty iterator with known types
+    val result = data.summary
+    assertEquals(result.length, 0)
+
   test("Iterator summary should handle single element"):
     val data = List((id = 1, value = 42.0)).iterator
     val result = data.summary
