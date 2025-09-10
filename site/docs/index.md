@@ -4,7 +4,7 @@ Scautable: One line CSV import and dataframe utilities based on scala's `NamedTu
 
 ## Scala CLI
 
-`//> using dep io.github.quafadas::scautable::`${version.latest}
+`//> using dep io.github.quafadas::scautable::@VERSION@`
 
 Here's a screencap of a tiny, self contained example.
 
@@ -18,7 +18,7 @@ Source: [Kaggle](https://www.kaggle.com/datasets/crawford/80-cereals)
 
 ```scala
 //> using scala 3.7.2
-//> using dep io.github.quafadas::scautable::0.0.27
+//> using dep io.github.quafadas::scautable::@VERSION@
 //> using resourceDir resources
 
 import io.github.quafadas.table.*
@@ -37,7 +37,7 @@ import io.github.quafadas.table.*
   data.take(20).ptbln
 
   println("Hot cereals: ")
-  println(data.collect{
+  data.collect{
     case row if row.`type` == "H" =>
       (name = row.name, made_by = row.manufacturer, sugar = row.sugars, salt = row.sodium)
   }.ptbln
@@ -46,7 +46,9 @@ import io.github.quafadas.table.*
 ```
 
 ## Mill
-`mvn"io.github.quafadas::scautable::`${version.latest}"
+`mvn"io.github.quafadas::scautable::@VERSION@"`
+
+Then run the same code as above in `src/Example.scala`.
 
 ## Goals
 
@@ -81,9 +83,9 @@ val (numerics, categoricals) = LazyList.from(data2).summary
 In order to make it look nice on a website
 ```scala mdoc
 
-println(  
+println(
     numerics
-      .mapColumn["mean", String](s => "%.2f".format(s))      
+      .mapColumn["mean", String](s => "%.2f".format(s))
       .mapColumn["0.25", String](s => "%.2f".format(s))
       .mapColumn["0.75", String](s => "%.2f".format(s))
       .consoleFormatNt(fansi = false)

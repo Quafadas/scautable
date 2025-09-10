@@ -7,10 +7,6 @@ import mill.util.VcsVersion
 
 object `package` extends SiteModule:
 
-  def latestVersion: T[String] = Task {
-    VcsVersion.vcsState().lastTag.getOrElse("0.0.0").replace("v", "")
-  }
-
   override def repoLink = Task(
     build.scautable.jvm.pomSettings().url
   )
