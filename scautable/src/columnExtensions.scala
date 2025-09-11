@@ -225,12 +225,13 @@ object NamedTupleIteratorExtensions:
     inline def column[S <: String](using
         @implicitNotFound("Column ${S} not found")
         ev: IsColumn[S, K] =:= true,
-        s: ValueOf[S],
-        bf: BuildFrom[CC[NamedTuple[K, V]], GetTypeAtName[K, S, V], CC[GetTypeAtName[K, S, V]]]
-    ): CC[GetTypeAtName[K, S, V]] =
-      val headers = constValueTuple[K].toList.map(_.toString())
-      val idx = headers.indexOf(s.value)
-      bf.fromSpecific(nt)(nt.view.map(x => x.toTuple(idx).asInstanceOf[GetTypeAtName[K, S, V]]))
+        bf: BuildFrom[
+          CC[NamedTuple[K, V]], 
+          NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]], 
+          CC[NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]]]
+        ]
+    ): CC[NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]]] =
+      bf.fromSpecific(nt)(nt.view.map(x => x.toTuple(constValue[IdxAtName[S, K]])))
     end column
 
     inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A)(using
