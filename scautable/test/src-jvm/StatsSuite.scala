@@ -634,4 +634,54 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(nameStats.uniqueEntries, 2)
     assertEquals(nameStats.frequency, 1) // Each name appears once
 
+  test("Iterable numericSummary should handle NaN values by excluding them"):
+    val data = List(
+      (id = 1, value = 1.0),
+      (id = 2, value = Double.NaN),
+      (id = 3, value = 3.0),
+      (id = 4, value = Double.NaN),
+      (id = 5, value = 5.0)
+    )
+
+    val result = data.numericSummary
+
+    // Find the 'value' column statistics
+    val valueStats = result.find(_.name == "value").get
+    assertEquals(valueStats.typ, "Double")
+    // Should compute stats for 1.0, 3.0, 5.0 (3 values, excluding NaN)
+    assertEquals(valueStats.mean, 3.0, 0.01) // (1.0 + 3.0 + 5.0) / 3 = 3.0
+    assertEquals(valueStats.min, 1.0, 0.01)
+    assertEquals(valueStats.max, 5.0, 0.01)
+    assertEquals(valueStats.median, 3.0, 0.1) // TDigest approximation
+
+    // id column should still work normally
+    val idStats = result.find(_.name == "id").get
+    assertEquals(idStats.typ, "Int")
+    assertEquals(idStats.mean, 3.0)
+
+  test("Iterator numericSummary should handle NaN values by excluding them"):
+    val data = Iterator(
+      (id = 1, value = Double.NaN),
+      (id = 2, value = 2.0),
+      (id = 3, value = Double.NaN),
+      (id = 4, value = 4.0),
+      (id = 5, value = 6.0)
+    )
+
+    val result = data.numericSummary
+
+    // Find the 'value' column statistics
+    val valueStats = result.find(_.name == "value").get
+    assertEquals(valueStats.typ, "Double")
+    // Should compute stats for 2.0, 4.0, 6.0 (3 values, excluding NaN)
+    assertEquals(valueStats.mean, 4.0, 0.01) // (2.0 + 4.0 + 6.0) / 3 = 4.0
+    assertEquals(valueStats.min, 2.0, 0.01)
+    assertEquals(valueStats.max, 6.0, 0.01)
+    assertEquals(valueStats.median, 4.0, 0.1) // TDigest approximation
+
+    // id column should still work normally
+    val idStats = result.find(_.name == "id").get
+    assertEquals(idStats.typ, "Int")
+    assertEquals(idStats.mean, 3.0)
+
 end StatsSuite
