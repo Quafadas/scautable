@@ -87,10 +87,10 @@ object Stats:
             
             // Process the first value
             val (initialSum, initialCount, shouldInclude) = value match {
-              case v: Double => (v, 1, true)
+              case v: Double => if v.isNaN then (0.0, 0, false) else (v, 1, true)
               case v: Int => (v.toDouble, 1, true)
               case v: Long => (v.toDouble, 1, true)
-              case Some(v: Double) => (v, 1, true)
+              case Some(v: Double) => if v.isNaN then (0.0, 0, false) else (v, 1, true)
               case Some(i: Int) => (i.toDouble, 1, true)
               case Some(l: Long) => (l.toDouble, 1, true)
               case None => (0.0, 0, false)
@@ -119,9 +119,10 @@ object Stats:
                   }
 
                   val shouldIncludeValue = incA match {
-                    case v: Double => true
+                    case v: Double => !v.isNaN
                     case v: Int => true
                     case v: Long => true
+                    case Some(v: Double) => !v.isNaN
                     case Some(_) => true
                     case None => false
                     case _ => false
@@ -458,16 +459,17 @@ object Stats:
                   case v: Double => processNumericValue(v)
                   case v: Int => processNumericValue(v)
                   case v: Long => processNumericValue(v)
-                  case Some(v: Double) => v
+                  case Some(v: Double) => processNumericValue(v)
                   case Some(i: Int) => processNumericValue(i)
                   case Some(l: Long) => processNumericValue(l)
                   case _ => 0.0 // fallback instead of ???
                 }
 
                 val shouldIncludeValue = incA match {
-                  case v: Double => true
+                  case v: Double => !v.isNaN
                   case v: Int => true
                   case v: Long => true
+                  case Some(v: Double) => !v.isNaN
                   case Some(_) => true
                   case None => false
                   case _ => false
