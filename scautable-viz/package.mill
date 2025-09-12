@@ -17,6 +17,6 @@ object `package` extends ScalaModule with build.PublishModule:
   object test extends ScalaTests with build.CommonTests  :
 
   end test
-
+end `package`
 
 
