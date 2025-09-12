@@ -128,44 +128,11 @@ object NamedTupleIteratorExtensions:
       }
     end columns
 
-    inline def numericColSummary[S <: String](using
-        ev: IsColumn[S, K] =:= true,
-        isNum: IsNumeric[GetTypeAtName[K, S, V]] =:= true,
-        s: ValueOf[S],
-        a: Fractional[GetTypeAtName[K, S, V]]
-    ) =
-      val numericValues = itr.column[S].toList.asInstanceOf[List[GetTypeAtName[K, S, V]]]
-
-      val sortedValues = numericValues.sorted
-      val size = sortedValues.size
-
-      def percentile(p: Double): Double =
-        val rank = p * (size - 1)
-        val lower = sortedValues(rank.toInt)
-        val upper = sortedValues(math.ceil(rank).toInt)
-        lower.toDouble + a.minus(upper, lower).toDouble * (rank - rank.toInt)
-      end percentile
-
-      val mean = numericValues.sum / a.fromInt(size)
-      val min = sortedValues.head
-      val max = sortedValues.last
-      val variance = numericValues.map(x => a.minus(x, mean)).map(x => a.times(x, x)).sum / a.fromInt(size)
-
-      val percentiles = List(0.25, 0.5, 0.75).map(percentile)
-
-      val std = math.sqrt(variance.toDouble)
-
-      (mean, std, min, percentiles(0), percentiles(1), percentiles(2), max).withNames[("mean", "std", "min", "25%", "50%", "75%", "max")]
-    end numericColSummary
-
     inline def column[S <: String](using
         @implicitNotFound("Column ${S} not found")
-        ev: IsColumn[S, K] =:= true,
-        s: ValueOf[S]
-    ): Iterator[GetTypeAtName[K, S, V]] =
-      val headers = constValueTuple[K].toList.map(_.toString())
-      val idx = headers.indexOf(s.value)
-      itr.map(x => x.toTuple(idx).asInstanceOf[GetTypeAtName[K, S, V]])
+        ev: IsColumn[S, K] =:= true
+    ): Iterator[NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]]] =
+      itr.map(x => x.apply(constValue[IdxAtName[S, K]]))
     end column
 
     inline def dropColumn[S <: String](using
@@ -187,8 +154,6 @@ object NamedTupleIteratorExtensions:
   end extension
 
   extension [CC[X] <: Iterable[X], K <: Tuple, V <: Tuple](nt: CC[NamedTuple[K, V]])
-
-
     inline def toColumnOriented: NamedTuple[K, Tuple.Map[V, CC]] =
       import scala.compiletime.ops.int.*
       import scala.compiletime.constValue
@@ -260,12 +225,13 @@ object NamedTupleIteratorExtensions:
     inline def column[S <: String](using
         @implicitNotFound("Column ${S} not found")
         ev: IsColumn[S, K] =:= true,
-        s: ValueOf[S],
-        bf: BuildFrom[CC[NamedTuple[K, V]], GetTypeAtName[K, S, V], CC[GetTypeAtName[K, S, V]]]
-    ): CC[GetTypeAtName[K, S, V]] =
-      val headers = constValueTuple[K].toList.map(_.toString())
-      val idx = headers.indexOf(s.value)
-      bf.fromSpecific(nt)(nt.view.map(x => x.toTuple(idx).asInstanceOf[GetTypeAtName[K, S, V]]))
+        bf: BuildFrom[
+          CC[NamedTuple[K, V]], 
+          NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]], 
+          CC[NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]]]
+        ]
+    ): CC[NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]]] =
+      bf.fromSpecific(nt)(nt.view.map(x => x.toTuple(constValue[IdxAtName[S, K]])))
     end column
 
     inline def addColumn[S <: String, A](fct: (tup: NamedTuple.NamedTuple[K, V]) => A)(using

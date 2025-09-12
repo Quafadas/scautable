@@ -137,6 +137,61 @@ class NamedTupleTypeTest extends munit.FunSuite:
 
   }
 
+  test("IdxAtName") {
+
+    type Cols = "a" *: "b" *: "c" *: "d" *: EmptyTuple
+
+    // Test finding indices of existing columns
+    summon[ColumnTyped.IdxAtName["a", Cols] =:= 0]
+    summon[ColumnTyped.IdxAtName["b", Cols] =:= 1] 
+    summon[ColumnTyped.IdxAtName["c", Cols] =:= 2]
+    summon[ColumnTyped.IdxAtName["d", Cols] =:= 3]
+
+    // Test with single element tuple
+    type SingleCol = "x" *: EmptyTuple
+    summon[ColumnTyped.IdxAtName["x", SingleCol] =:= 0]
+
+    // Test with longer column names
+    type LongCols = "firstName" *: "lastName" *: "age" *: "email" *: EmptyTuple
+    summon[ColumnTyped.IdxAtName["firstName", LongCols] =:= 0]
+    summon[ColumnTyped.IdxAtName["lastName", LongCols] =:= 1]
+    summon[ColumnTyped.IdxAtName["age", LongCols] =:= 2]
+    summon[ColumnTyped.IdxAtName["email", LongCols] =:= 3]
+
+    // Note: Empty tuple case now returns a ColumnNotFoundError instead of 0
+    // This provides better compile-time safety by catching non-existent columns
+
+  }
+
+  test("IndexesAtNames") {
+
+    type Cols = "a" *: "b" *: "c" *: "d" *: "e" *: EmptyTuple
+
+    // Test getting indexes of multiple existing columns
+    summon[ColumnTyped.IndexesAtNames["a" *: EmptyTuple, Cols] =:= 0 *: EmptyTuple]
+    summon[ColumnTyped.IndexesAtNames["a" *: "c" *: EmptyTuple, Cols] =:= 0 *: 2 *: EmptyTuple]
+    summon[ColumnTyped.IndexesAtNames["b" *: "d" *: EmptyTuple, Cols] =:= 1 *: 3 *: EmptyTuple]
+    summon[ColumnTyped.IndexesAtNames["e" *: "a" *: "c" *: EmptyTuple, Cols] =:= 4 *: 0 *: 2 *: EmptyTuple]
+
+    // Test with all columns in order
+    summon[ColumnTyped.IndexesAtNames[Cols, Cols] =:= 0 *: 1 *: 2 *: 3 *: 4 *: EmptyTuple]
+
+    // Test with columns in reverse order
+    summon[ColumnTyped.IndexesAtNames["e" *: "d" *: "c" *: "b" *: "a" *: EmptyTuple, Cols] =:= 4 *: 3 *: 2 *: 1 *: 0 *: EmptyTuple]
+
+    // Test with empty tuple of names
+    summon[ColumnTyped.IndexesAtNames[EmptyTuple, Cols] =:= EmptyTuple]
+
+    // Test with single name
+    summon[ColumnTyped.IndexesAtNames["c" *: EmptyTuple, Cols] =:= 2 *: EmptyTuple]
+
+    // Test with longer column names
+    type LongCols = "firstName" *: "lastName" *: "age" *: "email" *: EmptyTuple
+    summon[ColumnTyped.IndexesAtNames["lastName" *: "firstName" *: EmptyTuple, LongCols] =:= 1 *: 0 *: EmptyTuple]
+    summon[ColumnTyped.IndexesAtNames["email" *: "age" *: "firstName" *: EmptyTuple, LongCols] =:= 3 *: 2 *: 0 *: EmptyTuple]
+
+  }
+
   test("All are Columns") {
 
     type Cols = "a" *: "b" *: "c" *: "d" *: "e" *: EmptyTuple

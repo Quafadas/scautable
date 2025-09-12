@@ -17,6 +17,9 @@ import io.github.quafadas.scautable.ColumnTyped.IsNumeric
 import io.github.quafadas.scautable.ColumnTyped.GetTypeAtName
 import io.github.quafadas.scautable.ColumnTyped.AllAreColumns
 import scala.concurrent.Future
+import io.github.quafadas.scautable.ColumnTyped
+import scala.Tuple.Elem
+import io.github.quafadas.scautable.ColumnTyped.IdxAtName
 
 enum Gender:
   case Male, Female, Unknown
@@ -150,7 +153,7 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
       ev: IsColumn[S, K] =:= true,
       s: ValueOf[S],
       @implicitNotFound("Column ${S} is not numeric")
-      numeric: Numeric[GetTypeAtName[K, S, V]]
+      numeric: Numeric[Elem[V, IdxAtName[S, K]]],
   )(using ctx: viz.LowPriorityPlotTarget): Unit =
     import viz.vegaFlavour
     val oneCol = data.column[S]
@@ -187,9 +190,9 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
       s1: ValueOf[S1],
       s2: ValueOf[S2],
       @implicitNotFound("Column ${S1} is not numeric")
-      numeric1: Numeric[GetTypeAtName[K, S1, V]],
+      numeric1: Numeric[Elem[V, IdxAtName[S1, K]]],
       @implicitNotFound("Column ${S2} is not numeric")
-      numeric2: Numeric[GetTypeAtName[K, S2, V]]
+      numeric2: Numeric[Elem[V, IdxAtName[S2, K]]]
   )(using ctx: viz.LowPriorityPlotTarget): Unit =
     import viz.vegaFlavour
     val column1 = data.column[S1]
@@ -233,9 +236,9 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
       s1: ValueOf[S1],
       s2: ValueOf[S2],
       @implicitNotFound("Column ${S1} is not numeric")
-      numeric1: Numeric[GetTypeAtName[K, S1, V]],
+      numeric1: Numeric[Elem[V, IdxAtName[S1, K]]],
       @implicitNotFound("Column ${S2} is not numeric")
-      numeric2: Numeric[GetTypeAtName[K, S2, V]]
+      numeric2: Numeric[Elem[V, IdxAtName[S2, K]]]
   )(using ctx: viz.LowPriorityPlotTarget): Unit =
     import viz.vegaFlavour
     val column1 = data.column[S1]
@@ -277,9 +280,9 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
       s1: ValueOf[S1],
       s2: ValueOf[S2],
       @implicitNotFound("Column ${S1} is not numeric")
-      numeric1: Numeric[GetTypeAtName[K, S1, V]],
+      numeric1: Numeric[Elem[V, IdxAtName[S1, K]]],
       @implicitNotFound("Column ${S2} is not numeric")
-      numeric2: Numeric[GetTypeAtName[K, S2, V]]
+      numeric2: Numeric[Elem[V, IdxAtName[S2, K]]]
   )(using ctx: viz.LowPriorityPlotTarget): Unit =
     import viz.vegaFlavour
     val column1 = data.column[S1]
