@@ -1,0 +1,76 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "data": {
+    "values": []
+  },
+  "width": "container",
+  "height": "container",
+  "layer": [
+    {
+      "mark": {
+        "type": "point",
+        "filled": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Col1",
+          "type": "quantitative"
+        },
+        "y": {
+          "field": "Col2",
+          "type": "quantitative"
+        }
+          ,
+          "tooltip": [
+            { "field": "Col1", "type": "quantitative", "title": "Col1" },
+            { "field": "Col2", "type": "quantitative", "title": "Col2" }
+          ]
+      }
+    },
+    {
+      "mark": {
+        "type": "line",
+        "color": "firebrick"
+      },
+      "transform": [
+        {
+          "regression": "Col2",
+          "on": "Col1"
+        }
+      ],
+      "encoding": {
+        "x": {
+          "field": "Col1",
+          "type": "quantitative"
+        },
+        "y": {
+          "field": "Col2",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "transform": [
+        {
+          "regression": "Col2",
+          "on": "Col1",
+          "params": true
+        },
+        { "calculate": "'R²: '+format(datum.rSquared, '.2f')", "as": "R2" }
+      ],
+      "mark": {
+        "type": "text",
+        "fontSize": {
+          "expr": "width / 40"
+        },
+        "color": "firebrick",
+        "x": "width",
+        "align": "right",
+        "y": -5
+      },
+      "encoding": {
+        "text": { "type": "nominal", "field": "R2" }
+      }
+    }
+  ]
+}

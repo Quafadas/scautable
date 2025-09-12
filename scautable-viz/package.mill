@@ -1,0 +1,22 @@
+package build.`scautable-viz`
+
+import mill.*
+import mill.scalalib.*
+
+import build.Config
+import mill.api.Task.Simple
+
+object `package` extends ScalaModule with build.PublishModule:
+  def scalaVersion = Config.scalaVersion
+  def moduleDeps = Seq(build.scautable.jvm)
+
+  override def mvnDeps: Simple[Seq[Dep]] = super.mvnDeps() ++ Seq(
+    mvn"io.github.quafadas::dedav4s::0.10.0-RC2"
+  )
+
+  object test extends ScalaTests with build.CommonTests  :
+
+  end test
+
+
+
