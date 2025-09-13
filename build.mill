@@ -43,8 +43,6 @@ trait CommonJS extends Common with ScalaJSModule:
 end CommonJS
 
 trait PublishModule extends mill.scalalib.PublishModule:
-  override def artifactName = "scautable"
-
   override def publishVersion = Task(VcsVersion.vcsState().format())
 
   override def pomSettings = Task {
