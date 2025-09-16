@@ -1,15 +1,14 @@
 package io.github.quafadas.scautable
 
-import com.tdunning.math.stats.TDigest
 import scala.NamedTuple.*
-import scala.compiletime.constValueTuple
-import io.github.quafadas.scautable.ColumnTyped.*
-import io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
 import scala.collection.BuildFrom
-import scala.Tuple.Map
-import scala.Tuple.Fold
+import scala.compiletime.constValueTuple
 import scala.util.Random
+
+import com.tdunning.math.stats.TDigest
+
 import io.github.quafadas.scautable.ConsoleFormat.ptbln
+import io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
 
 
 object Stats:

@@ -1,8 +1,7 @@
 package io.github.quafadas.scautable
 
-import scala.compiletime.*
-import scala.collection.BuildFrom
 import scala.NamedTuple.*
+import scala.compiletime.*
 
 /** Extension methods for writing NamedTuple collections to CSV format.
   */

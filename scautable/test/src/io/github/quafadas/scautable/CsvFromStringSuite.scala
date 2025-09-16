@@ -1,13 +1,12 @@
 package io.github.quafadas.scautable
 
-import munit.FunSuite
+import java.math.BigInteger
 
-import scala.NamedTuple.withNames
 import scala.compiletime.testing.*
-import io.github.quafadas.scautable.HeaderOptions.*
 
-import java.math.BigInteger 
+import io.github.quafadas.scautable.HeaderOptions.*
 import io.github.quafadas.table.TypeInferrer
+import munit.FunSuite
 
 
 

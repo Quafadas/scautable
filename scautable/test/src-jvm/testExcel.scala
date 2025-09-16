@@ -1,12 +1,9 @@
 package io.github.quafadas.scautable
 
+import scala.NamedTuple.*
+
 import io.github.quafadas.table.*
-import java.time.LocalDate
-
-import NamedTuple.*
-import scala.compiletime.ops.int.S
-
-import Excel.BadTableException
+import io.github.quafadas.table.Excel.BadTableException
 
 class ExcelSuite extends munit.FunSuite:
 
