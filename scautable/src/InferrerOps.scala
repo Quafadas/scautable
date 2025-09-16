@@ -95,3 +95,50 @@ private[scautable] object InferrerOps:
       throw new IllegalArgumentException(
         "All rows must have the same number of columns."
       )
+
+  // Excel-specific type inference methods
+  def excelInferrer(using Quotes)(dataRows: List[List[String]], preferIntToBoolean: Boolean, numRows: Int = 1) =
+    import quotes.reflect.*
+
+    validateExcelInput(dataRows, numRows)
+
+    val sampleRows = dataRows.take(numRows)
+    validateExcelSampleRows(sampleRows)
+
+    validateExcelColumnConsistency(sampleRows)
+
+    val columns = sampleRows.transpose
+
+    val elementTypesRepr: List[TypeRepr] = columns.map { columnValues =>
+      inferMostGeneralType(columnValues, preferIntToBoolean)
+    }
+
+    val tupleType: TypeRepr = elementTypesRepr.foldRight(TypeRepr.of[EmptyTuple]) { (tpe, acc) =>
+      TypeRepr.of[*:].appliedTo(List(tpe, acc))
+    }
+
+    tupleType
+
+  private def validateExcelInput(dataRows: List[List[String]], numRows: Int)(using Quotes): Unit =
+    if dataRows.isEmpty then
+      throw new IllegalArgumentException(
+        "Excel data must contain at least one data row for type inference."
+      )
+    
+    if numRows <= 0 then
+      throw new IllegalArgumentException(
+        "N must be positive for FirstN type inference."
+      )
+
+  private def validateExcelSampleRows(sampleRows: List[List[String]])(using Quotes): Unit =
+    if sampleRows.isEmpty then
+      throw new IllegalArgumentException(
+        "No Excel rows available for type inference."
+      )
+
+  private def validateExcelColumnConsistency(sampleRows: List[List[String]])(using Quotes): Unit =
+    val columnCount = sampleRows.head.length
+    if !sampleRows.forall(_.length == columnCount) then
+      throw new IllegalArgumentException(
+        "All Excel rows must have the same number of columns."
+      )
