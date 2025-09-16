@@ -10,7 +10,7 @@ class ExcelTypeInferrerSuite extends munit.FunSuite:
   // ---------------------------
 
   test("Excel TypeInferrer.StringType should treat all columns as String") {
-    val excel: ExcelIterator[("Column 1", "Column 2", "Column 3"), (String, String, String)] =
+    val excel: TypedExcelIterator[("Column 1", "Column 2", "Column 3"), (String, String, String)] =
       Excel.resource(
         "SimpleTable.xlsx",
         "Sheet1",
@@ -99,7 +99,7 @@ class ExcelTypeInferrerSuite extends munit.FunSuite:
 
   test("Excel TypeInferrer.fromTuple should apply provided column types explicitly") {
     
-    val excel: ExcelIterator[("Column 1", "Column 2", "Column 3"), (String, String, String)] =
+    val excel: TypedExcelIterator[("Column 1", "Column 2", "Column 3"), (String, String, String)] =
       Excel.resource(
         "SimpleTable.xlsx",
         "Sheet1",

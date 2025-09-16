@@ -43,7 +43,7 @@ import io.github.quafadas.table.*
   
   // Example 5: TypeInferrer.FromTuple - Explicit type specification
   println("\n=== TypeInferrer.FromTuple ===")
-  val excelTyped: ExcelIterator[("Column 1", "Column 2", "Column 3"), (String, String, String)] = 
+  val excelTyped: TypedExcelIterator[("Column 1", "Column 2", "Column 3"), (String, String, String)] = 
     Excel.resource("SimpleTable.xlsx", "Sheet1", TypeInferrer.FromTuple[(String, String, String)]())
   excelTyped.take(3).foreach(row => 
     println(s"${row.`Column 1`} | ${row.`Column 2`} | ${row.`Column 3`}")
