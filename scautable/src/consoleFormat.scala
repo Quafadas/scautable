@@ -8,10 +8,10 @@ import fansi.Str
 
 object ConsoleFormat:
 
-  extension (s: Seq[Product])
-    inline def consoleFormat(fancy: Boolean): String = consoleFormat_(s, fancy)
-    inline def consoleFormat: String = consoleFormat_(s, true)
-    inline def ptbl: Unit = println(consoleFormat_(s, true))
+  extension [C <: IterableOnce[Product]](s: C)
+    inline def consoleFormat(fancy: Boolean): String = consoleFormat_(s.iterator.toSeq, fancy)
+    inline def consoleFormat: String = consoleFormat_(s.iterator.toSeq, true)
+    inline def ptbl: Unit = println(consoleFormat_(s.iterator.toSeq, true))
   end extension
 
   private val colours: List[EscapeAttr] = List(
@@ -35,7 +35,7 @@ object ConsoleFormat:
         String.format(java.util.Locale.ROOT, "%.2f%%", a100)
   end extension
 
-  extension [K <: Tuple, V <: Tuple](nt: Seq[NamedTuple[K, V]])
+  extension [K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](nt: C)
 
     inline def consoleFormatNt: String =
       consoleFormatNt(None, true)
@@ -45,7 +45,7 @@ object ConsoleFormat:
 
     inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true): String =
       val foundHeaders = constValueTuple[K].toList.map(_.toString())
-      val values = nt.map(_.toTuple)
+      val values = nt.iterator.map(_.toTuple).toSeq
       ConsoleFormat.consoleFormat_(values, fansi, headers.getOrElse(foundHeaders))
     end consoleFormatNt
   end extension
