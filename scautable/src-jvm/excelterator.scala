@@ -11,62 +11,8 @@ import org.apache.poi.ss.util.CellRangeAddress
 
 import io.github.quafadas.scautable.ColumnTyped.*
 
-/** */
-object Excel:
 
-  class BadTableException(message: String) extends Exception(message)
-
-  given IteratorToExpr2[K](using ToExpr[String], Type[K]): ToExpr[ExcelIterator[K]] with
-    def apply(opt: ExcelIterator[K])(using Quotes): Expr[ExcelIterator[K]] =
-      val str = Expr(opt.getFilePath)
-      val sheet = Expr(opt.getSheet)
-      val colRange = Expr(opt.getColRange)
-      '{
-        new ExcelIterator[K]($str, $sheet, $colRange)
-      }
-    end apply
-  end IteratorToExpr2
-
-  transparent inline def absolutePath[K](filePath: String, sheetName: String, range: String = "") = ${ readExcelAbolsutePath('filePath, 'sheetName, 'range) }
-  transparent inline def resource[K](filePath: String, sheetName: String, range: String = "") = ${ readExcelResource('filePath, 'sheetName, 'range) }
-
-  def readExcelResource(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String])(using Quotes) =
-    import quotes.reflect.*
-
-    val path = pathExpr.valueOrAbort
-    val resourcePath = this.getClass.getClassLoader.getResource(path)
-    if resourcePath == null then report.throwError(s"Resource not found: $path")
-    end if
-    val validatedPath = resourcePath.toURI.getPath
-    val colRange = colRangeExpr.value
-    val iterator = ExcelIterator(validatedPath, sheetName.valueOrAbort, colRange)
-    val tupleExpr2 = Expr.ofTupleFromSeq(iterator.headers.map(Expr(_)))
-    tupleExpr2 match
-      case '{ $tup: t } =>
-        // val itr = new ExcelIterator[t](validatedPath, sheetName.valueOrAbort, colRange)
-        Expr(iterator.asInstanceOf[ExcelIterator[t]])
-      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
-    end match
-  end readExcelResource
-
-  def readExcelAbolsutePath(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String])(using Quotes) =
-    import quotes.reflect.*
-
-    val fPath = pathExpr.valueOrAbort
-    val colRange = colRangeExpr.value
-    val iterator = ExcelIterator(fPath, sheetName.valueOrAbort, colRange)
-    val tupleExpr2 = Expr.ofTupleFromSeq(iterator.headers.map(Expr(_)))
-
-    tupleExpr2 match
-      case '{ $tup: t } =>
-        // val itr = new ExcelIterator[t](fPath, sheetName.valueOrAbort, colRange)
-        Expr(iterator.asInstanceOf[ExcelIterator[t]])
-      case _ => report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
-    end match
-  end readExcelAbolsutePath
-end Excel
-
-class ExcelIterator[K](filePath: String, sheetName: String, colRange: Option[String]) extends Iterator[NamedTuple[K & Tuple, StringyTuple[K & Tuple]]]:
+class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String, colRange: Option[String])(using decoder: RowDecoder[V]) extends Iterator[NamedTuple[K, V]]:
   type COLUMNS = K
 
   def getFilePath: String = filePath
@@ -118,7 +64,7 @@ class ExcelIterator[K](filePath: String, sheetName: String, colRange: Option[Str
   lazy val headersTuple =
     listToTuple(headers)
 
-  override def next(): NamedTuple[K & Tuple, StringyTuple[K & Tuple]] =
+  override def next(): NamedTuple[K, V] =
     if !hasNext then throw new NoSuchElementException("No more rows")
     end if
     val row = sheetIterator.next()
@@ -136,10 +82,12 @@ class ExcelIterator[K](filePath: String, sheetName: String, colRange: Option[Str
     // println(s"Row $debugi: ${cellStr.map(_.toString).mkString(", ")}")
     if cellStr.size != headers.size then
       throw new Excel.BadTableException(s"Row $debugi has ${cells.size} cells, but the table has ${headers.size} cells. Reading data was terminated")
-    end if
-    val tuple = listToTuple(cellStr)
+    end if    
+    val tuple = decoder.decodeRow(cellStr).getOrElse(
+      throw new Exception("Failed to decode row: " + cellStr)
+    )
     debugi += 1
-    NamedTuple.build[K & Tuple]()(tuple).asInstanceOf[StringyTuple[K & Tuple]]
+    NamedTuple.build[K]()(tuple)
   end next
 
   override def hasNext: Boolean =

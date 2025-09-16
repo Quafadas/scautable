@@ -141,8 +141,7 @@ object CSV:
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             }
 
-          case '{ TypeInferrer.FirstN(${Expr(n)}, ${Expr(preferIntToBoolean)}) } =>
-            println(preferIntToBoolean)
+          case '{ TypeInferrer.FirstN(${Expr(n)}, ${Expr(preferIntToBoolean)}) } =>            
             val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n)
             inferredTypeRepr.asType match {
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
