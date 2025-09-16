@@ -62,9 +62,9 @@ trait PublishModule extends mill.scalalib.PublishModule:
   }
 end PublishModule
 
-trait CommonTests extends TestModule.Munit, ScalafixModule:
+trait CommonTests extends ScalaModule, TestModule.Munit, ScalafixModule:
 
-  override def defaultTask(): String = "test"
+  // override def defaultTask(): String = "test"
   override def scalacOptions = super.scalacOptions() ++ Seq("-Wunused:imports")
   override def mvnDeps = super.mvnDeps() ++ Seq(
     Config.munit
