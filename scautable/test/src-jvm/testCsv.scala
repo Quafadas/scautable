@@ -1,11 +1,7 @@
 package io.github.quafadas.scautable
+import scala.NamedTuple.*
 
-import java.time.LocalDate
 import io.github.quafadas.table.*
-
-import NamedTuple.*
-
-import scala.compiletime.ops.int.S
 
 class CSVSuite extends munit.FunSuite:
 

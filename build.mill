@@ -2,12 +2,13 @@
 //| mill-jvm-version: 21
 //| mvnDeps:
 //| - io.github.quafadas:millSite_mill1_3.7:0.0.53
+//| - com.goyeau::mill-scalafix::0.6.0
 
 package build
 
 import mill.*, mill.scalalib.*, mill.scalajslib.*
 import mill.*, scalalib.*, publish.*
-
+import com.goyeau.mill.scalafix.ScalafixModule
 import mill.util.VcsVersion
 
 object Config:
@@ -22,7 +23,7 @@ object Config:
 end Config
 
 // mill __.compiledClassesAndSemanticDbFiles
-trait Common extends ScalaModule:
+trait Common extends ScalaModule, ScalafixModule:
   def scalaVersion = Config.scalaVersion
 
   override def mvnDeps = super.mvnDeps() ++ Seq(
@@ -30,7 +31,7 @@ trait Common extends ScalaModule:
     Config.oslib,
     Config.fansi
   )
-  override def scalacOptions = super.scalacOptions() ++ Seq("-Xmax-inlines", "128")
+  override def scalacOptions = super.scalacOptions() ++ Seq("-Xmax-inlines", "128", "-Wunused:imports")
 end Common
 
 trait CommonJS extends Common with ScalaJSModule:
@@ -61,9 +62,10 @@ trait PublishModule extends mill.scalalib.PublishModule:
   }
 end PublishModule
 
-trait CommonTests extends TestModule.Munit:
+trait CommonTests extends TestModule.Munit, ScalafixModule:
 
-  // override def testFramework = "munit.runner.Framework"
+  override def defaultTask(): String = "test"
+  override def scalacOptions = super.scalacOptions() ++ Seq("-Wunused:imports")
   override def mvnDeps = super.mvnDeps() ++ Seq(
     Config.munit
   )

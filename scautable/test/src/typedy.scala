@@ -1,6 +1,5 @@
 package io.github.quafadas.scautable
 
-import scala.collection.immutable.Stream.Empty
 
 class NamedTupleTypeTest extends munit.FunSuite:
 

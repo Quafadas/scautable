@@ -1,5 +1,4 @@
 package io.github.quafadas.scautable
-import io.github.quafadas.scautable.CSVParser.*
 
 import scala.quoted.*
 

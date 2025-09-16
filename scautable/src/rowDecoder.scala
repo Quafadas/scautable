@@ -1,6 +1,8 @@
 package io.github.quafadas.scautable
 
-import scala.compiletime.{erasedValue, summonInline}
+import scala.compiletime.erasedValue
+import scala.compiletime.summonInline
+
 import io.github.quafadas.scautable.Decoder
 
 

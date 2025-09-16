@@ -1,9 +1,5 @@
 package io.github.quafadas.scautable
 
-import scala.io.Source
-import scala.util.Try
-import scala.util.chaining.*
-import scala.util.matching.Regex
 
 /** According to chatGPT will parse RFC 4180 compliant CSV line.
   */
