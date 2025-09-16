@@ -1,8 +1,4 @@
 package io.github.quafadas.scautable
-
-import io.github.quafadas.scautable.CSVParser.*
-import io.github.quafadas.scautable.RowDecoder.*
-
 import scala.quoted.*
 
 private[scautable] object InferrerOps:

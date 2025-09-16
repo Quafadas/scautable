@@ -1,23 +1,12 @@
 package io.github.quafadas.scautable
-
-import scala.quoted.*
-import scala.io.Source
-import NamedTuple.withNames
 import scala.NamedTuple.*
-import scala.collection.immutable.Stream.Empty
-import scala.deriving.Mirror
-import scala.io.BufferedSource
-import scala.util.Using.Manager.Resource
-import scala.compiletime.*
-import scala.compiletime.ops.int.+
-import fansi.Str
-import scala.collection.View.FlatMap
-import io.github.quafadas.scautable.ConsoleFormat.*
-import ColumnTyped.*
-import scala.math.Fractional.Implicits.*
+import scala.NamedTuple.withNames
 import scala.annotation.implicitNotFound
 import scala.collection.BuildFrom
 import scala.collection.Factory
+import scala.compiletime.*
+
+import io.github.quafadas.scautable.ColumnTyped.*
 
 object NamedTupleIteratorExtensions:
   private val rand = new scala.util.Random

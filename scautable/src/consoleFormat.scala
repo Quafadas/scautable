@@ -1,12 +1,10 @@
 package io.github.quafadas.scautable
 
-import fansi.Str
-import scala.NamedTuple
 import scala.NamedTuple.*
 import scala.compiletime.constValueTuple
-import scala.math.Numeric.Implicits.*
+
 import fansi.EscapeAttr
-import scala.util.NotGiven
+import fansi.Str
 
 object ConsoleFormat:
 

@@ -1,20 +1,15 @@
 package io.github.quafadas.scautable
-
-import scala.io.Source
-import scala.util.Try
-import org.apache.poi.ss.usermodel.{DataFormatter, WorkbookFactory, Row}
-import scala.util.chaining.*
-import scala.util.matching.Regex
-import scala.NamedTuple.*
-import scala.compiletime.*
-import CSV.*
-import ConsoleFormat.*
-import ColumnTyped.*
-
 import java.io.File
+
+import scala.NamedTuple.*
 import scala.collection.JavaConverters.*
 import scala.quoted.*
+
+import org.apache.poi.ss.usermodel.Row
+import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.ss.util.CellRangeAddress
+
+import io.github.quafadas.scautable.ColumnTyped.*
 
 /** */
 object Excel:

@@ -2,23 +2,8 @@ package io.github.quafadas.scautable
 
 import scala.quoted.*
 import scala.io.Source
-import NamedTuple.withNames
-import scala.NamedTuple.*
-import scala.collection.immutable.Stream.Empty
-import scala.deriving.Mirror
-import scala.io.BufferedSource
-import scala.util.Using.Manager.Resource
-import scala.compiletime.*
-import scala.compiletime.ops.int.*
-import fansi.Str
-
-import scala.collection.View.FlatMap
-import io.github.quafadas.scautable.ConsoleFormat.*
 import ColumnTyped.*
 
-import scala.math.Fractional.Implicits.*
-import scala.collection.View.Single
-import io.github.quafadas.scautable.CSVUtils.*
 import io.github.quafadas.table.TypeInferrer
 
 object CSV:
@@ -181,15 +166,12 @@ object CSV:
 
   end readCsvFromUrl
 
-  private def readCsvFromCurrentDir(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
-    import quotes.reflect.*
+  private def readCsvFromCurrentDir(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =    
     val path = os.pwd / pathExpr.valueOrAbort
     readHeaderlineAsCsv(path.toString, csvHeaders, dataType)
   end readCsvFromCurrentDir
 
   def readCsvAbsolutePath(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
-    import quotes.reflect.*
-
     val path = pathExpr.valueOrAbort
     readHeaderlineAsCsv(path, csvHeaders, dataType)
   end readCsvAbsolutePath

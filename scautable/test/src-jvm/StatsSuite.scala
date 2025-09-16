@@ -1,7 +1,8 @@
 package io.github.quafadas.scautable
 
-import io.github.quafadas.table.*
 import com.tdunning.math.stats.TDigest
+
+import io.github.quafadas.table.*
 
 class StatsSuite extends munit.FunSuite:
 

@@ -2,7 +2,7 @@ package io.github.quafadas.scautable
 
 import java.awt.Desktop
 
-import NamedTuple.*
+import scala.NamedTuple.*
 // import almond.api.JupyterApi
 // import almond.interpreter.api.DisplayData
 // import almond.api.JupyterAPIHolder.value

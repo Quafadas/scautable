@@ -1,18 +1,7 @@
 package io.github.quafadas.scautable
-
-import scala.io.Source
-import scala.util.Try
-import scala.util.chaining.*
-import scala.util.matching.Regex
 import scala.NamedTuple.*
-import scala.compiletime.*
-import CSV.*
-import ConsoleFormat.*
-import ColumnTyped.*
-import NamedTuple.*
 import scala.annotation.publicInBinary
-import io.github.quafadas.scautable.Decoder.given
-import io.github.quafadas.scautable.RowDecoder.given
+import scala.compiletime.*
 
 /** A NamedTuple representation of a CSV file.
   *

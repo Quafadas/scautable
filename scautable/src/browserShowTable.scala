@@ -1,16 +1,14 @@
 package io.github.quafadas.scautable
 
-import scalatags.Text.all.*
-import scala.deriving.Mirror
-import scala.compiletime.erasedValue
-import scala.compiletime.constValue
-import scala.compiletime.summonInline
-import java.time.LocalDate
-import scalatags.Text.TypedTag
-import fansi.Str
-import NamedTuple.*
-import scala.compiletime.constValueTuple
+import scala.NamedTuple.*
 import scala.annotation.nowarn
+import scala.compiletime.constValue
+import scala.compiletime.constValueTuple
+import scala.compiletime.erasedValue
+import scala.compiletime.summonInline
+import scala.deriving.Mirror
+import scalatags.Text.TypedTag
+import scalatags.Text.all.*
 
 /** This is a simple library to render a scala case class as an html table. It assumes the presence of a [[HtmlTableRender]] instance for each type in the case class.
   */

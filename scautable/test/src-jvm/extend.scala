@@ -1,10 +1,11 @@
 package io.github.quafadas.scautable
 
-import io.github.quafadas.table.*
 import java.time.LocalDate
+
+import scala.NamedTuple.*
 import scalatags.Text.all.*
-import NamedTuple.*
-import scala.compiletime.ops.int.S
+
+import io.github.quafadas.table.*
 
 class ExtendSuite extends munit.FunSuite:
 

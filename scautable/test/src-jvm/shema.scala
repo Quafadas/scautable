@@ -1,5 +1,6 @@
+import scala.NamedTuple.*
+
 import io.github.quafadas.table.*
-import NamedTuple.*
 
 class CSVSchemaSuite extends munit.FunSuite:
     test("Drop column by number") {
