@@ -209,12 +209,17 @@ object Excel:
       (range.getFirstRow, range.getLastRow, range.getFirstColumn, range.getLastColumn)
     }
     
-    val startRow = colRange match
-      case None => 0
-      case Some(range) => getRanges(range)._1
-    
-    // Skip to header row and then skip header
-    if startRow > 0 then sheetIterator.drop(startRow).next() else sheetIterator.next()
+    // Skip header row based on whether we have a range or not
+    colRange match
+      case None => 
+        sheetIterator.next() // skip first row (header)
+      case Some(range) => 
+        val (firstRow, _, _, _) = getRanges(range)
+        // Skip to header row and then skip it
+        if firstRow > 0 then
+          sheetIterator.drop(firstRow).next()
+        else
+          sheetIterator.next()
     
     val rows = scala.collection.mutable.ListBuffer[List[String]]()
     var count = 0
