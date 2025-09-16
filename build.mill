@@ -22,6 +22,8 @@ object Config:
   val scalaJSVersion = "1.19.0"
 end Config
 
+val extraCompilerOpts = Seq("-Xmax-inlines", "256", "-Wunused:imports")
+
 // mill __.compiledClassesAndSemanticDbFiles
 trait Common extends ScalaModule, ScalafixModule:
   def scalaVersion = Config.scalaVersion
@@ -31,7 +33,7 @@ trait Common extends ScalaModule, ScalafixModule:
     Config.oslib,
     Config.fansi
   )
-  override def scalacOptions = super.scalacOptions() ++ Seq("-Xmax-inlines", "256", "-Wunused:imports")
+  override def scalacOptions = super.scalacOptions() ++ extraCompilerOpts
 end Common
 
 trait CommonJS extends Common with ScalaJSModule:
@@ -65,7 +67,7 @@ end PublishModule
 trait CommonTests extends ScalaModule, TestModule.Munit, ScalafixModule:
 
   // override def defaultTask(): String = "test"
-  override def scalacOptions = super.scalacOptions() ++ Seq("-Wunused:imports")
+  override def scalacOptions = super.scalacOptions() ++ extraCompilerOpts
   override def mvnDeps = super.mvnDeps() ++ Seq(
     Config.munit
   )
