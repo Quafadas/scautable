@@ -1,0 +1,77 @@
+{
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+    "data": {
+        "values": []
+    },
+    "spacing": 15,
+    "bounds": "flush",
+    "vconcat": [
+        {
+            "width": "container",
+            "mark": {
+                "type": "bar",
+                "tooltip": true
+            },
+            "height": 200,
+            "encoding": {
+                "x": {
+                    "bin": {"maxbins": 30},
+                    "field": "Col1"
+                },
+                "y": {
+                    "aggregate": "count"
+                }
+            }
+        },
+        {
+            "spacing": 15,
+            "bounds": "flush",
+            "hconcat": [
+                {
+                    "mark": {
+                        "type": "rect",
+                        "tooltip": true
+                    },
+                    "width": "container",
+                    "height": "container",
+                    "encoding": {
+                        "x": {
+                            "bin": {"maxbins": 30},
+                            "field": "Col1"
+                        },
+                        "y": {
+                            "bin": {"maxbins": 30},
+                            
+                            "field": "Col2"
+                        },
+                        "color": {
+                            "aggregate": "count"
+                        }
+                    }
+                },
+                {
+                    "height": "container",
+                    "mark": {
+                        "type": "bar",
+                        "tooltip": true
+                    },
+                    "width": 200,
+                    "encoding": {
+                        "y": {
+                            "bin": {"maxbins": 30},
+                            "field": "Col2"
+                        },
+                        "x": {
+                            "aggregate": "count"                            
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "config": {
+        "view": {
+            "stroke": "transparent"
+        }
+    }
+}
