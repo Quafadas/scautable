@@ -8,10 +8,10 @@ import io.github.quafadas.table.Excel.BadTableException
 class ExcelSuite extends munit.FunSuite:
 
   test("excel provider compiles and typechecks") {
-    def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.resource("SimpleTable.xlsx", "Sheet1")
+    def csv = Excel.resource("SimpleTable.xlsx", "Sheet1")
 
-    assertEquals(csv.column[("Column 1")].toList.head, "Row 1, Col 1")
-    assertEquals(csv.column[("Column 1")].toList.last, "Row 3, Col 1")
+    assertEquals(csv.column["Column 1"].toList.head, "Row 1, Col 1")
+    assertEquals(csv.column["Column 1"].toList.last, "Row 3, Col 1")
 
   }
 
@@ -25,7 +25,7 @@ class ExcelSuite extends munit.FunSuite:
   }
 
   test("excel provider compiles but throws on malformed table") {
-    val csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.resource("SimpleTableWithExtendedRow.xlsx", "Sheet1")
+    val csv = Excel.resource("SimpleTableWithExtendedRow.xlsx", "Sheet1")
 
     intercept[BadTableException] {
       println(csv.toList)
@@ -34,7 +34,7 @@ class ExcelSuite extends munit.FunSuite:
   }
 
   test("ExcelIterator with colStart parameter") {
-    def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.resource("SimpleTableColOffset.xlsx", "Sheet1", "D1:F4")
+    def csv = Excel.resource("SimpleTableColOffset.xlsx", "Sheet1", "D1:F4")
 
     val csvSeq = csv.toSeq
     assertEquals(csvSeq.column["Column 1"].toList.head, "Row 1, Col 1")
@@ -44,7 +44,7 @@ class ExcelSuite extends munit.FunSuite:
   }
 
   test("ExcelIterator range") {
-    def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.resource("Offset.xlsx", "Sheet1", "E3:G6")
+    def csv = Excel.resource("Offset.xlsx", "Sheet1", "E3:G6")
     val csvSeq = csv.toSeq
     // csvSeq.ptbln
     assertEquals(csv.column["Column 2"].toList.head, "Row 1, Col 2")
@@ -53,7 +53,7 @@ class ExcelSuite extends munit.FunSuite:
 
   test("ExcelIterator Missing and blank values") {
     // Checks that we've set the Missing cell policy correctly
-    def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.resource("Missing.xlsx", "Sheet1", "A1:C4")
+    def csv = Excel.resource("Missing.xlsx", "Sheet1", "A1:C4")
     val csvSeq = csv.toSeq
     // csvSeq.ptbln
     assertEquals(csv.column["Column 2"].toList.drop(1).head, "") // blank
