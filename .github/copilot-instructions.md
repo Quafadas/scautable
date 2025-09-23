@@ -14,16 +14,16 @@ Scautable is a Scala 3 project using the mill build tool. It is a lightweight da
   - `./mill --version` -- Verify mill works (may fail in sandboxed environments due to SSL issues)
 - **NEVER CANCEL BUILDS**: Mill compilation takes 2-5 minutes. Tests take 1-3 minutes. ALWAYS set timeout to 10+ minutes.
 - Compile all modules:
-  - `./mill __.compile` -- Compiles all modules (JVM, JS, tests). Takes 3-5 minutes. NEVER CANCEL.
+  - `./mill __.compile` -- Compiles all modules (JVM, JS, tests). Takes 3-5 minutes cold, fast cached. NEVER CANCEL.
 - Compile specific platforms:
   - `./mill scautable.js.compile` -- Compile Scala.js target only
   - `./mill scautable.jvm.compile` -- Compile JVM target only
 - Run tests:
-  - `./mill scautable.test._` -- Run all tests (JVM and JS). Takes 2-3 minutes. NEVER CANCEL.
+  - `./mill scautable.test._` -- Run all tests (JVM and JS). Takes 2-3 minutes cold, fast cached. NEVER CANCEL.
 - Format code:
-  - `./mill __.reformat` -- Format all code using scalafmt
+  - `./mill mill mill.scalalib.scalafmt/` -- Format all code using scalafmt
 - Generate documentation:
-  - `./mill site.siteGen` -- Generate documentation site (takes 1-2 minutes)
+  - `./mill site.siteGen` -- Generate documentation site (takes 1-2 minutes cold, fast cached)
 
 ## SSL Certificate Issues in Sandboxed Environments
 - Mill may fail with `javax.net.ssl.SSLHandshakeException` errors in certain environments
@@ -62,40 +62,17 @@ build.mill         -- Root build configuration
 3. Add JVM-specific tests in `scautable/test/src-jvm/` if needed
 4. Run `./mill scautable.test._` to validate
 
-### Working with Mill Resources
-Mill separates compile resources and runtime resources. For CSV files to be available at compile time:
-```scala
-trait ShareCompileResources extends ScalaModule {
-  override def compileResources = super.compileResources() ++ resources()
-}
-```
-
-### Using scala-cli for Development
-For quick iteration and testing:
-```scala
-//> using scala 3.7.2
-//> using dep io.github.quafadas::scautable::{{latest_version}}
-//> using resourceDir ./csvs
-
-import io.github.quafadas.table.*
-
-@main def testCsv = 
-  val csv = CSV.resource("test.csv")
-  csv.take(10).toSeq.ptbln
-```
-
 ## Code Guidelines
 - Follow `styleguide.md` for coding conventions
 - Use munit for tests. Cross-platform tests go in `scautable/test/src`
 - JVM-specific tests go in `scautable/test/src-jvm`
 - Use Scala 3 syntax: given/using, extension methods, enum types
-- Prefer compile-time type inference for CSV schemas
 - Use inline methods for performance-critical code
 
 ## Key Dependencies
-- Scala 3.7.2
-- Mill 1.0.4 (requires Java 21)
-- ScalaJS 1.19.0
+- Scala 3.7.2+
+- Mill 1+ (requires Java 21)
+- ScalaJS 1.19.0+
 - Munit for testing
 - scalatags for HTML generation
 - OS-lib for file operations
