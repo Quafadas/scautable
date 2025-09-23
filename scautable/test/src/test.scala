@@ -1,7 +1,5 @@
 package io.github.quafadas.scautable
 
-
-
 class HtmlRenderSuite extends munit.FunSuite:
 
   import HtmlRenderer.*
@@ -160,3 +158,4 @@ class HtmlRenderSuite extends munit.FunSuite:
       HtmlRenderer(test2, true).toString()
     )
   }
+end HtmlRenderSuite

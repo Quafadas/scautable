@@ -5,17 +5,19 @@ import io.github.quafadas.table.*
 
 class CSVSuite extends munit.FunSuite:
 
-
   test("csv from resource compiles and typechecks") {
     val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
-    val titanic: CsvIterator[("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"), (String, String, String, String, String, String, String, String, String, String, String, String)] =
+    val titanic: CsvIterator[
+      ("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"),
+      (String, String, String, String, String, String, String, String, String, String, String, String)
+    ] =
       CSV.resource("titanic.csv")
     // val wide = CSV.resource("wide.csv")
   }
 
   test("column safety") {
-    def csv: CsvIterator[("col1", "col2", "col3"),(String, String, String)] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     assert(
       !compileErrors("csv.column[\"notcol\"]").isEmpty()
@@ -85,7 +87,6 @@ class CSVSuite extends munit.FunSuite:
     assert(ll.head.col1 == "1")
     assert(ll.head.col3 == "7")
     assert(ll.last.col3 == "9")
-
 
   }
 
@@ -190,7 +191,30 @@ class CSVSuite extends munit.FunSuite:
           "Column21",
           "Column22"
       ),
-      (String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String)
+      (
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String
+      )
     ] = CSV.resource("wide22.csv")
     val wide23 = CSV.resource("wide23.csv")
     val out: Array[String] = wide22.column["Column21"].toArray
@@ -393,7 +417,8 @@ import CsvSchema.*"""
   }
 
   test("CSV.resource with Manual headers parses data_without_headers.csv correctly") {
-    val csv: CsvIterator[("name", "age", "profession"), (String, Int, String)]  = CSV.resource("data_without_headers.csv", HeaderOptions.Manual("name", "age", "profession"), TypeInferrer.FirstRow)
+    val csv: CsvIterator[("name", "age", "profession"), (String, Int, String)] =
+      CSV.resource("data_without_headers.csv", HeaderOptions.Manual("name", "age", "profession"), TypeInferrer.FirstRow)
 
     assertEquals(csv.headers, List("name", "age", "profession"))
 

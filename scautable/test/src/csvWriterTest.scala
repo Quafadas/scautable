@@ -2,7 +2,6 @@ package io.github.quafadas.scautable
 
 import io.github.quafadas.table.*
 
-
 class CSVWriterSuite extends munit.FunSuite:
 
   test("CSVWriter.formatField handles simple fields") {
@@ -56,14 +55,9 @@ class CSVWriterSuite extends munit.FunSuite:
       (col1 = "5", col2 = "6", col3 = "9")
     )
 
-    val expected = Seq("col1,col2,col3",
-"1,2,7",
-"3,4,8",
-"5,6,9")
+    val expected = Seq("col1,col2,col3", "1,2,7", "3,4,8", "5,6,9")
 
-    assertEquals(
-      data.toCsv(includeHeaders = true, ',', '"'
-    ).toSeq, expected)
+    assertEquals(data.toCsv(includeHeaders = true, ',', '"').toSeq, expected)
   }
 
   test("Iterator[NamedTuple].toCsv without headers") {
@@ -86,10 +80,7 @@ class CSVWriterSuite extends munit.FunSuite:
       (col1 = "3", col2 = "4")
     )
 
-    val expected = Seq(
-      """col1;col2""",
-"""1;2""",
-"""3;4""")
+    val expected = Seq("""col1;col2""", """1;2""", """3;4""")
 
     assertEquals(data.toCsv(delimiter = ';').toSeq, expected)
   }

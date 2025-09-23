@@ -36,7 +36,7 @@ class TypeInferrerSuite extends munit.FunSuite:
     assertEquals(rows.length, 3)
 
     assertEquals(rows(0).name, "Alice")
-    assertEquals(rows(0).age, "25")           
+    assertEquals(rows(0).age, "25")
     assertEquals(rows(0).profession, "Engineer")
 
     assertEquals(rows(1).age, "30")
@@ -60,7 +60,7 @@ class TypeInferrerSuite extends munit.FunSuite:
     assertEquals(rows.length, 3)
 
     assertEquals(rows(0).name, "Alice")
-    assertEquals(rows(0).age, 25)            
+    assertEquals(rows(0).age, 25)
     assertEquals(rows(0).profession, "Engineer")
 
     assertEquals(rows(1).name, "Bob")
@@ -72,7 +72,7 @@ class TypeInferrerSuite extends munit.FunSuite:
     assertEquals(rows(2).profession, "Student")
   }
 
-    test("TypeInferrer.FirstRow should fail compilation if accessed with wrong type") {
+  test("TypeInferrer.FirstRow should fail compilation if accessed with wrong type") {
     val csv = CSV.resource(
       "data_without_headers.csv",
       HeaderOptions.Manual("name", "age", "profession"),
@@ -97,7 +97,7 @@ class TypeInferrerSuite extends munit.FunSuite:
     )
 
     val rows = csv.toArray
-    assertEquals(rows.length, 3) 
+    assertEquals(rows.length, 3)
 
     assertEquals(rows(0).col1, 1)
     assertEquals(rows(1).col1, 2)
@@ -111,9 +111,9 @@ class TypeInferrerSuite extends munit.FunSuite:
     assertEquals(rows(1).col3, 2147483649L)
     assertEquals(rows(2).col3, 2147483650L)
 
-    assertEquals(rows(0).col4, "1")   
-    assertEquals(rows(1).col4, "b") 
-    assertEquals(rows(2).col4, "\\") 
+    assertEquals(rows(0).col4, "1")
+    assertEquals(rows(1).col4, "b")
+    assertEquals(rows(2).col4, "\\")
 
     assertEquals(rows(0).col5, "a")
     assertEquals(rows(1).col5, "b")
@@ -128,7 +128,7 @@ class TypeInferrerSuite extends munit.FunSuite:
     )
 
     val rows = csv.toArray
-    assertEquals(rows.length, 3) 
+    assertEquals(rows.length, 3)
 
     assertEquals(rows(0).col1, Some(1))
     assertEquals(rows(1).col1, Some(2))
@@ -146,13 +146,13 @@ class TypeInferrerSuite extends munit.FunSuite:
     assertEquals(rows(1).col4, "world")
     assertEquals(rows(2).col4, "!")
   }
-  
+
   // ---------------------------
   // TypeInferrer.FromTuple[T]()
   // ---------------------------
 
   test("TypeInferrer.fromTuple should apply provided column types explicitly") {
-    
+
     val csv: CsvIterator[("name", "age", "profession"), (String, Int, String)] =
       CSV.resource(
         "data_without_headers.csv",
@@ -166,7 +166,7 @@ class TypeInferrerSuite extends munit.FunSuite:
     assertEquals(rows.length, 3)
 
     assertEquals(rows(0).name, "Alice")
-    assertEquals(rows(0).age, 25)            
+    assertEquals(rows(0).age, 25)
     assertEquals(rows(0).profession, "Engineer")
 
     assertEquals(rows(1).name, "Bob")
@@ -179,16 +179,18 @@ class TypeInferrerSuite extends munit.FunSuite:
   }
 
   test("TypeInferrer.fromTuple should work with Boolean and custom enum types") {
-    
+
     enum Status:
       case Active, Inactive
-      
+    end Status
+
     inline given Decoder[Status] with
       def decode(str: String): Option[Status] =
         str match
           case "Active"   => Some(Status.Active)
           case "Inactive" => Some(Status.Inactive)
           case _          => None
+    end given
 
     val csv: CsvIterator[("name", "active", "status"), (String, Boolean, Status)] =
       CSV.resource("custom_types.csv", TypeInferrer.FromTuple[(String, Boolean, Status)]())
@@ -210,11 +212,10 @@ class TypeInferrerSuite extends munit.FunSuite:
   test("That boolean is preferred to Int where set") {
     // These two imports are equivalent
     val csvAll: CsvIterator[("c1", "c2"), (Int, Boolean)] = CSV.fromString("c1,c2\n0,0\n1,1\n2,1", TypeInferrer.FromAllRows)
-    val csv: CsvIterator[("c1", "c2"), (Int, Boolean)] = CSV.fromString("c1,c2\n0,0\n1,1\n2,1", TypeInferrer.FirstN(Int.MaxValue , false))    
+    val csv: CsvIterator[("c1", "c2"), (Int, Boolean)] = CSV.fromString("c1,c2\n0,0\n1,1\n2,1", TypeInferrer.FirstN(Int.MaxValue, false))
     val row1 = csv.next()
     assertEquals(row1.c1, 0)
     assertEquals(row1.c2, false)
   }
-
 
 end TypeInferrerSuite

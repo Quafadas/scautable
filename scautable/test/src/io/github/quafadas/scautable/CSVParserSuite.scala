@@ -165,3 +165,4 @@ class CSVParserSuite extends FunSuite:
     val result = CSVParser.parseLine(line)
     assertEquals(result, List("field1", "field2 with \\z invalid escape", "field3"))
   }
+end CSVParserSuite
