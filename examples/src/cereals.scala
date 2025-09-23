@@ -19,3 +19,4 @@ import viz.*
   println("plot regression")
   cereals.plotScatter["calories", "protein"]
   cereals.plotHistogram["protein"]
+end cereals

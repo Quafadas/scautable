@@ -1,7 +1,6 @@
 package io.github.quafadas.scautable
 
-/**
-  * Api compatibility object.
+/** Api compatibility object.
   */
 object Stats:
 

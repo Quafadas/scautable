@@ -1,6 +1,5 @@
 import io.github.quafadas.table.*
 
-
 import viz.Plottable.*
 
 import upickle.default.ReadWriter.join
@@ -56,7 +55,6 @@ end Gender
       .dropColumn["PassengerId"]
       .addColumn["AgeIsDefined", Boolean](_.Age.isDefined)
   )
-
 
   val surived: (survivied: Int, total: Int, pct: Double) = data
     .column["Survived"]
@@ -153,7 +151,7 @@ extension [K <: Tuple, V <: Tuple](data: Seq[NamedTuple[K, V]])
       ev: IsColumn[S, K] =:= true,
       s: ValueOf[S],
       @implicitNotFound("Column ${S} is not numeric")
-      numeric: Numeric[Elem[V, IdxAtName[S, K]]],
+      numeric: Numeric[Elem[V, IdxAtName[S, K]]]
   )(using ctx: viz.LowPriorityPlotTarget): Unit =
     import viz.vegaFlavour
     val oneCol = data.column[S]

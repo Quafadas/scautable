@@ -20,15 +20,15 @@ object ColumnTyped:
 
   // The index of a column name in a tuple of column names
   type IdxAtName[STR <: String, T <: Tuple] <: Int = T match
-    case EmptyTuple => -1
+    case EmptyTuple   => -1
     case head *: tail =>
       IsMatch[STR, head] match
-        case true => 0
+        case true  => 0
         case false => S[IdxAtName[STR, tail]]
 
   // Get the indexes of multiple column names
   type IndexesAtNames[Names <: Tuple, Columns <: Tuple] <: Tuple = Names match
-    case EmptyTuple => EmptyTuple
+    case EmptyTuple           => EmptyTuple
     case nameHead *: nameTail => IdxAtName[nameHead, Columns] *: IndexesAtNames[nameTail, Columns]
 
   type Negate[T <: Tuple] <: Tuple = T match

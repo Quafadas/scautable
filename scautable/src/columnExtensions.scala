@@ -96,7 +96,7 @@ object NamedTupleIteratorExtensions:
       // println(s"selectedHeaders $selectedHeaders")
       // println(s"idxes $idxes")
 
-      itr.map{ (x: NamedTuple[K, V]) =>
+      itr.map { (x: NamedTuple[K, V]) =>
         val tuple = x.toTuple
 
         // println("in tuple")
@@ -159,12 +159,14 @@ object NamedTupleIteratorExtensions:
         // Get all values for each column position
         val transposedTuple = transposeValues[V](rowList, 0)
         transposedTuple.withNames[K]
+      end if
+    end toColumnOriented
 
     // Helper to create empty collections for each type in the tuple
     private inline def createEmptyTranspose[Vs <: Tuple]: Tuple.Map[Vs, CC] =
       inline erasedValue[Vs] match
         case _: EmptyTuple => EmptyTuple
-        case _: (h *: t) =>
+        case _: (h *: t)   =>
           val bf = summonInline[BuildFrom[CC[NamedTuple[K, V]], h, CC[h]]]
           bf.fromSpecific(nt)(Iterator.empty) *: createEmptyTranspose[t]
 
@@ -172,7 +174,7 @@ object NamedTupleIteratorExtensions:
     private inline def transposeValues[Vs <: Tuple](rows: List[NamedTuple[K, V]], colIndex: Int): Tuple.Map[Vs, CC] =
       inline erasedValue[Vs] match
         case _: EmptyTuple => EmptyTuple
-        case _: (h *: t) =>
+        case _: (h *: t)   =>
           val bf = summonInline[BuildFrom[CC[NamedTuple[K, V]], h, CC[h]]]
           val columnValues = rows.map(_.toTuple.productElement(colIndex).asInstanceOf[h])
           bf.fromSpecific(nt)(columnValues) *: transposeValues[t](rows, colIndex + 1)
@@ -193,12 +195,14 @@ object NamedTupleIteratorExtensions:
         // Get all values for each column position
         val transposedTuple = transposeValuesTarget[V, Target](rowList, 0)
         transposedTuple.withNames[K]
+      end if
+    end toColumnOrientedAs
 
     // Helper to create empty collections for each type in the tuple with target collection type
     private inline def createEmptyTransposeTarget[Vs <: Tuple, Target[_]]: Tuple.Map[Vs, Target] =
       inline erasedValue[Vs] match
         case _: EmptyTuple => EmptyTuple
-        case _: (h *: t) =>
+        case _: (h *: t)   =>
           val factory = summonInline[Factory[h, Target[h]]]
           factory.fromSpecific(Iterator.empty) *: createEmptyTransposeTarget[t, Target]
 
@@ -206,7 +210,7 @@ object NamedTupleIteratorExtensions:
     private inline def transposeValuesTarget[Vs <: Tuple, Target[_]](rows: List[NamedTuple[K, V]], colIndex: Int): Tuple.Map[Vs, Target] =
       inline erasedValue[Vs] match
         case _: EmptyTuple => EmptyTuple
-        case _: (h *: t) =>
+        case _: (h *: t)   =>
           val factory = summonInline[Factory[h, Target[h]]]
           val columnValues = rows.map(_.toTuple.productElement(colIndex).asInstanceOf[h])
           factory.fromSpecific(columnValues) *: transposeValuesTarget[t, Target](rows, colIndex + 1)
@@ -215,8 +219,8 @@ object NamedTupleIteratorExtensions:
         @implicitNotFound("Column ${S} not found")
         ev: IsColumn[S, K] =:= true,
         bf: BuildFrom[
-          CC[NamedTuple[K, V]], 
-          NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]], 
+          CC[NamedTuple[K, V]],
+          NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]],
           CC[NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]]]
         ]
     ): CC[NamedTuple.Elem[NamedTuple.NamedTuple[K, V], IdxAtName[S, K]]] =
@@ -231,7 +235,11 @@ object NamedTupleIteratorExtensions:
       })
 
     inline def numericCols(using
-        bf: BuildFrom[CC[NamedTuple[K, V]], NamedTuple[SelectFromTuple[K, NumericColsIdx[V]], GetTypesAtNames[K, SelectFromTuple[K, NumericColsIdx[V]], V]], CC[NamedTuple[SelectFromTuple[K, NumericColsIdx[V]], GetTypesAtNames[K, SelectFromTuple[K, NumericColsIdx[V]], V]]]]
+        bf: BuildFrom[
+          CC[NamedTuple[K, V]],
+          NamedTuple[SelectFromTuple[K, NumericColsIdx[V]], GetTypesAtNames[K, SelectFromTuple[K, NumericColsIdx[V]], V]],
+          CC[NamedTuple[SelectFromTuple[K, NumericColsIdx[V]], GetTypesAtNames[K, SelectFromTuple[K, NumericColsIdx[V]], V]]]
+        ]
     ): CC[
       NamedTuple[
         SelectFromTuple[K, NumericColsIdx[V]],
@@ -243,7 +251,11 @@ object NamedTupleIteratorExtensions:
     end numericCols
 
     inline def nonNumericCols(using
-        bf: BuildFrom[CC[NamedTuple[K, V]], NamedTuple[SelectFromTuple[K, Negate[NumericColsIdx[V]]], GetTypesAtNames[K, SelectFromTuple[K, Negate[NumericColsIdx[V]]], V]], CC[NamedTuple[SelectFromTuple[K, Negate[NumericColsIdx[V]]], GetTypesAtNames[K, SelectFromTuple[K, Negate[NumericColsIdx[V]]], V]]]]
+        bf: BuildFrom[
+          CC[NamedTuple[K, V]],
+          NamedTuple[SelectFromTuple[K, Negate[NumericColsIdx[V]]], GetTypesAtNames[K, SelectFromTuple[K, Negate[NumericColsIdx[V]]], V]],
+          CC[NamedTuple[SelectFromTuple[K, Negate[NumericColsIdx[V]]], GetTypesAtNames[K, SelectFromTuple[K, Negate[NumericColsIdx[V]]], V]]]
+        ]
     ): CC[
       NamedTuple[
         SelectFromTuple[K, Negate[NumericColsIdx[V]]],
@@ -279,6 +291,7 @@ object NamedTupleIteratorExtensions:
           .withNames[ST]
           .asInstanceOf[NamedTuple[ST, GetTypesAtNames[K, ST, V]]]
       })
+    end columns
 
     inline def dropColumn[S <: String](using
         @implicitNotFound("Column ${S} not found")
@@ -296,6 +309,7 @@ object NamedTupleIteratorExtensions:
           case _             => (head ++ tail.tail).withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]]
         end match
       })
+    end dropColumn
 
     inline def mapColumn[S <: String, A](fct: GetTypeAtName[K, S, V] => A)(using
         @implicitNotFound("Column ${S} not found")
@@ -315,6 +329,7 @@ object NamedTupleIteratorExtensions:
         val (head, tail) = x.toTuple.splitAt(idx)
         (head ++ mapped *: tail.tail).withNames[K].asInstanceOf[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]]
       })
+    end mapColumn
 
     inline def forceColumnType[S <: String, A](using
         bf: BuildFrom[CC[NamedTuple[K, V]], NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]], CC[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]]]

@@ -1,6 +1,5 @@
 package io.github.quafadas.scautable
 
-
 /** According to chatGPT will parse RFC 4180 compliant CSV line.
   */
 private[scautable] object CSVParser:
@@ -56,6 +55,7 @@ private[scautable] object CSVParser:
               // Unknown escape sequence - treat backslash literally
               cellBuffer.append('\\')
               // Don't increment i, let the next character be processed normally
+          end match
 
         case `delimiter` if !inQuotes =>
           // Delimiter outside quotes ends the current cell
@@ -65,6 +65,7 @@ private[scautable] object CSVParser:
         case _ =>
           // Add character to the current cell
           cellBuffer.append(char)
+      end match
 
       i += 1
     end while
