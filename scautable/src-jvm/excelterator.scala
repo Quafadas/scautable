@@ -10,6 +10,7 @@ import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.ss.util.CellRangeAddress
 
 import io.github.quafadas.scautable.ColumnTyped.*
+import io.github.quafadas.table.TypeInferrer
 
 /** */
 object Excel:
@@ -27,10 +28,10 @@ object Excel:
     end apply
   end IteratorToExpr2
 
-  transparent inline def absolutePath[K](filePath: String, sheetName: String, range: String = "") = ${ readExcelAbolsutePath('filePath, 'sheetName, 'range) }
-  transparent inline def resource[K](filePath: String, sheetName: String, range: String = "") = ${ readExcelResource('filePath, 'sheetName, 'range) }
+  transparent inline def absolutePath[K](filePath: String, sheetName: String, range: String = "", typeInferrer: TypeInferrer = TypeInferrer.StringType) = ${ readExcelAbolsutePath('filePath, 'sheetName, 'range, 'typeInferrer) }
+  transparent inline def resource[K](filePath: String, sheetName: String, range: String = "", typeInferrer: TypeInferrer = TypeInferrer.StringType) = ${ readExcelResource('filePath, 'sheetName, 'range, 'typeInferrer) }
 
-  def readExcelResource(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String])(using Quotes) =
+  def readExcelResource(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
@@ -40,18 +41,27 @@ object Excel:
     val validatedPath = resourcePath.toURI.getPath
     val colRange = colRangeExpr.value
     
+    // Validate TypeInferrer at compile time
+    typeInferrerExpr match
+      case '{ TypeInferrer.StringType } => // OK, continue
+      case '{ TypeInferrer.FirstRow } => report.throwError("TypeInferrer FirstRow is not yet supported for Excel. Only StringType is currently supported.")
+      case '{ TypeInferrer.FromAllRows } => report.throwError("TypeInferrer FromAllRows is not yet supported for Excel. Only StringType is currently supported.")
+      case '{ TypeInferrer.FirstN(${ Expr(n) }) } => report.throwError(s"TypeInferrer FirstN($n) is not yet supported for Excel. Only StringType is currently supported.")
+      case '{ TypeInferrer.FromTuple[t]() } => report.throwError("TypeInferrer FromTuple is not yet supported for Excel. Only StringType is currently supported.")
+      case _ => report.throwError("Only TypeInferrer.StringType is currently supported for Excel")
+    
     // Create a simple ExcelIterator just to get the headers at compile time
     val tempFile = new java.io.File(validatedPath)
     val workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(tempFile)
     val sheet = workbook.getSheet(sheetName.valueOrAbort)
     val headers = colRange match
-      case Some(range) =>
+      case Some(range) if range.nonEmpty =>
         val cellRange = org.apache.poi.ss.util.CellRangeAddress.valueOf(range)
         val firstRow = sheet.getRow(cellRange.getFirstRow)
         val cells = for (i <- cellRange.getFirstColumn to cellRange.getLastColumn) 
           yield firstRow.getCell(i, org.apache.poi.ss.usermodel.Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
         cells.toList
-      case None =>
+      case _ =>
         if sheet.iterator().hasNext then 
           sheet.iterator().next().cellIterator().asScala.toList.map(_.toString)
         else 
@@ -79,24 +89,33 @@ object Excel:
     end match
   end readExcelResource
 
-  def readExcelAbolsutePath(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String])(using Quotes) =
+  def readExcelAbolsutePath(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
     import quotes.reflect.*
 
     val fPath = pathExpr.valueOrAbort
     val colRange = colRangeExpr.value
+    
+    // Validate TypeInferrer at compile time
+    typeInferrerExpr match
+      case '{ TypeInferrer.StringType } => // OK, continue
+      case '{ TypeInferrer.FirstRow } => report.throwError("TypeInferrer FirstRow is not yet supported for Excel. Only StringType is currently supported.")
+      case '{ TypeInferrer.FromAllRows } => report.throwError("TypeInferrer FromAllRows is not yet supported for Excel. Only StringType is currently supported.")
+      case '{ TypeInferrer.FirstN(${ Expr(n) }) } => report.throwError(s"TypeInferrer FirstN($n) is not yet supported for Excel. Only StringType is currently supported.")
+      case '{ TypeInferrer.FromTuple[t]() } => report.throwError("TypeInferrer FromTuple is not yet supported for Excel. Only StringType is currently supported.")
+      case _ => report.throwError("Only TypeInferrer.StringType is currently supported for Excel")
     
     // Create a simple ExcelIterator just to get the headers at compile time
     val tempFile = new java.io.File(fPath)
     val workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(tempFile)
     val sheet = workbook.getSheet(sheetName.valueOrAbort)
     val headers = colRange match
-      case Some(range) =>
+      case Some(range) if range.nonEmpty =>
         val cellRange = org.apache.poi.ss.util.CellRangeAddress.valueOf(range)
         val firstRow = sheet.getRow(cellRange.getFirstRow)
         val cells = for (i <- cellRange.getFirstColumn to cellRange.getLastColumn) 
           yield firstRow.getCell(i, org.apache.poi.ss.usermodel.Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
         cells.toList
-      case None =>
+      case _ =>
         if sheet.iterator().hasNext then 
           sheet.iterator().next().cellIterator().asScala.toList.map(_.toString)
         else 
@@ -145,16 +164,14 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
 
   var debugi: Int = colRange match
     case None        => 0
-    case Some(range) =>
+    case Some(range) if range.nonEmpty =>
       val (firstRow, lastRow, firstCol, lastCol) = getRanges(range)
       firstRow
+    case _ => 0
 
   val headers: List[String] =
     colRange match
-      case None =>
-        if sheetIterator.hasNext then sheetIterator.next().cellIterator().asScala.toList.map(_.toString)
-        else throw new Excel.BadTableException("No headers found in the first row of the sheet, and no range specified.")
-      case Some(range) =>
+      case Some(range) if range.nonEmpty =>
         val (firstRow, lastRow, firstCol, lastCol) = getRanges(range)
         // println(s"Row firstRow: $firstRow, lastRow: $lastRow, firstCol: $firstCol, lastCol: $lastCol")
         val firstRow_ = sheetIterator.drop(firstRow).next()
@@ -165,6 +182,9 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
             )
             yield firstRow_.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
         cells.toList
+      case _ =>
+        if sheetIterator.hasNext then sheetIterator.next().cellIterator().asScala.toList.map(_.toString)
+        else throw new Excel.BadTableException("No headers found in the first row of the sheet, and no range specified.")
 
   lazy val numCellsPerRow = headers.size
 
@@ -184,13 +204,13 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     val lastColumn = row.getLastCellNum();
     val cells = row.cellIterator().asScala
     val cellStr = colRange match
-      case None =>
-        cells.toList.map(_.toString)
-      case Some(range) =>
+      case Some(range) if range.nonEmpty =>
         val (firstRow, lastRow, firstCol, lastCol) = getRanges(range)
         // println(s"Row $debugi: $firstRow, $lastRow, $firstCol, $lastCol")
         val cells = for (i <- firstCol to lastCol) yield row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
         cells.toList
+      case _ =>
+        cells.toList.map(_.toString)
 
     // println(s"Row $debugi: ${cellStr.map(_.toString).mkString(", ")}")
     if cellStr.size != headers.size then
@@ -205,9 +225,9 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
 
   override def hasNext: Boolean =
     colRange match
-      case None        => sheetIterator.hasNext
-      case Some(value) =>
+      case Some(value) if value.nonEmpty =>
         val (firstRow, lastRow, firstCol, lastCol) = getRanges(value)
         debugi < lastRow
+      case _ => sheetIterator.hasNext
 
 end ExcelIterator
