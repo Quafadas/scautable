@@ -25,19 +25,12 @@ Scautable is a Scala 3 project using the mill build tool. It is a lightweight da
 - Generate documentation:
   - `./mill site.siteGen` -- Generate documentation site (takes 1-2 minutes cold, fast cached)
 
-## SSL Certificate Issues in Sandboxed Environments
-- Mill may fail with `javax.net.ssl.SSLHandshakeException` errors in certain environments
-- This is a known limitation of mill's dependency resolution in sandboxed/firewalled environments
-- Workarounds attempted: `JAVA_TOOL_OPTIONS`, `COURSIER_*` environment variables (none successful in current environment)
-- **CI Environment**: All commands work correctly in GitHub Actions (see `.github/workflows/ci.yml`)
-- **Development**: If SSL issues occur, note the limitation and continue with file-based exploration
-
 ## Validation
 - ALWAYS test CSV functionality after making changes to CSV parsing code
 - Test both JVM and JS targets when making cross-platform changes
 - Run `./mill scautable.test._` to validate all functionality
-- Format code with `./mill __.reformat` before committing
-- ALWAYS check that examples in `examples/` still compile after core changes
+- Format code with `./mill mill.scalalib.scalafmt/` before committing
+- Check that examples in `examples/` still compile after core changes
 
 ## Project Structure
 ```
