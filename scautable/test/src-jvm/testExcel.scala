@@ -95,20 +95,45 @@ class ExcelSuite extends munit.FunSuite:
     assertEquals(csv.size, 2) // 3 data rows
   }
 
-  test("excel provider rejects unsupported TypeInferrer at compile time") {
-    assert(
-      compileErrors(
-        """Excel.resource("SimpleTable.xlsx", "Sheet1", "", TypeInferrer.FirstRow)"""
-      ).contains("TypeInferrer.FirstRow is not yet supported for Excel. Only StringType and FromTuple are currently supported.")
-    )
+  test("excel provider with TypeInferrer.FirstRow should infer types from first row") {
+    // Test FirstRow with Numbers.xlsx - should be equivalent to FirstN(1)
+    def csv = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FirstRow)
 
-    assert(
-      compileErrors(
-        """Excel.resource("SimpleTable.xlsx", "Sheet1", "", TypeInferrer.FromAllRows)"""
-      ).contains("TypeInferrer.FromAllRows is not yet supported for Excel. Only StringType and FromTuple are currently supported.")
-    )
+    // Verify that we can read the data and it compiles with inferred types
+    val rows = csv.toList
+    assertEquals(rows.size, 2)
+    
+    // Test access to columns with the inferred types (should be same as FirstN(1))
+    assertEquals(csv.column["Doubles"].toList.head, 1.1) // Double
+    assertEquals(csv.column["Strings"].toList.head, "blah") // String
+    assertEquals(csv.column["Int"].toList.head, 1.0) // Excel sees 1 as 1.0 (Double)
+    assertEquals(csv.column["Longs"].toList.head, 1.0) // Excel sees 1 as 1.0 (Double)
+  }
 
-    // FirstN should now work - removing the old error test since it's now supported
+  test("excel provider with TypeInferrer.FromAllRows should infer types from all rows") {
+    // Test FromAllRows with Numbers.xlsx - should consider all data rows for type inference
+    def csv = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FromAllRows)
+
+    // Verify that we can read the data and it compiles with inferred types
+    val rows = csv.toList
+    assertEquals(rows.size, 2)
+    
+    // Test access to columns with the inferred types
+    assertEquals(csv.column["Doubles"].toList.head, 1.1) // Double
+    assertEquals(csv.column["Strings"].toList.head, "blah") // String
+    // These should still be inferred as Double based on all rows
+    assertEquals(csv.column["Int"].toList.head, 1.0) // Excel sees integers as doubles
+    assertEquals(csv.column["Longs"].toList.head, 1.0) // Excel sees longs as doubles
+  }
+
+  test("excel provider all TypeInferrer variants now supported") {    
+    // Just test compilation - no runtime assertions needed
+    def csvFirstRow = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FirstRow)
+    def csvFromAllRows = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FromAllRows)
+    def csvFirstN = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FirstN(2))
+    def csvString = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.StringType)
+    def csvFromTuple = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FromTuple[(Double, Double, Double, String)]())
+    
   }
 
   test("excel provider with TypeInferrer.FirstN should infer types automatically") {
