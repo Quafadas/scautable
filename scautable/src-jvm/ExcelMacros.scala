@@ -8,6 +8,7 @@ import org.apache.poi.ss.util.CellRangeAddress
 import scala.collection.JavaConverters.*
 import java.io.File
 import io.github.quafadas.scautable.BadTableException
+import io.github.quafadas.scautable.InferrerOps
 
 /** Compile-time macro functions for reading Excel files These macros perform Excel file inspection at compile time to determine structure
   */
@@ -91,7 +92,29 @@ object ExcelMacros:
             case '{ TypeInferrer.FromAllRows } =>
               report.throwError("TypeInferrer.FromAllRows is not yet supported for Excel. Only StringType and FromTuple are currently supported.")
             case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
-              report.throwError(s"TypeInferrer.FirstN($n) is not yet supported for Excel. Only StringType and FromTuple are currently supported.")
+              // Extract sample rows for type inference
+              val sampleRows = extractSampleRows(filePath, sheetName, colRange, n, headers.length)
+              
+              // Convert rows to CSV-like format for the InferrerOps
+              val csvRows = sampleRows.map(_.mkString(","))
+              val rowsIterator = csvRows.iterator
+              
+              // Use InferrerOps to infer types (with preferIntToBoolean = true as default)
+              val inferredTypeRepr = InferrerOps.inferrer(rowsIterator, true, n)
+              inferredTypeRepr.asType match
+                case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+            case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
+              // Extract sample rows for type inference
+              val sampleRows = extractSampleRows(filePath, sheetName, colRange, n, headers.length)
+              
+              // Convert rows to CSV-like format for the InferrerOps
+              val csvRows = sampleRows.map(_.mkString(","))
+              val rowsIterator = csvRows.iterator
+              
+              // Use InferrerOps to infer types with custom preferIntToBoolean setting
+              val inferredTypeRepr = InferrerOps.inferrer(rowsIterator, preferIntToBoolean, n)
+              inferredTypeRepr.asType match
+                case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             case _ =>
               report.throwError("Only TypeInferrer.StringType and TypeInferrer.FromTuple are currently supported for Excel")
         case _ =>
@@ -137,5 +160,40 @@ object ExcelMacros:
       else headerSet.add(header)
     }
   end validateUniqueHeaders
+
+  /** Extracts sample data rows from an Excel sheet for type inference
+    */
+  private def extractSampleRows(filePath: String, sheetName: String, colRange: Option[String], numRows: Int, numColumns: Int): List[List[String]] =
+    val workbook = WorkbookFactory.create(new File(filePath))
+    try
+      val sheet = workbook.getSheet(sheetName)
+      val sheetIterator = sheet.iterator().asScala
+      
+      // Skip header row
+      if sheetIterator.hasNext then sheetIterator.next()
+      
+      val sampleRows = sheetIterator.take(numRows).toList
+      
+      colRange match
+        case Some(range) if range.nonEmpty =>
+          val cellRange = CellRangeAddress.valueOf(range)
+          val firstCol = cellRange.getFirstColumn
+          val lastCol = cellRange.getLastColumn
+          sampleRows.map { row =>
+            (firstCol to lastCol).map { i =>
+              row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+            }.toList
+          }
+        case _ =>
+          sampleRows.map { row =>
+            // Ensure we extract exactly numColumns to match headers
+            (0 until numColumns).map { i =>
+              row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+            }.toList
+          }
+      end match
+    finally workbook.close()
+    end try
+  end extractSampleRows
 
 end ExcelMacros
