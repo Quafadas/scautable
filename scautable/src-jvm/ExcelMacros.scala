@@ -3,7 +3,7 @@ package io.github.quafadas.scautable
 import scala.quoted.*
 import io.github.quafadas.scautable.ColumnTyped.*
 import io.github.quafadas.table.TypeInferrer
-import org.apache.poi.ss.usermodel.{Row, WorkbookFactory}
+import org.apache.poi.ss.usermodel.{Row, WorkbookFactory, FormulaEvaluator, Cell}
 import org.apache.poi.ss.util.CellRangeAddress
 import scala.collection.JavaConverters.*
 import java.io.File
@@ -13,6 +13,19 @@ import io.github.quafadas.scautable.InferrerOps
 /** Compile-time macro functions for reading Excel files These macros perform Excel file inspection at compile time to determine structure
   */
 object ExcelMacros:
+
+  /** Get the evaluated value of a cell (evaluates formulas to their results)
+    */
+  private def getCellValue(cell: Cell, evaluator: FormulaEvaluator): String =
+    if cell == null then ""
+    else
+      cell.getCellType match
+        case org.apache.poi.ss.usermodel.CellType.FORMULA =>
+          val evaluatedCell = evaluator.evaluateInCell(cell)
+          evaluatedCell.toString
+        case _ =>
+          cell.toString
+  end getCellValue
 
   /** ToExpr instance for ExcelIterator to support compile-time code generation
     */
@@ -125,6 +138,7 @@ object ExcelMacros:
   private def extractHeaders(filePath: String, sheetName: String, colRange: Option[String]): List[String] =
     val workbook = WorkbookFactory.create(new File(filePath))
     try
+      val evaluator = workbook.getCreationHelper.createFormulaEvaluator()
       val sheet = workbook.getSheet(sheetName)
 
       colRange match
@@ -133,10 +147,10 @@ object ExcelMacros:
           val firstRow = sheet.getRow(cellRange.getFirstRow)
           val cells =
             for (i <- cellRange.getFirstColumn to cellRange.getLastColumn)
-              yield firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+              yield getCellValue(firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK), evaluator)
           cells.toList
         case _ =>
-          if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(_.toString)
+          if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(getCellValue(_, evaluator))
           else throw new BadTableException("No headers found in the first row of the sheet, and no range specified.")
       end match
     finally workbook.close()
@@ -167,13 +181,8 @@ object ExcelMacros:
     // Extract sample rows for type inference
     val sampleRows = extractSampleRows(filePath, sheetName, colRange, numRows, headers.length)
     
-    // Convert rows to properly escaped CSV format for the InferrerOps
-    def escapeCsvField(field: String): String =
-      if field.contains(",") || field.contains("\"") || field.contains("\n") then
-        "\"" + field.replace("\"", "\"\"") + "\""
-      else field
-    
-    val csvRows = sampleRows.map(_.map(escapeCsvField).mkString(","))
+    // Convert rows to CSV-like format for the InferrerOps
+    val csvRows = sampleRows.map(_.mkString(","))
     val rowsIterator = csvRows.iterator
     
     // Use InferrerOps to infer types
@@ -185,6 +194,7 @@ object ExcelMacros:
   private def extractSampleRows(filePath: String, sheetName: String, colRange: Option[String], numRows: Int, numColumns: Int): List[List[String]] =
     val workbook = WorkbookFactory.create(new File(filePath))
     try
+      val evaluator = workbook.getCreationHelper.createFormulaEvaluator()
       val sheet = workbook.getSheet(sheetName)
       val sheetIterator = sheet.iterator().asScala
       
@@ -200,14 +210,14 @@ object ExcelMacros:
           val lastCol = cellRange.getLastColumn
           sampleRows.map { row =>
             (firstCol to lastCol).map { i =>
-              row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+              getCellValue(row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK), evaluator)
             }.toList
           }
         case _ =>
           sampleRows.map { row =>
             // Ensure we extract exactly numColumns to match headers
             (0 until numColumns).map { i =>
-              row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+              getCellValue(row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK), evaluator)
             }.toList
           }
       end match

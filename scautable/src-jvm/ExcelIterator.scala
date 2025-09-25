@@ -3,7 +3,7 @@ package io.github.quafadas.scautable
 import java.io.File
 import scala.NamedTuple.*
 import scala.collection.JavaConverters.*
-import org.apache.poi.ss.usermodel.{Row, WorkbookFactory}
+import org.apache.poi.ss.usermodel.{Row, WorkbookFactory, FormulaEvaluator, Cell}
 import org.apache.poi.ss.util.CellRangeAddress
 import io.github.quafadas.scautable.BadTableException
 
@@ -48,9 +48,10 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     }
   end validateUniqueHeaders
 
-  // Lazy-initialized sheet iterator to avoid opening file until needed
+  // Lazy-initialized workbook and related components to avoid opening file until needed
+  private lazy val workbook = WorkbookFactory.create(new File(filePath))
+  private lazy val formulaEvaluator = workbook.getCreationHelper.createFormulaEvaluator()
   private lazy val sheetIterator =
-    val workbook = WorkbookFactory.create(new File(filePath))
     val sheet = workbook.getSheet(sheetName)
     sheet.iterator().asScala
   end sheetIterator
@@ -76,6 +77,19 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
   // Validate headers are unique at initialization
   validateUniqueHeaders(headers)
 
+  /** Get the evaluated value of a cell (evaluates formulas to their results)
+    */
+  private inline def getCellValue(cell: Cell): String =
+    if cell == null then ""
+    else
+      cell.getCellType match
+        case org.apache.poi.ss.usermodel.CellType.FORMULA =>
+          val evaluatedCell = formulaEvaluator.evaluateInCell(cell)
+          evaluatedCell.toString
+        case _ =>
+          cell.toString
+  end getCellValue
+
   /** Extract headers from a specified cell range This consumes the header row from the sheet iterator
     */
   private inline def extractHeadersFromRange(range: String): List[String] =
@@ -83,14 +97,14 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     val headerRow = sheetIterator.drop(firstRow).next()
     val cells =
       for (i <- firstCol.to(lastCol))
-        yield headerRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+        yield getCellValue(headerRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK))
     cells.toList
   end extractHeadersFromRange
 
   /** Extract headers from the first row of the sheet This consumes the header row from the sheet iterator
     */
   private inline def extractHeadersFromFirstRow(): List[String] =
-    if sheetIterator.hasNext then sheetIterator.next().cellIterator().asScala.toList.map(_.toString)
+    if sheetIterator.hasNext then sheetIterator.next().cellIterator().asScala.toList.map(getCellValue)
     else throw new BadTableException("No headers found in the first row of the sheet, and no range specified.")
   end extractHeadersFromFirstRow
 
@@ -102,10 +116,10 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
         val (_, _, firstCol, lastCol) = parseRange(range)
         val cells =
           for (i <- firstCol.to(lastCol))
-            yield row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+            yield getCellValue(row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK))
         cells.toList
       case _ =>
-        row.cellIterator().asScala.toList.map(_.toString)
+        row.cellIterator().asScala.toList.map(getCellValue)
   end extractCellValues
 
   override def next(): NamedTuple[K, V] =
