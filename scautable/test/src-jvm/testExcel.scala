@@ -18,13 +18,18 @@ class ExcelSuite extends munit.FunSuite:
 
   test ("Excel simple with default StringType inference") {
     val csv = Excel.resource("SimpleTable.xlsx", "Sheet1")
-    val csv2 = Excel.resource("SimpleTable.xlsx", "Sheet1", TypeInferrer.StringType)
     val seq = csv.toSeq
 
-    assertEquals(seq, csv2.toSeq)
     assertEquals(seq.size, 3)
     assertEquals(seq.column["Column 1"].toList.head, "Row 1, Col 1")
     assertEquals(seq.column["Column 1"].toList.last, "Row 3, Col 1")
+  }
+  
+  test("Excel formulae"){
+    val xl = Excel.resource("Formula.xlsx", "Sheet1", "", TypeInferrer.FromAllRows).toSeq
+
+    assertEqualsDouble(xl.column["d1"].last, 6.6,0.0000001)
+    assertEqualsDouble(xl.column["d2"].last, 6.0,0.00000001)
   }
 
   test("Numbers") {

@@ -25,3 +25,9 @@ One can also read from an absolute path
 import io.github.quafadas.table.*
 val csv = Excel.absolutePath("path/to/SimpleTable.xlsx", "Sheet1")
 ```
+
+## Limitations
+
+Excel is rather hard to make work reliably. 
+
+Formulae should be evaluated by default - this might make your workbook very slow, if you attempt to evaluate lots of formulae. 
