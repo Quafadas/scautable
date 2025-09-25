@@ -3,17 +3,25 @@
 
 Reading tables from excel should work a very similar way to CSV. The default behaviour is a bit of a hail mary. It assumes the excel workbook is rather well behaved, and that a blindly configured apache POI `RowIterator` will capture appropriate data. You should _not_ expect this method to be robust to blank rows / columns/ data elsewhere in the sheet.
 
-```scala sc:nocompile
+```scala mdoc
 import io.github.quafadas.table.*
 
-def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.absolutePath("path/to/SimpleTable.xlsx", "Sheet1")
-def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.resource("SimpleTable.xlsx", "Sheet1")
+val csv: ExcelIterator[("Column 1", "Column 2", "Column 3"), (String, String, String)] = Excel.resource("SimpleTable.xlsx", "Sheet1")
+println(csv.toSeq.consoleFormatNt(fansi = false))
+
+val csv2 = Excel.resource("Numbers.xlsx", "Sheet1", TypeInferrer.FromAllRows)
+println(csv2.toSeq.consoleFormatNt(fansi = false))
+
+
+val range = Excel.resource("Numbers.xlsx", "Sheet1", "A1:C3", TypeInferrer.FromAllRows)
+
+println(range.toSeq.consoleFormatNt(fansi = false))
+
 ```
 
-One can also read a (presumably well behaved) range.
+One can also read from an absolute path
 
-```scala sc:nocompile
+```scala
 import io.github.quafadas.table.*
-
-def csv: ExcelIterator[("Column 1", "Column 2", "Column 3")] = Excel.resource("path/to/SimpleTable.xlsx", "Sheet1", "A1:C3")
+val csv = Excel.absolutePath("path/to/SimpleTable.xlsx", "Sheet1")
 ```

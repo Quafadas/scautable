@@ -6,7 +6,9 @@ object table:
   export io.github.quafadas.scautable.HtmlRenderer
   export io.github.quafadas.scautable.CsvIterator
   export io.github.quafadas.scautable.Excel
+  export io.github.quafadas.scautable.ExcelIterator
   export io.github.quafadas.scautable.Excel.*
+
   export io.github.quafadas.scautable.ConsoleFormat.*
   export io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
   export io.github.quafadas.scautable.CSVWriterExtensions.*
