@@ -39,4 +39,11 @@ object Excel:
   transparent inline def resource[K](filePath: String, sheetName: String, range: String = "", inline typeInferrer: TypeInferrer = TypeInferrer.StringType) =
     ${ readExcelResource('filePath, 'sheetName, 'range, 'typeInferrer) }
 
+  transparent inline def resource[K](filePath: String, sheetName: String, inline typeInferrer: TypeInferrer) =
+    ${ readExcelResource('filePath, 'sheetName, '{""}, 'typeInferrer) }  
+
+  transparent inline def resource[K](filePath: String, sheetName: String) =
+    ${ readExcelResource('filePath, 'sheetName, '{""}, '{TypeInferrer.FromAllRows}) }
+  
+ 
 end Excel

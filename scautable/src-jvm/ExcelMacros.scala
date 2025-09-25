@@ -108,7 +108,7 @@ object ExcelMacros:
               inferredTypeRepr.asType match
                 case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             case _ =>
-              report.throwError("Only TypeInferrer.StringType and TypeInferrer.FromTuple are currently supported for Excel")
+              report.throwError("TypeInferrer not found")
         case _ =>
           report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
       end match
@@ -167,8 +167,13 @@ object ExcelMacros:
     // Extract sample rows for type inference
     val sampleRows = extractSampleRows(filePath, sheetName, colRange, numRows, headers.length)
     
-    // Convert rows to CSV-like format for the InferrerOps
-    val csvRows = sampleRows.map(_.mkString(","))
+    // Convert rows to properly escaped CSV format for the InferrerOps
+    def escapeCsvField(field: String): String =
+      if field.contains(",") || field.contains("\"") || field.contains("\n") then
+        "\"" + field.replace("\"", "\"\"") + "\""
+      else field
+    
+    val csvRows = sampleRows.map(_.map(escapeCsvField).mkString(","))
     val rowsIterator = csvRows.iterator
     
     // Use InferrerOps to infer types

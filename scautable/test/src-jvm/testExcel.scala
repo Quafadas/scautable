@@ -16,6 +16,31 @@ class ExcelSuite extends munit.FunSuite:
 
   }
 
+  test ("Excel simple with default StringType inference") {
+    val csv = Excel.resource("SimpleTable.xlsx", "Sheet1")
+    val csv2 = Excel.resource("SimpleTable.xlsx", "Sheet1", TypeInferrer.StringType)
+    val seq = csv.toSeq
+
+    assertEquals(seq, csv2.toSeq)
+    assertEquals(seq.size, 3)
+    assertEquals(seq.column["Column 1"].toList.head, "Row 1, Col 1")
+    assertEquals(seq.column["Column 1"].toList.last, "Row 3, Col 1")
+  }
+
+  test("Numbers") {
+    val csv = Excel.resource("Numbers.xlsx", "Sheet1", "A1:C3", TypeInferrer.FromAllRows)
+    val seq = csv.toSeq
+
+    assertEquals(seq.size, 2)
+    assertEquals(seq.column["Doubles"].toList.head, 1.1)
+    assertEquals(seq.column["Int"].toList.head, 1.0)
+    assertEquals(seq.column["Longs"].toList.head, 1.0)
+    assert(
+      compileErrors("""assertEquals(seq.column["Strings"].toList.head, "blah")""").contains("""Column ("Strings" : String) not found""")
+    )
+  }
+
+
   test("excel provider with explicit StringType TypeInferrer") {
     def csv = Excel.resource("SimpleTable.xlsx", "Sheet1", "", TypeInferrer.StringType)
 
@@ -102,7 +127,7 @@ class ExcelSuite extends munit.FunSuite:
     // Verify that we can read the data and it compiles with inferred types
     val rows = csv.toList
     assertEquals(rows.size, 2)
-    
+
     // Test access to columns with the inferred types (should be same as FirstN(1))
     assertEquals(csv.column["Doubles"].toList.head, 1.1) // Double
     assertEquals(csv.column["Strings"].toList.head, "blah") // String
@@ -117,7 +142,7 @@ class ExcelSuite extends munit.FunSuite:
     // Verify that we can read the data and it compiles with inferred types
     val rows = csv.toList
     assertEquals(rows.size, 2)
-    
+
     // Test access to columns with the inferred types
     assertEquals(csv.column["Doubles"].toList.head, 1.1) // Double
     assertEquals(csv.column["Strings"].toList.head, "blah") // String
@@ -126,14 +151,14 @@ class ExcelSuite extends munit.FunSuite:
     assertEquals(csv.column["Longs"].toList.head, 1.0) // Excel sees longs as doubles
   }
 
-  test("excel provider all TypeInferrer variants now supported") {    
+  test("excel provider all TypeInferrer variants now supported") {
     // Just test compilation - no runtime assertions needed
     def csvFirstRow = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FirstRow)
     def csvFromAllRows = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FromAllRows)
     def csvFirstN = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FirstN(2))
     def csvString = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.StringType)
     def csvFromTuple = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FromTuple[(Double, Double, Double, String)]())
-    
+
   }
 
   test("excel provider with TypeInferrer.FirstN should infer types automatically") {
@@ -144,11 +169,11 @@ class ExcelSuite extends munit.FunSuite:
     // Verify that we can read the data and it compiles with inferred types
     val rows = csv.toList
     assertEquals(rows.size, 2)
-    
+
     // Test access to columns with the actually inferred types
     assertEquals(csv.column["Doubles"].toList.head, 1.1) // Double
     assertEquals(csv.column["Strings"].toList.head, "blah") // String
-    
+
     // Note: Ints and Longs columns are inferred as Double (likely due to Excel number formatting)
     assertEquals(csv.column["Int"].toList.head, 1.0) // Excel sees 1 as 1.0 (Double)
     assertEquals(csv.column["Longs"].toList.head, 1.0) // Excel sees 1 as 1.0 (Double)
@@ -161,7 +186,7 @@ class ExcelSuite extends munit.FunSuite:
     // Verify the data is accessible with inferred types
     val rows = csv.toList
     assertEquals(rows.size, 2)
-    
+
     // Basic functionality test - verify we can access data
     assertEquals(csv.column["Doubles"].toList.head, 1.1)
     assertEquals(csv.column["Strings"].toList.head, "blah")
