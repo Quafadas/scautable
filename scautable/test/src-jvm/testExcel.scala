@@ -16,7 +16,7 @@ class ExcelSuite extends munit.FunSuite:
 
   }
 
-  test ("Excel simple with default StringType inference") {
+  test("Excel simple with default StringType inference") {
     val csv = Excel.resource("SimpleTable.xlsx", "Sheet1")
     val csv2 = Excel.resource("SimpleTable.xlsx", "Sheet1", TypeInferrer.StringType)
     val seq = csv.toSeq
@@ -39,7 +39,6 @@ class ExcelSuite extends munit.FunSuite:
       compileErrors("""assertEquals(seq.column["Strings"].toList.head, "blah")""").contains("""Column ("Strings" : String) not found""")
     )
   }
-
 
   test("excel provider with explicit StringType TypeInferrer") {
     def csv = Excel.resource("SimpleTable.xlsx", "Sheet1", "", TypeInferrer.StringType)
