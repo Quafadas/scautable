@@ -3,7 +3,7 @@ package io.github.quafadas.scautable
 import scala.quoted.*
 import io.github.quafadas.scautable.ColumnTyped.*
 import io.github.quafadas.table.TypeInferrer
-import org.apache.poi.ss.usermodel.{Row, WorkbookFactory}
+import org.apache.poi.ss.usermodel.{Row, WorkbookFactory, Cell, CellType, DateUtil}
 import org.apache.poi.ss.util.CellRangeAddress
 import scala.collection.JavaConverters.*
 import java.io.File
@@ -88,25 +88,29 @@ object ExcelMacros:
             case '{ TypeInferrer.StringType } =>
               constructWithStringTypes[hdrs & Tuple]
             case '{ TypeInferrer.FirstRow } =>
-              // FirstRow is equivalent to FirstN(1) 
-              val inferredTypeRepr = inferTypesFromExcelData(filePath, sheetName, colRange, headers, 1, true)
+              // FirstRow is equivalent to FirstN(1)
+              val inferredTypeRepr = inferTypesFromExcelDataDirect(filePath, sheetName, colRange, headers, 1, true)
               inferredTypeRepr.asType match
                 case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+              end match
             case '{ TypeInferrer.FromAllRows } =>
               // FromAllRows is equivalent to FirstN(Int.MaxValue)
-              val inferredTypeRepr = inferTypesFromExcelData(filePath, sheetName, colRange, headers, Int.MaxValue, true)
+              val inferredTypeRepr = inferTypesFromExcelDataDirect(filePath, sheetName, colRange, headers, Int.MaxValue, true)
               inferredTypeRepr.asType match
                 case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+              end match
             case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
               // FirstN with default preferIntToBoolean = true
-              val inferredTypeRepr = inferTypesFromExcelData(filePath, sheetName, colRange, headers, n, true)
+              val inferredTypeRepr = inferTypesFromExcelDataDirect(filePath, sheetName, colRange, headers, n, true)
               inferredTypeRepr.asType match
                 case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+              end match
             case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
               // FirstN with custom preferIntToBoolean setting
-              val inferredTypeRepr = inferTypesFromExcelData(filePath, sheetName, colRange, headers, n, preferIntToBoolean)
+              val inferredTypeRepr = inferTypesFromExcelDataDirect(filePath, sheetName, colRange, headers, n, preferIntToBoolean)
               inferredTypeRepr.asType match
                 case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+              end match
             case _ =>
               report.throwError("TypeInferrer not found")
         case _ =>
@@ -153,29 +157,226 @@ object ExcelMacros:
     }
   end validateUniqueHeaders
 
-  /** Helper function to perform type inference on Excel data and return the inferred TypeRepr
+  /** Extract sample rows from Excel using Apache POI CellType to directly determine Scala types and return TypeRepr.
+    *
+    * This method improves upon the original CSV-based approach by:
+    *   1. Using Apache POI's CellType enum to directly determine the native Excel data types
+    *   2. Handling dates, formulas, and other Excel-specific cell types correctly
+    *   3. Avoiding the overhead of converting to CSV format and re-parsing
+    *   4. Providing more accurate type inference based on actual cell content
+    *
+    * Cell type mapping follows Apache POI documentation:
+    *   - CellType.STRING: String values, with additional parsing for Int/Long/Double/Boolean
+    *   - CellType.NUMERIC: Double values, or dates (converted to String for consistency)
+    *   - CellType.BOOLEAN: Boolean values
+    *   - CellType.FORMULA: Evaluated to determine the result type
+    *   - CellType.BLANK: Empty cells (contribute to Option wrapping)
+    *
+    * @param filePath
+    *   Excel file path
+    * @param sheetName
+    *   Excel sheet name
+    * @param colRange
+    *   Optional cell range (e.g. "A1:C10")
+    * @param headers
+    *   List of column headers
+    * @param numRows
+    *   Number of rows to sample for type inference
+    * @param preferIntToBoolean
+    *   When true, prefer Int over Boolean for 0/1 values
+    * @return
+    *   TypeRepr representing the inferred tuple type for the Excel data
     */
-  private def inferTypesFromExcelData(using Quotes)(
-      filePath: String, 
-      sheetName: String, 
-      colRange: Option[String], 
+  private def inferTypesFromExcelDataDirect(using
+      Quotes
+  )(
+      filePath: String,
+      sheetName: String,
+      colRange: Option[String],
       headers: List[String],
-      numRows: Int, 
+      numRows: Int,
       preferIntToBoolean: Boolean
   ): quotes.reflect.TypeRepr =
-    
+    import quotes.reflect.*
+
+    val workbook = WorkbookFactory.create(new File(filePath))
+    try
+      val sheet = workbook.getSheet(sheetName)
+      val sheetIterator = sheet.iterator().asScala
+
+      // Skip header row
+      if sheetIterator.hasNext then sheetIterator.next()
+      end if
+
+      val sampleRows = sheetIterator.take(numRows).toList
+
+      // Extract data based on column range or use all columns
+      val columnData: List[List[Cell]] = colRange match
+        case Some(range) if range.nonEmpty =>
+          val cellRange = CellRangeAddress.valueOf(range)
+          val firstCol = cellRange.getFirstColumn
+          val lastCol = cellRange.getLastColumn
+          sampleRows.map { row =>
+            (firstCol to lastCol).map { i =>
+              row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
+            }.toList
+          }
+        case _ =>
+          sampleRows.map { row =>
+            // Ensure we extract exactly headers.length columns to match headers
+            (0 until headers.length).map { i =>
+              row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
+            }.toList
+          }
+
+      // Transpose to get columns instead of rows
+      val columns = columnData.transpose
+
+      // Infer type for each column using Apache POI cell types
+      val columnTypes: List[TypeRepr] = columns.map { columnCells =>
+        inferColumnTypeFromCells(columnCells, preferIntToBoolean)
+      }
+
+      // Build tuple type from column types
+      val tupleType: TypeRepr = columnTypes.foldRight(TypeRepr.of[EmptyTuple]) { (tpe, acc) =>
+        TypeRepr.of[*:].appliedTo(List(tpe, acc))
+      }
+
+      tupleType
+    finally workbook.close()
+    end try
+  end inferTypesFromExcelDataDirect
+
+  /** Infer the most appropriate Scala type for a column based on Apache POI cell types
+    */
+  private def inferColumnTypeFromCells(using Quotes)(cells: List[Cell], preferIntToBoolean: Boolean): quotes.reflect.TypeRepr =
+    import quotes.reflect.*
+
+    case class ColumnTypeInfo(
+        couldBeInt: Boolean = true,
+        couldBeLong: Boolean = true,
+        couldBeDouble: Boolean = true,
+        couldBeBoolean: Boolean = true,
+        seenEmpty: Boolean = false
+    )
+
+    def updateTypeInfo(info: ColumnTypeInfo, cell: Cell): ColumnTypeInfo =
+      cell.getCellType match
+        case CellType.BLANK =>
+          info.copy(seenEmpty = true)
+        case CellType.STRING =>
+          val str = cell.getStringCellValue
+          if str.isEmpty then info.copy(seenEmpty = true)
+          else
+            info.copy(
+              couldBeInt = info.couldBeInt && str.toIntOption.isDefined,
+              couldBeLong = info.couldBeLong && str.toLongOption.isDefined,
+              couldBeDouble = info.couldBeDouble && str.toDoubleOption.isDefined,
+              couldBeBoolean = info.couldBeBoolean && (str.toBooleanOption.isDefined || str == "0" || str == "1")
+            )
+          end if
+        case CellType.NUMERIC =>
+          if DateUtil.isCellDateFormatted(cell) then
+            // Dates are represented as strings for consistency with CSV behavior
+            info.copy(
+              couldBeInt = false,
+              couldBeLong = false,
+              couldBeDouble = false,
+              couldBeBoolean = false
+            )
+          else
+            val numericValue = cell.getNumericCellValue
+            val isWholeNumber = numericValue == numericValue.toLong
+            info.copy(
+              couldBeInt = info.couldBeInt && isWholeNumber && numericValue >= Int.MinValue && numericValue <= Int.MaxValue,
+              couldBeLong = info.couldBeLong && isWholeNumber && numericValue >= Long.MinValue && numericValue <= Long.MaxValue,
+              // Be more conservative with Boolean inference for numeric cells - only if it's exactly 0 or 1
+              couldBeBoolean = info.couldBeBoolean && isWholeNumber && (numericValue == 0.0 || numericValue == 1.0)
+            )
+        case CellType.BOOLEAN =>
+          info.copy(
+            couldBeInt = false,
+            couldBeLong = false,
+            couldBeDouble = false
+          )
+        case CellType.FORMULA =>
+          // For formulas, evaluate the result and recurse
+          try
+            val evaluatedCell = cell.getSheet.getWorkbook.getCreationHelper.createFormulaEvaluator().evaluate(cell)
+            if evaluatedCell != null then
+              // Create a temporary cell with the evaluated value to determine type
+              val tempCell = cell.getRow.createCell(cell.getColumnIndex + 1000, evaluatedCell.getCellType)
+              evaluatedCell.getCellType match
+                case CellType.NUMERIC => tempCell.setCellValue(evaluatedCell.getNumberValue)
+                case CellType.STRING  => tempCell.setCellValue(evaluatedCell.getStringValue)
+                case CellType.BOOLEAN => tempCell.setCellValue(evaluatedCell.getBooleanValue)
+                case _                => // Keep current info for other types
+              end match
+              val result = updateTypeInfo(info, tempCell)
+              cell.getRow.removeCell(tempCell) // Clean up
+              result
+            else info
+            end if
+          catch case _ => info // If formula evaluation fails, keep current info
+        case _ =>
+          // For other cell types (ERROR, etc.), treat as string
+          info.copy(
+            couldBeInt = false,
+            couldBeLong = false,
+            couldBeDouble = false,
+            couldBeBoolean = false
+          )
+    end updateTypeInfo
+
+    val initial = ColumnTypeInfo()
+    val finalInfo = cells.foldLeft(initial)(updateTypeInfo)
+
+    // Determine the most appropriate type based on what the column could be
+    val baseType =
+      if preferIntToBoolean then
+        if finalInfo.couldBeInt then TypeRepr.of[Int]
+        else if finalInfo.couldBeBoolean then TypeRepr.of[Boolean]
+        else if finalInfo.couldBeLong then TypeRepr.of[Long]
+        else if finalInfo.couldBeDouble then TypeRepr.of[Double]
+        else TypeRepr.of[String]
+      else
+        // When preferIntToBoolean=false, be more conservative with Boolean inference
+        // Only infer Boolean if we can't be Int/Long/Double, to avoid mismatched data types
+        if finalInfo.couldBeBoolean && !finalInfo.couldBeInt && !finalInfo.couldBeLong && !finalInfo.couldBeDouble then TypeRepr.of[Boolean]
+        else if finalInfo.couldBeInt then TypeRepr.of[Int]
+        else if finalInfo.couldBeLong then TypeRepr.of[Long]
+        else if finalInfo.couldBeDouble then TypeRepr.of[Double]
+        else TypeRepr.of[String]
+
+    // Wrap in Option if we've seen empty cells
+    if finalInfo.seenEmpty then TypeRepr.of[Option].appliedTo(baseType) else baseType
+    end if
+  end inferColumnTypeFromCells
+
+  /** Helper function to perform type inference on Excel data and return the inferred TypeRepr (legacy CSV-based approach)
+    */
+  private def inferTypesFromExcelData(using
+      Quotes
+  )(
+      filePath: String,
+      sheetName: String,
+      colRange: Option[String],
+      headers: List[String],
+      numRows: Int,
+      preferIntToBoolean: Boolean
+  ): quotes.reflect.TypeRepr =
+
     // Extract sample rows for type inference
     val sampleRows = extractSampleRows(filePath, sheetName, colRange, numRows, headers.length)
-    
+
     // Convert rows to properly escaped CSV format for the InferrerOps
     def escapeCsvField(field: String): String =
-      if field.contains(",") || field.contains("\"") || field.contains("\n") then
-        "\"" + field.replace("\"", "\"\"") + "\""
+      if field.contains(",") || field.contains("\"") || field.contains("\n") then "\"" + field.replace("\"", "\"\"") + "\""
       else field
-    
+
     val csvRows = sampleRows.map(_.map(escapeCsvField).mkString(","))
     val rowsIterator = csvRows.iterator
-    
+
     // Use InferrerOps to infer types
     InferrerOps.inferrer(rowsIterator, preferIntToBoolean, numRows)
   end inferTypesFromExcelData
@@ -187,12 +388,13 @@ object ExcelMacros:
     try
       val sheet = workbook.getSheet(sheetName)
       val sheetIterator = sheet.iterator().asScala
-      
+
       // Skip header row
       if sheetIterator.hasNext then sheetIterator.next()
-      
+      end if
+
       val sampleRows = sheetIterator.take(numRows).toList
-      
+
       colRange match
         case Some(range) if range.nonEmpty =>
           val cellRange = CellRangeAddress.valueOf(range)

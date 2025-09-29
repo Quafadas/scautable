@@ -33,8 +33,8 @@ class ExcelSuite extends munit.FunSuite:
 
     assertEquals(seq.size, 2)
     assertEquals(seq.column["Doubles"].toList.head, 1.1)
-    assertEquals(seq.column["Int"].toList.head, 1.0)
-    assertEquals(seq.column["Longs"].toList.head, 1.0)
+    assertEquals(seq.column["Int"].toList.head, 1)
+    assertEquals(seq.column["Longs"].toList.head, 1)
     assert(
       compileErrors("""assertEquals(seq.column["Strings"].toList.head, "blah")""").contains("""Column ("Strings" : String) not found""")
     )
@@ -131,8 +131,8 @@ class ExcelSuite extends munit.FunSuite:
     // Test access to columns with the inferred types (should be same as FirstN(1))
     assertEquals(csv.column["Doubles"].toList.head, 1.1) // Double
     assertEquals(csv.column["Strings"].toList.head, "blah") // String
-    assertEquals(csv.column["Int"].toList.head, 1.0) // Excel sees 1 as 1.0 (Double)
-    assertEquals(csv.column["Longs"].toList.head, 1.0) // Excel sees 1 as 1.0 (Double)
+    assertEquals(csv.column["Int"].toList.head, 1) // Apache POI correctly identifies as Int
+    assertEquals(csv.column["Longs"].toList.head, 1) // Apache POI correctly identifies as Int
   }
 
   test("excel provider with TypeInferrer.FromAllRows should infer types from all rows") {
@@ -146,9 +146,9 @@ class ExcelSuite extends munit.FunSuite:
     // Test access to columns with the inferred types
     assertEquals(csv.column["Doubles"].toList.head, 1.1) // Double
     assertEquals(csv.column["Strings"].toList.head, "blah") // String
-    // These should still be inferred as Double based on all rows
-    assertEquals(csv.column["Int"].toList.head, 1.0) // Excel sees integers as doubles
-    assertEquals(csv.column["Longs"].toList.head, 1.0) // Excel sees longs as doubles
+    // Apache POI correctly identifies these as integers
+    assertEquals(csv.column["Int"].toList.head, 1) // Apache POI correctly identifies as Int
+    assertEquals(csv.column["Longs"].toList.head, 1) // Apache POI correctly identifies as Int
   }
 
   test("excel provider all TypeInferrer variants now supported") {
@@ -174,22 +174,23 @@ class ExcelSuite extends munit.FunSuite:
     assertEquals(csv.column["Doubles"].toList.head, 1.1) // Double
     assertEquals(csv.column["Strings"].toList.head, "blah") // String
 
-    // Note: Ints and Longs columns are inferred as Double (likely due to Excel number formatting)
-    assertEquals(csv.column["Int"].toList.head, 1.0) // Excel sees 1 as 1.0 (Double)
-    assertEquals(csv.column["Longs"].toList.head, 1.0) // Excel sees 1 as 1.0 (Double)
+    // Apache POI correctly identifies these as integers based on cell type
+    assertEquals(csv.column["Int"].toList.head, 1) // Apache POI correctly identifies as Int
+    assertEquals(csv.column["Longs"].toList.head, 1) // Apache POI correctly identifies as Int
   }
 
   test("excel provider with TypeInferrer.FirstN and preferIntToBoolean parameter") {
-    // Test FirstN with custom preferIntToBoolean setting
+    // Test FirstN with custom preferIntToBoolean setting - just verify compilation and basic access
     def csv = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FirstN(1, false))
 
-    // Verify the data is accessible with inferred types
+    // Verify that we can read the data and it compiles with inferred types
     val rows = csv.toList
     assertEquals(rows.size, 2)
 
-    // Basic functionality test - verify we can access data
+    // Basic functionality test - verify we can access data (don't assert specific types due to preferIntToBoolean differences)
     assertEquals(csv.column["Doubles"].toList.head, 1.1)
     assertEquals(csv.column["Strings"].toList.head, "blah")
+    // Note: Int/Longs columns may be inferred differently with preferIntToBoolean=false
   }
 
 end ExcelSuite
