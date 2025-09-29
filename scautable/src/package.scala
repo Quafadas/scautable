@@ -8,12 +8,18 @@ object table:
   export io.github.quafadas.scautable.Excel
   export io.github.quafadas.scautable.ExcelIterator
   export io.github.quafadas.scautable.Excel.*
+  export io.github.quafadas.scautable.BadTableException
+
+
 
   export io.github.quafadas.scautable.ConsoleFormat.*
   export io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
   export io.github.quafadas.scautable.CSVWriterExtensions.*
   export io.github.quafadas.scautable.HeaderOptions.*
   export io.github.quafadas.scautable.Stats.*
+
+  // Excel requires it's own decoders
+  export io.github.quafadas.scautable.ExcelDecoders.given
 
   /** Enumeration of strategies for inferring column types when reading CSV files.
     *

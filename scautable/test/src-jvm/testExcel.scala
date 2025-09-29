@@ -1,11 +1,9 @@
 package io.github.quafadas.scautable
 
+
 import scala.NamedTuple.*
 
-import io.github.quafadas.table.*
-import io.github.quafadas.scautable.BadTableException
-import io.github.quafadas.scautable.ExcelDecoders.given
-
+import io.github.quafadas.table.{*, given}
 class ExcelSuite extends munit.FunSuite:
 
   test("excel provider compiles and typechecks") {
@@ -28,6 +26,8 @@ class ExcelSuite extends munit.FunSuite:
   }
 
   test("Numbers") {
+    val csv2 = Excel.resource("Numbers.xlsx", "Sheet1", TypeInferrer.FromAllRows)
+    csv2.toSeq.ptbln
     val csv = Excel.resource("Numbers.xlsx", "Sheet1", "A1:C3", TypeInferrer.FromAllRows)
     val seq = csv.toSeq
 
