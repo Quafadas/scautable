@@ -277,7 +277,7 @@ object ExcelMacros:
           end if
         case CellType.NUMERIC =>
           if DateUtil.isCellDateFormatted(cell) then
-            // Dates are represented as strings for consistency with CSV behavior
+            // TODO: Dates are represented as strings for consistency with CSV behavior
             info.copy(
               couldBeInt = false,
               couldBeLong = false,
@@ -352,69 +352,5 @@ object ExcelMacros:
     if finalInfo.seenEmpty then TypeRepr.of[Option].appliedTo(baseType) else baseType
     end if
   end inferColumnTypeFromCells
-
-  /** Helper function to perform type inference on Excel data and return the inferred TypeRepr (legacy CSV-based approach)
-    */
-  private def inferTypesFromExcelData(using
-      Quotes
-  )(
-      filePath: String,
-      sheetName: String,
-      colRange: Option[String],
-      headers: List[String],
-      numRows: Int,
-      preferIntToBoolean: Boolean
-  ): quotes.reflect.TypeRepr =
-
-    // Extract sample rows for type inference
-    val sampleRows = extractSampleRows(filePath, sheetName, colRange, numRows, headers.length)
-
-    // Convert rows to properly escaped CSV format for the InferrerOps
-    def escapeCsvField(field: String): String =
-      if field.contains(",") || field.contains("\"") || field.contains("\n") then "\"" + field.replace("\"", "\"\"") + "\""
-      else field
-
-    val csvRows = sampleRows.map(_.map(escapeCsvField).mkString(","))
-    val rowsIterator = csvRows.iterator
-
-    // Use InferrerOps to infer types
-    InferrerOps.inferrer(rowsIterator, preferIntToBoolean, numRows)
-  end inferTypesFromExcelData
-
-  /** Extracts sample data rows from an Excel sheet for type inference
-    */
-  private def extractSampleRows(filePath: String, sheetName: String, colRange: Option[String], numRows: Int, numColumns: Int): List[List[String]] =
-    val workbook = WorkbookFactory.create(new File(filePath))
-    try
-      val sheet = workbook.getSheet(sheetName)
-      val sheetIterator = sheet.iterator().asScala
-
-      // Skip header row
-      if sheetIterator.hasNext then sheetIterator.next()
-      end if
-
-      val sampleRows = sheetIterator.take(numRows).toList
-
-      colRange match
-        case Some(range) if range.nonEmpty =>
-          val cellRange = CellRangeAddress.valueOf(range)
-          val firstCol = cellRange.getFirstColumn
-          val lastCol = cellRange.getLastColumn
-          sampleRows.map { row =>
-            (firstCol to lastCol).map { i =>
-              row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
-            }.toList
-          }
-        case _ =>
-          sampleRows.map { row =>
-            // Ensure we extract exactly numColumns to match headers
-            (0 until numColumns).map { i =>
-              row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
-            }.toList
-          }
-      end match
-    finally workbook.close()
-    end try
-  end extractSampleRows
 
 end ExcelMacros
