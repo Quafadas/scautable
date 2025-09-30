@@ -92,6 +92,26 @@ object CSV:
     readCsvFromString('csvContent, 'headers, 'dataType)
   }
 
+  /** Reads a CSV from the system clipboard and returns a [[io.github.quafadas.scautable.CsvIterator]].
+    *
+    * Default behavior: single header row, infer types from all rows.
+    *
+    * Example:
+    * {{{
+    * // Copy CSV data to clipboard first
+    * val csv: CsvIterator[("colA", "colB")] = CSV.clipboard()
+    * }}}
+    */
+  transparent inline def clipboard[T](): Any = clipboard[T](HeaderOptions.Default, TypeInferrer.FromAllRows)
+
+  transparent inline def clipboard[T](inline headers: HeaderOptions): Any = clipboard[T](headers, TypeInferrer.FromAllRows)
+
+  transparent inline def clipboard[T](inline dataType: TypeInferrer): Any = clipboard[T](HeaderOptions.Default, dataType)
+
+  transparent inline def clipboard[T](inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${
+    readCsvFromClipboard('headers, 'dataType)
+  }
+
   private transparent inline def readHeaderlineAsCsv(path: String, csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using q: Quotes) =
     import q.reflect.*
     import io.github.quafadas.scautable.HeaderOptions.*
@@ -255,5 +275,74 @@ object CSV:
         report.throwError("Could not infer literal header tuple.")
     end match
   end readCsvFromString
+
+  private def readCsvFromClipboard(csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
+    import quotes.reflect.*
+    import io.github.quafadas.scautable.HeaderOptions.*
+
+    // Read clipboard content at compile time
+    val platformSpecific = new io.github.quafadas.scautable.PlatformSpecific {}
+    val content = platformSpecific.readClipboard()
+
+    if content.trim.isEmpty then report.throwError("Empty clipboard content. Please copy CSV data to clipboard.")
+    end if
+
+    val lines = content.linesIterator
+    val (headers, iter) = lines.headers(csvHeaders.valueOrAbort)
+
+    if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
+
+    end if
+
+    val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+
+    def constructWithTypes[Hdrs <: Tuple: Type, Data <: Tuple: Type]: Expr[CsvIterator[Hdrs, Data]] =
+      '{
+        val platformSpecific = new io.github.quafadas.scautable.PlatformSpecific {}
+        val content = platformSpecific.readClipboard()
+        val lines = content.linesIterator
+        val (headers, iterator) = lines.headers($csvHeaders)
+        new CsvIterator[Hdrs, Data](iterator, headers)
+      }
+
+    headerTupleExpr match
+      case '{ $tup: hdrs } =>
+        dataType match
+
+          case '{ TypeInferrer.FromTuple[t]() } =>
+            constructWithTypes[hdrs & Tuple, t & Tuple]
+
+          case '{ TypeInferrer.StringType } =>
+            constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
+
+          case '{ TypeInferrer.FirstRow } =>
+            val inferredTypeRepr = InferrerOps.inferrer(iter, true)
+            inferredTypeRepr.asType match
+              case '[v] =>
+                constructWithTypes[hdrs & Tuple, v & Tuple]
+            end match
+
+          case '{ TypeInferrer.FromAllRows } =>
+            val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue)
+            inferredTypeRepr.asType match
+              case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+            end match
+
+          case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
+            val inferredTypeRepr = InferrerOps.inferrer(iter, true, n)
+            inferredTypeRepr.asType match
+              case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+            end match
+
+          case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
+            val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n)
+            inferredTypeRepr.asType match
+              case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
+            end match
+
+      case _ =>
+        report.throwError("Could not infer literal header tuple.")
+    end match
+  end readCsvFromClipboard
 
 end CSV

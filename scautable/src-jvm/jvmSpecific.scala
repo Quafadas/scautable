@@ -1,6 +1,8 @@
 package io.github.quafadas.scautable
 
 import java.awt.Desktop
+import java.awt.Toolkit
+import java.awt.datatransfer.DataFlavor
 
 import scala.NamedTuple.*
 // import almond.api.JupyterApi
@@ -8,6 +10,28 @@ import scala.NamedTuple.*
 // import almond.api.JupyterAPIHolder.value
 
 private[scautable] trait PlatformSpecific:
+
+  /** Reads the clipboard content as a String.
+    *
+    * @return
+    *   The clipboard content as a String
+    * @throws java.awt.HeadlessException
+    *   if the system clipboard is not available
+    * @throws java.io.IOException
+    *   if the clipboard data cannot be read
+    */
+  def readClipboard(): String =
+    try
+      val toolkit = Toolkit.getDefaultToolkit()
+      val clipboard = toolkit.getSystemClipboard()
+      val contents = clipboard.getContents(null)
+      if contents != null && contents.isDataFlavorSupported(DataFlavor.stringFlavor) then
+        contents.getTransferData(DataFlavor.stringFlavor).asInstanceOf[String]
+      else ""
+    catch
+      case _: java.awt.HeadlessException =>
+        throw new java.awt.HeadlessException("Clipboard access requires a graphical environment. Cannot read clipboard in headless mode.")
+  end readClipboard
 
   private def openBrowserWindow(uri: java.net.URI): Unit =
     if Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE) then Desktop.getDesktop().browse(uri)

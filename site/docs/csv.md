@@ -38,6 +38,29 @@ val csv_pwd = CSV.pwd("file.csv")
 
 ```
 
+### Reading from Clipboard
+
+You can also read CSV data directly from the system clipboard. This is useful when copying data from spreadsheets like Excel or Google Sheets.
+
+```scala
+import io.github.quafadas.table.*
+
+// Copy CSV data to your clipboard first (Ctrl+C or Cmd+C)
+// Default: single header row, infer types from all rows
+val csv = CSV.clipboard()
+
+// With custom type inference
+val csv2 = CSV.clipboard(TypeInferrer.StringType)
+
+// With manual headers (for data without headers)
+val csv3 = CSV.clipboard(HeaderOptions.Manual("col1", "col2", "col3"))
+
+// With both custom options
+val csv4 = CSV.clipboard(HeaderOptions.Default, TypeInferrer.FromAllRows)
+```
+
+**Note:** Clipboard reading requires a graphical environment and will not work in headless environments (CI/CD, Docker without display, SSH without X11). The clipboard content is read at compile-time for type inference.
+
 ## Strongly Typed CSVs
 
 Scautable analyzes the CSV file and provides types and names for the columns. That means should get IDE support, auto complete, error messages for non sensical code, etc.
