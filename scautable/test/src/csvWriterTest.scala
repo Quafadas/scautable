@@ -97,7 +97,7 @@ class CSVWriterSuite extends munit.FunSuite:
 3,4,8
 5,6,9"""
 
-    assertEquals(data.toCsv(true, ',', '"'), expected)
+    assertNoDiff(data.toCsv(true, ',', '"'), expected)
   }
 
   test("List[NamedTuple].toCsv with empty values") {
@@ -112,7 +112,7 @@ class CSVWriterSuite extends munit.FunSuite:
 3,,8
 5,6,"""
 
-    assertEquals(data.toCsv(true, ',', '"'), expected)
+    assertNoDiff(data.toCsv(true, ',', '"'), expected)
   }
 
   test("Vector[NamedTuple].toCsv with numeric types") {
@@ -125,7 +125,7 @@ class CSVWriterSuite extends munit.FunSuite:
 1,Alice,95.5
 2,Bob,87.1"""
 
-    assertEquals(data.toCsv(true, ',', '"'), expected)
+    assertNoDiff(data.toCsv(true, ',', '"'), expected)
   }
 
   test("empty collection toCsv") {

@@ -10,7 +10,8 @@ import java.io.File
 import io.github.quafadas.scautable.BadTableException
 import io.github.quafadas.scautable.InferrerOps
 
-/** Compile-time macro functions for reading Excel files These macros perform Excel file inspection at compile time to determine structure
+/** Compile-time macro functions for reading     val initial = ColumnTypeInfo()
+    val finalInfo = cells.foldLeft(initial)(updateTypeInfo) files These macros perform Excel file inspection at compile time to determine structure
   */
 object ExcelMacros:
 
@@ -111,8 +112,8 @@ object ExcelMacros:
               inferredTypeRepr.asType match
                 case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
               end match
-            case _ =>
-              report.throwError("TypeInferrer not found")
+            case other =>
+              report.throwError(s"TypeInferrer not found: ${other}")
         case _ =>
           report.throwError(s"Could not summon Type for type: ${tupleExpr2.show}")
       end match
@@ -202,26 +203,30 @@ object ExcelMacros:
     val workbook = WorkbookFactory.create(new File(filePath))
     try
       val sheet = workbook.getSheet(sheetName)
-      val sheetIterator = sheet.iterator().asScala
-
-      // Skip header row
-      if sheetIterator.hasNext then sheetIterator.next()
-      end if
-
-      val sampleRows = sheetIterator.take(numRows).toList
 
       // Extract data based on column range or use all columns
       val columnData: List[List[Cell]] = colRange match
         case Some(range) if range.nonEmpty =>
           val cellRange = CellRangeAddress.valueOf(range)
+          val firstRow = cellRange.getFirstRow
+          val lastRow = cellRange.getLastRow
           val firstCol = cellRange.getFirstColumn
           val lastCol = cellRange.getLastColumn
-          sampleRows.map { row =>
+          
+          // Read only the specific rows from the range (including headers)
+          val targetRows = (firstRow to lastRow).map(sheet.getRow).filter(_ != null).toList
+          
+          targetRows.map { row =>
             (firstCol to lastCol).map { i =>
               row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
             }.toList
           }
         case _ =>
+          val sheetIterator = sheet.iterator().asScala
+          // Skip header row
+          if sheetIterator.hasNext then sheetIterator.next()
+          end if
+          val sampleRows = sheetIterator.take(numRows).toList
           sampleRows.map { row =>
             // Ensure we extract exactly headers.length columns to match headers
             (0 until headers.length).map { i =>
@@ -233,8 +238,11 @@ object ExcelMacros:
       val columns = columnData.transpose
 
       // Infer type for each column using Apache POI cell types
+      // SKIP THE FIRST ROW (header row) for type inference
       val columnTypes: List[TypeRepr] = columns.map { columnCells =>
-        inferColumnTypeFromCells(columnCells, preferIntToBoolean)
+        // TODO Interaction with HeaderOptions
+        val dataRows = columnCells.drop(1) // Skip header row
+        inferColumnTypeFromCells(dataRows, preferIntToBoolean)
       }
 
       // Build tuple type from column types
@@ -243,8 +251,14 @@ object ExcelMacros:
       }
 
       tupleType
-    finally workbook.close()
-    end try
+    finally 
+      try 
+        workbook.close()
+      catch
+        case _: Exception => 
+          // Workbook close can fail for Excel files with corrupted drawings - this is expected
+          println(s"Warning: Could not close workbook for file: $filePath")
+      end try
   end inferTypesFromExcelDataDirect
 
   /** Infer the most appropriate Scala type for a column based on Apache POI cell types
@@ -286,10 +300,11 @@ object ExcelMacros:
             )
           else
             val numericValue = cell.getNumericCellValue
-            val isWholeNumber = numericValue == numericValue.toLong
+            val isWholeNumber = numericValue == numericValue.toLong && !numericValue.isInfinite && !numericValue.isNaN
             info.copy(
               couldBeInt = info.couldBeInt && isWholeNumber && numericValue >= Int.MinValue && numericValue <= Int.MaxValue,
               couldBeLong = info.couldBeLong && isWholeNumber && numericValue >= Long.MinValue && numericValue <= Long.MaxValue,
+              couldBeDouble = info.couldBeDouble && !numericValue.isInfinite && !numericValue.isNaN, // All finite numeric values can be Double
               // Be more conservative with Boolean inference for numeric cells - only if it's exactly 0 or 1
               couldBeBoolean = info.couldBeBoolean && isWholeNumber && (numericValue == 0.0 || numericValue == 1.0)
             )
@@ -331,9 +346,18 @@ object ExcelMacros:
     val initial = ColumnTypeInfo()
     val finalInfo = cells.foldLeft(initial)(updateTypeInfo)
 
+    // // Debug output to understand type inference
+    // println(s"DEBUG inferColumnTypeFromCells: ${cells.length} cells")
+    // cells.take(3).foreach { cell =>
+    //   println(s"  Cell type: ${cell.getCellType}, value: '${cell.toString}'")
+    // }
+    // println(s"  Final: couldBeInt=${finalInfo.couldBeInt}, couldBeDouble=${finalInfo.couldBeDouble}, couldBeBoolean=${finalInfo.couldBeBoolean}, seenEmpty=${finalInfo.seenEmpty}")
+
     // Determine the most appropriate type based on what the column could be
-    val baseType =
-      if preferIntToBoolean then
+    val baseType = 
+      // If we have no cells, default to String (safest option)
+      if cells.isEmpty then TypeRepr.of[String]
+      else if preferIntToBoolean then
         if finalInfo.couldBeInt then TypeRepr.of[Int]
         else if finalInfo.couldBeBoolean then TypeRepr.of[Boolean]
         else if finalInfo.couldBeLong then TypeRepr.of[Long]
@@ -352,5 +376,4 @@ object ExcelMacros:
     if finalInfo.seenEmpty then TypeRepr.of[Option].appliedTo(baseType) else baseType
     end if
   end inferColumnTypeFromCells
-
 end ExcelMacros
