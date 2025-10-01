@@ -201,4 +201,22 @@ class ExcelSuite extends munit.FunSuite:
     // Note: Int/Longs columns may be inferred differently with preferIntToBoolean=false
   }
 
+/**
+ * Data in cells B6:G11 of Bands.xlsx
+Country	< 1%	1% to 2%	2% to 3%	3% to 4%	> 4%
+Japan	5.0%	15.0%	30.0%	0.0%	0.0%
+UK	0.0%	0.0%	30.0%	0.0%	0.0%
+Europe	0.0%	0.0%	30.0%	0.0%	0.0%
+LatAm	0.0%	0.0%	0.0%	0.0%	0.0%
+Australia	0.0%	0.0%	0.0%	0.0%	0.0%
+ */
+
+  test("Bands"){
+    val data = Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)    
+    val rows = data.toList
+    assertEquals(rows.size, 5)
+
+    assertEqualsDouble(rows.column["2% to 3%"].head, 0.3, 0.00001)
+  }
+
 end ExcelSuite

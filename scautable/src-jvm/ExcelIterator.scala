@@ -52,7 +52,15 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
   private lazy val sheetIterator =
     val workbook = WorkbookFactory.create(new File(filePath))
     val sheet = workbook.getSheet(sheetName)
-    sheet.iterator().asScala
+    // Create an iterator that gives us rows by index for the specified range
+    colRange match
+      case Some(range) if range.nonEmpty =>
+        val (firstRow, lastRow, _, _) = parseRange(range)
+        val dataStartRow = firstRow + 1
+        val dataRowIndices = (dataStartRow to lastRow).toIterator
+        dataRowIndices.map(rowIndex => sheet.getRow(rowIndex)).filter(_ != null)
+      case _ =>
+        sheet.iterator().asScala  // For no range, use default iterator
   end sheetIterator
 
   // Track current row number for error reporting - starts where data begins
@@ -60,7 +68,7 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     case None                          => 0
     case Some(range) if range.nonEmpty =>
       val (firstRow, _, _, _) = parseRange(range)
-      firstRow
+      firstRow + 1  // Skip the header row - data starts at firstRow + 1
     case _ => 0
 
   // Extract headers from the first row or specified range
@@ -76,15 +84,20 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
   // Validate headers are unique at initialization
   validateUniqueHeaders(headers)
 
-  /** Extract headers from a specified cell range This consumes the header row from the sheet iterator
+  /** Extract headers from a specified cell range This accesses the header row directly by index
     */
   private inline def extractHeadersFromRange(range: String): List[String] =
     val (firstRow, _, firstCol, lastCol) = parseRange(range)
-    val headerRow = sheetIterator.drop(firstRow).next()
-    val cells =
-      for (i <- firstCol.to(lastCol))
-        yield headerRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
-    cells.toList
+    val workbook = WorkbookFactory.create(new File(filePath))
+    try 
+      val sheet = workbook.getSheet(sheetName)
+      val headerRow = sheet.getRow(firstRow)
+      val cells =
+        for (i <- firstCol.to(lastCol))
+          yield headerRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+      cells.toList
+    finally
+      workbook.close()
   end extractHeadersFromRange
 
   /** Extract headers from the first row of the sheet This consumes the header row from the sheet iterator
@@ -137,7 +150,7 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     colRange match
       case Some(range) if range.nonEmpty =>
         val (_, lastRow, _, _) = parseRange(range)
-        currentRowIndex < lastRow
+        currentRowIndex <= lastRow
       case _ =>
         sheetIterator.hasNext
   end hasNext
