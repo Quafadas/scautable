@@ -1,10 +1,10 @@
 package io.github.quafadas.scautable
 
-import org.apache.poi.ss.usermodel.{Row, WorkbookFactory}
+import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.util.CellRangeAddress
 import scala.collection.JavaConverters.*
-import java.io.File
 import io.github.quafadas.scautable.BadTableException
+import io.github.quafadas.scautable.ExcelWorkbookCache
 
 /** Common utilities and exceptions for Excel processing
   */
@@ -22,24 +22,23 @@ object ExcelUtils:
     *   List of header strings
     */
   inline def extractHeaders(filePath: String, sheetName: String, colRange: Option[String]): List[String] =
-    val workbook = WorkbookFactory.create(new File(filePath))
-    try
-      val sheet = workbook.getSheet(sheetName)
+    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
+      throw new BadTableException(s"Failed to open Excel file: $filePath")
+    )
+    val sheet = workbook.getSheet(sheetName)
 
-      colRange match
-        case Some(range) if range.nonEmpty =>
-          val cellRange = CellRangeAddress.valueOf(range)
-          val firstRow = sheet.getRow(cellRange.getFirstRow)
-          val cells =
-            for (i <- cellRange.getFirstColumn to cellRange.getLastColumn)
-              yield firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
-          cells.toList
-        case _ =>
-          if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(_.toString)
-          else throw new BadTableException("No headers found in the first row of the sheet, and no range specified.")
-      end match
-    finally workbook.close()
-    end try
+    colRange match
+      case Some(range) if range.nonEmpty =>
+        val cellRange = CellRangeAddress.valueOf(range)
+        val firstRow = sheet.getRow(cellRange.getFirstRow)
+        val cells =
+          for (i <- cellRange.getFirstColumn to cellRange.getLastColumn)
+            yield firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+        cells.toList
+      case _ =>
+        if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(_.toString)
+        else throw new BadTableException("No headers found in the first row of the sheet, and no range specified.")
+    end match
   end extractHeaders
 
   /** Validates that headers are unique (no duplicates)

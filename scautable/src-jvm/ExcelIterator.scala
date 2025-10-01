@@ -1,11 +1,11 @@
 package io.github.quafadas.scautable
 
-import java.io.File
 import scala.NamedTuple.*
 import scala.collection.JavaConverters.*
-import org.apache.poi.ss.usermodel.{Row, WorkbookFactory}
+import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.util.CellRangeAddress
 import io.github.quafadas.scautable.BadTableException
+import io.github.quafadas.scautable.ExcelWorkbookCache
 
 /** Iterator for reading Excel files with compile-time type safety
   *
@@ -50,7 +50,9 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
 
   // Lazy-initialized sheet iterator to avoid opening file until needed
   private lazy val sheetIterator =
-    val workbook = WorkbookFactory.create(new File(filePath))
+    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
+      throw new BadTableException(s"Failed to open Excel file: $filePath")
+    )
     val sheet = workbook.getSheet(sheetName)
     // Create an iterator that gives us rows by index for the specified range
     colRange match
@@ -88,16 +90,15 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     */
   private inline def extractHeadersFromRange(range: String): List[String] =
     val (firstRow, _, firstCol, lastCol) = parseRange(range)
-    val workbook = WorkbookFactory.create(new File(filePath))
-    try 
-      val sheet = workbook.getSheet(sheetName)
-      val headerRow = sheet.getRow(firstRow)
-      val cells =
-        for (i <- firstCol.to(lastCol))
-          yield headerRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
-      cells.toList
-    finally
-      workbook.close()
+    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
+      throw new BadTableException(s"Failed to open Excel file: $filePath")
+    )
+    val sheet = workbook.getSheet(sheetName)
+    val headerRow = sheet.getRow(firstRow)
+    val cells =
+      for (i <- firstCol.to(lastCol))
+        yield headerRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+    cells.toList
   end extractHeadersFromRange
 
   /** Extract headers from the first row of the sheet This consumes the header row from the sheet iterator

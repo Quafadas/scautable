@@ -5,7 +5,9 @@ ALWAYS reference these instructions first and fallback to search or bash command
 Scautable is a Scala 3 project using the mill build tool. It is a lightweight dataframe library with the twist that it expects the "dataframe" in question to have its structure identified by the compiler, at compile time. A dataframe here is modelled as an `Iterator[NamedTuple[K, V]]` where `K` is a compile time constant tuple of strings representing column names.
 
 ## Working Effectively
-- **NEVER CANCEL BUILDS**: Mill cold compilation takes 2 minutes or so. Tests take 1-3 minutes from cold. Set timeout to 2+ minutes.
+  On windows, use `mill scautable.jvm.test`, on MacOS/Linux use `./mill scautable.jvm.test` to run commands. Note the absence of `./` on windows.
+
+- **BUILDS**: Mill cold compilation takes 2 minutes or so. Tests take 1-3 minutes from cold. Set timeout to 2+ minutes.
 - Compile all modules:
   - `./mill __.compile` -- Compiles all modules (JVM, JS, tests). Takes 3-5 minutes cold, fast cached. NEVER CANCEL.
 - Compile specific platforms:

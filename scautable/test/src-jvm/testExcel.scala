@@ -211,12 +211,16 @@ LatAm	0.0%	0.0%	0.0%	0.0%	0.0%
 Australia	0.0%	0.0%	0.0%	0.0%	0.0%
  */
 
-  test("Bands"){
-    val data = Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)    
+
+  test("Bands - sheet1"){
+    // Deliberately compiles the same table in the same workbook multiple times to probe workbook caching
+    val data2 = Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)
+    val data1 = Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)
+    val data = Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)
     val rows = data.toList
     assertEquals(rows.size, 5)
 
     assertEqualsDouble(rows.column["2% to 3%"].head, 0.3, 0.00001)
-  }
+  }  
 
 end ExcelSuite

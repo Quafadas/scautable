@@ -3,12 +3,11 @@ package io.github.quafadas.scautable
 import scala.quoted.*
 import io.github.quafadas.scautable.ColumnTyped.*
 import io.github.quafadas.table.TypeInferrer
-import org.apache.poi.ss.usermodel.{Row, WorkbookFactory, Cell, CellType, DateUtil}
+import org.apache.poi.ss.usermodel.{Row, Cell, CellType, DateUtil}
 import org.apache.poi.ss.util.CellRangeAddress
 import scala.collection.JavaConverters.*
-import java.io.File
 import io.github.quafadas.scautable.BadTableException
-import io.github.quafadas.scautable.InferrerOps
+import io.github.quafadas.scautable.ExcelWorkbookCache
 
 /** Compile-time macro functions for reading     val initial = ColumnTypeInfo()
     val finalInfo = cells.foldLeft(initial)(updateTypeInfo) files These macros perform Excel file inspection at compile time to determine structure
@@ -128,24 +127,23 @@ object ExcelMacros:
   /** Extracts headers from an Excel sheet, either from a specific range or the first row
     */
   private def extractHeaders(filePath: String, sheetName: String, colRange: Option[String]): List[String] =
-    val workbook = WorkbookFactory.create(new File(filePath))
-    try
-      val sheet = workbook.getSheet(sheetName)
+    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
+      throw new BadTableException(s"Failed to open Excel file: $filePath")
+    )
+    val sheet = workbook.getSheet(sheetName)
 
-      colRange match
-        case Some(range) if range.nonEmpty =>
-          val cellRange = CellRangeAddress.valueOf(range)
-          val firstRow = sheet.getRow(cellRange.getFirstRow)
-          val cells =
-            for (i <- cellRange.getFirstColumn to cellRange.getLastColumn)
-              yield firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
-          cells.toList
-        case _ =>
-          if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(_.toString)
-          else throw new BadTableException("No headers found in the first row of the sheet, and no range specified.")
-      end match
-    finally workbook.close()
-    end try
+    colRange match
+      case Some(range) if range.nonEmpty =>
+        val cellRange = CellRangeAddress.valueOf(range)
+        val firstRow = sheet.getRow(cellRange.getFirstRow)
+        val cells =
+          for (i <- cellRange.getFirstColumn to cellRange.getLastColumn)
+            yield firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+        cells.toList
+      case _ =>
+        if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(_.toString)
+        else throw new BadTableException("No headers found in the first row of the sheet, and no range specified.")
+    end match
   end extractHeaders
 
   /** Validates that headers are unique (no duplicates)
@@ -200,9 +198,10 @@ object ExcelMacros:
   ): quotes.reflect.TypeRepr =
     import quotes.reflect.*
 
-    val workbook = WorkbookFactory.create(new File(filePath))
-    try
-      val sheet = workbook.getSheet(sheetName)
+    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
+      throw new BadTableException(s"Failed to open Excel file: $filePath")
+    )
+    val sheet = workbook.getSheet(sheetName)
 
       // Extract data based on column range or use all columns
       val columnData: List[List[Cell]] = colRange match
@@ -251,14 +250,6 @@ object ExcelMacros:
       }
 
       tupleType
-    finally 
-      try 
-        workbook.close()
-      catch
-        case _: Exception => 
-          // Workbook close can fail for Excel files with corrupted drawings - this is expected
-          println(s"Warning: Could not close workbook for file: $filePath")
-      end try
   end inferTypesFromExcelDataDirect
 
   /** Infer the most appropriate Scala type for a column based on Apache POI cell types
