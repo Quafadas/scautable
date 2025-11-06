@@ -1,6 +1,5 @@
 package io.github.quafadas.scautable
 
-
 class NamedTupleTypeTest extends munit.FunSuite:
 
   test("IsColumn") {
@@ -142,7 +141,7 @@ class NamedTupleTypeTest extends munit.FunSuite:
 
     // Test finding indices of existing columns
     summon[ColumnTyped.IdxAtName["a", Cols] =:= 0]
-    summon[ColumnTyped.IdxAtName["b", Cols] =:= 1] 
+    summon[ColumnTyped.IdxAtName["b", Cols] =:= 1]
     summon[ColumnTyped.IdxAtName["c", Cols] =:= 2]
     summon[ColumnTyped.IdxAtName["d", Cols] =:= 3]
 

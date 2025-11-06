@@ -205,6 +205,23 @@ object HtmlRenderer extends PlatformSpecific:
             val cells = a.map(in => tr(inner.tableCell(in)))
             td(table(tbody(cells)))
 
+  given tupleT[V <: Tuple]: HtmlTableRender[V] = new HtmlTableRender[V]:
+    override def tableHeader(a: V): TypedTag[String] =
+      val h = a.asInstanceOf[Product].productElementNames.toList
+      tr(h.map(th(_)))
+    end tableHeader
+
+    override def tableCell(a: V): TypedTag[String] =
+      td(s"$a")
+    end tableCell
+
+    override def tableRow(a: V): TypedTag[String] =
+      val elems = a.asInstanceOf[Product].productIterator.toList
+      val cells = elems.map(e => td(e.toString))
+      tr(cells)
+    end tableRow
+  end tupleT
+
   protected def deriveTableRow[A](a: A)(using instance: HtmlTableRender[A]) =
     instance.tableRow(a)
 
@@ -281,11 +298,11 @@ object HtmlRenderer extends PlatformSpecific:
     apply(a, true, h)
   end apply
 
-  def apply[A <: Product](a: Seq[A], addHeader: Boolean = true, h: List[String])(using
+  def apply[A <: Product, C <: IterableOnce[A]](a: C, addHeader: Boolean = true, h: List[String])(using
       tableDeriveInstance: HtmlTableRender[A]
   ): TypedTag[String] =
     val header = tr(h.map(th(_)))
-    val rows = for (r <- a) yield tableDeriveInstance.tableRow(r)
+    val rows = (for (r <- a) yield tableDeriveInstance.tableRow(r)).iterator.toSeq
     if addHeader then table(thead(header), tbody(rows), id := "scautable", cls := "display")
     else table(thead(header), tbody(rows))
     end if
@@ -294,11 +311,11 @@ object HtmlRenderer extends PlatformSpecific:
   def apply[A <: Product](a: A, addHeader: Boolean)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
     apply(Seq(a), addHeader, a.productElementNames.toList)
 
-  inline def nt[K <: Tuple, V <: Tuple](a: Seq[NamedTuple[K, V]])(using
+  inline def nt[K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](a: C)(using
       tableDeriveInstance: HtmlTableRender[V]
   ): TypedTag[String] =
     val names = constValueTuple[K].toList.map(_.toString())
-    apply(a.map(_.toTuple), true, names)
+    apply(a.iterator.map(_.toTuple), true, names)
   end nt
 
 end HtmlRenderer

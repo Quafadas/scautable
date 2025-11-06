@@ -22,7 +22,8 @@ import scala.compiletime.*
   * etc
   */
 
-class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (private val rows: Iterator[String], val headers: Seq[String])(using decoder: RowDecoder[V]) extends Iterator[NamedTuple[K, V]]:
+class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (private val rows: Iterator[String], val headers: Seq[String])(using decoder: RowDecoder[V])
+    extends Iterator[NamedTuple[K, V]]:
 
   type COLUMNS = K
 
@@ -40,9 +41,11 @@ class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (pr
   inline override def next() =
     val str = rows.next()
     val splitted = CSVParser.parseLine(str)
-    val tuple = decoder.decodeRow(splitted).getOrElse(
-      throw new Exception("Failed to decode row: " + splitted)
-    )
+    val tuple = decoder
+      .decodeRow(splitted)
+      .getOrElse(
+        throw new Exception("Failed to decode row: " + splitted)
+      )
     NamedTuple.build[K & Tuple]()(tuple)
   end next
 

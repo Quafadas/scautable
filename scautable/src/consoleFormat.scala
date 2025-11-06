@@ -43,6 +43,8 @@ object ConsoleFormat:
 
     inline def ptbln: Unit = println(nt.consoleFormatNt)
 
+    inline def html: String = HtmlRenderer.nt(nt).render
+
     inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true): String =
       val foundHeaders = constValueTuple[K].toList.map(_.toString())
       val values = nt.iterator.map(_.toTuple).toSeq

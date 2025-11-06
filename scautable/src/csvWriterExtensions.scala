@@ -26,14 +26,15 @@ object CSVWriterExtensions:
         quote: Char = '"'
     ): Iterator[String] =
       val headers = constValueTuple[K].toList.map(_.toString())
-      val headerLine =  CSVWriter.formatLine(headers, delimiter, quote)
+      val headerLine = CSVWriter.formatLine(headers, delimiter, quote)
 
-      val striterator =  itr.map { namedTuple =>
+      val striterator = itr.map { namedTuple =>
         val values = namedTuple.toList.map(_.toString)
         CSVWriter.formatLine(values, delimiter, quote)
       }
       if includeHeaders then Iterator(headerLine) ++ striterator
       else striterator
+      end if
     end toCsv
 
   end extension

@@ -22,6 +22,7 @@ import io.github.quafadas.scautable.plots.*
   // println("plot regression")
   cereals.plotScatter["calories", "rating"]
   cereals.plotHistogram["protein"]
+end cereals
   cereals.plotHistogram["rating"]
   cereals.plotHistogram["type"]
   cereals.plotPieChart["type"]

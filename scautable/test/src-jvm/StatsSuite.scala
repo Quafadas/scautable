@@ -376,9 +376,9 @@ class StatsSuite extends munit.FunSuite:
   test("Iterator summary should handle single element"):
     val data = List((id = 1, value = 42.0)).iterator
     val result = data.numericSummary
-    
+
     assertEquals(result.length, 2)
-    
+
     val valueStats = result.find(_.name == "value").get
     assertEquals(valueStats.typ, "Double")
     assertEquals(valueStats.mean, 42.0)
@@ -411,14 +411,14 @@ class StatsSuite extends munit.FunSuite:
       (id = 3, value = 30.5, count = 300L),
       (id = 4, value = 40.5, count = 400L)
     )
-    
+
     val iterableResult = originalData.numericSummary
     val iteratorResult = originalData.iterator.numericSummary
-    
+
     assertEquals(iterableResult.length, iteratorResult.length)
-    
+
     // Compare each column's statistics
-    for ((iterable, iterator) <- iterableResult.zip(iteratorResult)) {
+    for (iterable, iterator) <- iterableResult.zip(iteratorResult) do
       assertEquals(iterable.name, iterator.name)
       assertEquals(iterable.typ, iterator.typ)
       assertEqualsDouble(iterable.mean, iterator.mean, 0.0001)
@@ -427,7 +427,7 @@ class StatsSuite extends munit.FunSuite:
       assertEqualsDouble(iterable.median, iterator.median, 0.1) // TDigest approximation
       assertEqualsDouble(iterable.`0.25`, iterator.`0.25`, 0.1)
       assertEqualsDouble(iterable.`0.75`, iterator.`0.75`, 0.1)
-    }
+    end for
 
   test("Iterator nonNumericSummary should compute basic statistics for string data"):
     val data = Iterator(
@@ -502,14 +502,14 @@ class StatsSuite extends munit.FunSuite:
 
     assertEquals(iterableResult.length, iteratorResult.length)
 
-    for ((iterable, iterator) <- iterableResult.zip(iteratorResult)) {
+    for (iterable, iterator) <- iterableResult.zip(iteratorResult) do
       assertEquals(iterable.name, iterator.name)
       assertEquals(iterable.uniqueEntries, iterator.uniqueEntries)
       assertEquals(iterable.mostFrequent, iterator.mostFrequent)
       assertEquals(iterable.frequency, iterator.frequency)
       // Note: Sample might differ due to random shuffle, so we don't test exact equality
       assert(iterable.sample.nonEmpty == iterator.sample.nonEmpty)
-    }
+    end for
 
   test("nonNumericSummary should compute basic statistics for string data"):
     val data = List(
@@ -577,7 +577,7 @@ class StatsSuite extends munit.FunSuite:
     val longString1 = "ThisIsAVeryLongStringThatShouldBeTruncatedWhenUsedInSample"
     val longString2 = "AnotherVeryLongStringForTestingPurposes"
     val longString3 = "YetAnotherLongStringToMakeSureTruncationWorks"
-    
+
     val data = List(
       (id = 1, description = longString1),
       (id = 2, description = longString2),
@@ -586,11 +586,11 @@ class StatsSuite extends munit.FunSuite:
 
     val result = data.nonNumericSummary
     val descStats = result.find(_.name == "description").get
-    
+
     assertEquals(descStats.uniqueEntries, 3)
     assert(descStats.sample.length <= 75, s"Sample should be truncated to 75 chars, but was ${descStats.sample.length}")
-    if descStats.sample.length == 75 then
-      assert(descStats.sample.endsWith("..."), "Long samples should end with '...'")
+    if descStats.sample.length == 75 then assert(descStats.sample.endsWith("..."), "Long samples should end with '...'")
+    end if
 
   test("summary should compute both numeric and non-numeric statistics for Iterable"):
     val data = List(

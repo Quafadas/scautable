@@ -11,7 +11,15 @@
         "usernamehw.errorlens",
         "github.copilot",
         "skellock.just"
-      ]
+      ],
+      "mcp": {
+        "servers": {
+          "scautable-metals": {
+            "type": "sse",
+            "url": "http://localhost:49625/sse"
+          }
+        }
+      }
     }
   },
   // Features to add to the dev container. More info: https://containers.dev/features.

@@ -248,5 +248,4 @@ class CollectionGenericExtensionsSuite extends munit.FunSuite:
     assertEquals(transposedVector.name, Vector("Alice", "Bob"))
     assert(transposedVector.name.isInstanceOf[Vector[String]], "should convert to Vector")
 
-
 end CollectionGenericExtensionsSuite
