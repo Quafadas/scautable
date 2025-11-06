@@ -14,6 +14,16 @@ class ConsoleFormatFiniteCollectionSuite extends FunSuite:
     assert(formatted.contains("Bob"))
   }
 
+  test("to html works") {
+    val arrayData = Array((name = "Alice", age = 25), (name = "Bob", age = 30))
+    import io.github.quafadas.scautable.ConsoleFormat.*
+
+    val formatted = arrayData.html
+    assert(formatted.contains("<table"))
+    assert(formatted.contains("Alice"))
+    assert(formatted.contains("Bob"))
+  }
+
   test("ptbln should work with Array of NamedTuple") {
     val namedTupleArray = Array((name = "Alice", age = 25), (name = "Bob", age = 30))
     import io.github.quafadas.scautable.ConsoleFormat.*
