@@ -9,7 +9,7 @@ import scala.NamedTuple.NamedTuple
 import viz.Plottable.plot
 
 
-object Historgram:
+object Histogram:
 
   val histogramResource = "histogram.vg.json"
 
