@@ -3,18 +3,15 @@
   "data": {"values": [
 
   ]},
-  "width": "container",
-    "height": "container",
+  "width": 1000,
+  "height": 1000,
   "mark": {
     "type": "bar",
     "tooltip": true
     },
   "encoding": {
     "x": {
-      "bin": {
-        "maxbins": 30
-      },      
-      "field": "Col"      
+      "field": "Col"
     },
     "y": {"aggregate": "count"}
   }

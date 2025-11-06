@@ -15,7 +15,7 @@ object Histogram:
 
   extension [CC[X] <: Iterable[X], K <: Tuple, V <: Tuple](data: Iterable[NamedTuple[K, V]])
 
-    inline def plotHistogram[S <: String](resourceSpec: Option[String] = None, numBins: Int = 30)(using
+    inline def plotHistogram[S <: String](resourceSpec: Option[String] = None, mods: Seq[ujson.Value => Unit] = Seq.empty, maxBins: Option[Int])(using
         @implicitNotFound("Column ${S} not found")
         ev: IsColumn[S, K] =:= true,
         s: ValueOf[S],
@@ -75,7 +75,7 @@ object Histogram:
                 ),
               spec => spec("encoding")("x") = ujson.Obj(
                 "field" -> colName,
-                "bin" -> true // TODO make this less naive
+                "bin" -> maxBins.fold(ujson.Bool(true))(min => ujson.Obj("maxbins" -> min, "nice" -> true, "bin" -> true))
               ),
               spec => spec("description") = colName,
               spec => spec("title") = titel
@@ -90,4 +90,4 @@ object Histogram:
 
         classTag: scala.reflect.ClassTag[Elem[V, IdxAtName[S, K]]]
     )(using ctx: viz.LowPriorityPlotTarget): Unit =
-      plotHistogram[S](None, 30)
+      plotHistogram[S](None, Seq.empty, None)
