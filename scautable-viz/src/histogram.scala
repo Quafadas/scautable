@@ -65,7 +65,7 @@ object Histogram:
         case Some(numerical) =>
           val colName: String = s.value
           specR.plot(
-            List(
+            List[ujson.Value => Unit](
               spec =>
                 spec("data") = upickle.default.writeJs(
                   (values = oneCol.map: d =>
@@ -79,7 +79,7 @@ object Histogram:
               ),
               spec => spec("description") = colName,
               spec => spec("title") = titel
-            )
+            ) ++ mods
           )
     end plotHistogram
 
