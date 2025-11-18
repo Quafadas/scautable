@@ -140,7 +140,7 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     val decodedTuple = decoder
       .decodeRow(cellValues)
       .getOrElse(
-        throw new Exception(s"Failed to decode row $currentRowIndex: $cellValues")
+        throw new Exception(s"Failed to decode row $currentRowIndex: $cellValues.\n One cause could be if you do not have `given` cell decoders for your column types. Please check your given imports.")
       )
 
     currentRowIndex += 1
