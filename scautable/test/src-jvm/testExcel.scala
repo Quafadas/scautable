@@ -8,10 +8,10 @@ import io.github.quafadas.table.{*, given}
 
 /**
  * The cell contents of "Numbers.xlsx"
- * 
+ *
 Doubles	Int	Longs	Strings
 1.10	1.00	1.00	blah
-2.20	2.00	3.00	blah  
+2.20	2.00	3.00	blah
  */
 class ExcelSuite extends munit.FunSuite:
 
@@ -221,6 +221,6 @@ Australia	0.0%	0.0%	0.0%	0.0%	0.0%
     assertEquals(rows.size, 5)
 
     assertEqualsDouble(rows.column["2% to 3%"].head, 0.3, 0.00001)
-  }  
+  }
 
 end ExcelSuite

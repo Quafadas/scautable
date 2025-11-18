@@ -1,5 +1,6 @@
 //| mill-version: 1.0.5
 //| mill-jvm-version: 21
+//| mill-java-options: -Xss64m
 //| mvnDeps:
 //| - io.github.quafadas:millSite_mill1_3.7:0.0.53
 //| - com.goyeau::mill-scalafix::0.6.0

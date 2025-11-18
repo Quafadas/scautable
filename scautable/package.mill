@@ -5,6 +5,7 @@ import mill.scalalib.*
 import mill.scalajslib.*
 import mill.scalajslib.api.*
 import build.Config
+import mill.api.Task.Simple
 
 object `package` extends Module:
 
@@ -29,6 +30,10 @@ object `package` extends Module:
 
     object jvm extends SharedTest with build.ShareCompileResources:
       override def moduleDeps = Seq(build.scautable.jvm)
+      override def forkArgs: Simple[Seq[String]] = super.forkArgs() ++ Seq("-Xss4m")
+      override def scalacOptions: T[Seq[String]] = Seq("-Xmax-inlines", "10000")
+
+
     end jvm
   end test
 end `package`
