@@ -18,8 +18,8 @@ scala-cli --dep io.github.quafadas::scautable::@VERSION@ \
 ```
 
 This command includes the necessary compiler options for scautable's metaprogramming:
-- `--scalac-option -Xmax-inlines 2048`: Increases inline limit for compile-time type inference
-- `--java-opt -Xss4m`: Increases stack size for the JVM
+- `--scalac-option -Xmax-inlines --scalac-option 2048`: Increases inline limit to 2048 for compile-time type inference
+- `--java-opt -Xss4m`: Increases JVM stack size to 4MB for heavy metaprogramming
 - `--repl-init-script`: Auto-imports the scautable package when the REPL starts
 
 ### Example Usage
