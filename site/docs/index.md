@@ -11,7 +11,7 @@ Scautable: One line CSV import and dataframe utilities based on scala's `NamedTu
 To start a REPL session with scautable ready to use:
 
 ```bash
-scala-cli --dep io.github.quafadas::scautable::@VERSION@ \
+scala-cli repl --dep io.github.quafadas::scautable::@VERSION@ \
   --scalac-option -Xmax-inlines --scalac-option 2048 \
   --java-opt -Xss4m \
   --repl-init-script 'import io.github.quafadas.table.{*, given}'
