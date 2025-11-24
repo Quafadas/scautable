@@ -6,6 +6,24 @@ Scautable: One line CSV import and dataframe utilities based on scala's `NamedTu
 
 `//> using dep io.github.quafadas::scautable::@VERSION@`
 
+### Quick REPL Start
+
+To start a REPL session with scautable ready to use:
+
+```bash
+scala-cli repl --dep io.github.quafadas::scautable::@VERSION@ \
+  --scalac-option -Xmax-inlines --scalac-option 2048 \
+  --java-opt -Xss4m \
+  --repl-init-script 'import io.github.quafadas.table.{*, given}'
+```
+
+This command includes the necessary compiler options for scautable's metaprogramming:
+- `--scalac-option -Xmax-inlines --scalac-option 2048`: Increases inline limit to 2048 for compile-time type inference
+- `--java-opt -Xss4m`: Increases JVM stack size to 4MB for heavy metaprogramming
+- `--repl-init-script`: Auto-imports the scautable package when the REPL starts
+
+### Example Usage
+
 Here's a screencap of a tiny, self contained example.
 
 ![Example](../assets/getting_started.png)
