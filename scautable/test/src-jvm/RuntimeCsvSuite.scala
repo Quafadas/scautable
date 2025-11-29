@@ -130,8 +130,9 @@ class RuntimeCsvSuite extends FunSuite:
   test("fromTyped with runtime-determined path from variable") {
     val csvReader = CSV.fromTyped[("col1", "col2", "col3"), (Int, Int, Int)]
 
-    // Simulate runtime path determination
-    val basePath = os.Path(this.getClass.getClassLoader.getResource("simple.csv").getPath.dropRight("simple.csv".length))
+    // Simulate runtime path determination using proper path operations
+    val resourcePath = os.Path(this.getClass.getClassLoader.getResource("simple.csv").getPath)
+    val basePath = resourcePath / os.up
     val fileName = "simple.csv"
     val runtimePath = basePath / fileName
 
