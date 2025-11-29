@@ -3,6 +3,7 @@ package io.github.quafadas.scautable
 import scala.quoted.*
 import scala.io.Source
 import ColumnTyped.*
+import HeaderOptions.headers
 
 import io.github.quafadas.table.TypeInferrer
 
@@ -255,5 +256,53 @@ object CSV:
         report.throwError("Could not infer literal header tuple.")
     end match
   end readCsvFromString
+
+  /** Creates a function that reads a CSV file from a runtime path and returns a [[io.github.quafadas.scautable.CsvIterator]].
+    *
+    * Unlike other CSV methods that require the file path at compile time, this method allows you to specify the column types at compile time
+    * but provide the file path at runtime. This is useful when you know the structure of a CSV file in advance but the actual file location
+    * is determined at runtime.
+    *
+    * Example:
+    * {{{
+    *   val csvReader = CSV.fromTyped[("name", "age", "salary"), (String, Int, Double)]
+    *   val data = csvReader(os.pwd / "employees.csv")
+    *   // data is a CsvIterator[("name", "age", "salary"), (String, Int, Double)]
+    * }}}
+    *
+    * @tparam K
+    *   A tuple of string literal types representing the column names
+    * @tparam V
+    *   A tuple of types representing the column value types (must have Decoders available)
+    * @return
+    *   A function that takes an os.Path and returns a CsvIterator with the specified types
+    */
+  inline def fromTyped[K <: Tuple, V <: Tuple]: os.Path => CsvIterator[K, V] = fromTyped[K, V](HeaderOptions.Default)
+
+  /** Creates a function that reads a CSV file from a runtime path and returns a [[io.github.quafadas.scautable.CsvIterator]].
+    *
+    * This overload allows you to specify custom header options.
+    *
+    * Example:
+    * {{{
+    *   // Skip 2 header rows and merge them
+    *   val csvReader = CSV.fromTyped[("Name First", "Age Years"), (String, Int)](HeaderOptions.FromRows(2))
+    *   val data = csvReader(os.pwd / "employees.csv")
+    * }}}
+    *
+    * @tparam K
+    *   A tuple of string literal types representing the column names
+    * @tparam V
+    *   A tuple of types representing the column value types (must have Decoders available)
+    * @param headers
+    *   The header options to use when reading the CSV
+    * @return
+    *   A function that takes an os.Path and returns a CsvIterator with the specified types
+    */
+  inline def fromTyped[K <: Tuple, V <: Tuple](inline headers: HeaderOptions): os.Path => CsvIterator[K, V] =
+    (path: os.Path) =>
+      val lines = scala.io.Source.fromFile(path.toIO).getLines()
+      val (hdrs, iterator) = lines.headers(headers)
+      new CsvIterator[K, V](iterator, hdrs)
 
 end CSV
