@@ -281,7 +281,7 @@ object CSV:
 
   /** Creates a function that reads a CSV file from a runtime path and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
-    * This overload allows you to specify custom header options.
+    * This overload allows you to specify custom header options. [SP note: I'm not sure if this ashould be possible ]
     *
     * Example:
     * {{{
@@ -299,10 +299,14 @@ object CSV:
     * @return
     *   A function that takes an os.Path and returns a CsvIterator with the specified types
     */
-  inline def fromTyped[K <: Tuple, V <: Tuple](inline headers: HeaderOptions): os.Path => CsvIterator[K, V] =
+  private inline def fromTyped[K <: Tuple, V <: Tuple](inline headers: HeaderOptions): os.Path => CsvIterator[K, V] =
     (path: os.Path) =>
       val lines = scala.io.Source.fromFile(path.toIO).getLines()
       val (hdrs, iterator) = lines.headers(headers)
+      val expectedHeaders = scala.compiletime.constValueTuple[K].toArray.toSeq.asInstanceOf[Seq[String]]
+      hdrs.zip(expectedHeaders).zipWithIndex.foreach{case ((a, b), idx) => if a != b  then
+        throw new IllegalStateException(s"CSV headers do not match expected headers. Expected: $expectedHeaders, but got: $hdrs, but header $a != $b at index $idx")
+      }
       new CsvIterator[K, V](iterator, hdrs)
 
 end CSV
