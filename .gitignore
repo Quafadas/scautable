@@ -11,7 +11,7 @@ out
 .idea
 .idea_modules
 /.worksheet/
-*/.DS_Store
+.DS_Store
 
 # XL
 examples/resources/*.xlsx
