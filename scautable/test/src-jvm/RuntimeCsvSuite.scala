@@ -2,7 +2,6 @@ package io.github.quafadas.scautable
 
 import io.github.quafadas.table.*
 import munit.FunSuite
-import os.ResourcePath
 import os.Path
 
 class RuntimeCsvSuite extends FunSuite:
