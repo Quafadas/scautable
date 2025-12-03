@@ -3,11 +3,12 @@ package io.github.quafadas.scautable
 import io.github.quafadas.table.*
 import munit.FunSuite
 import os.ResourcePath
+import os.Path
 
 class RuntimeCsvSuite extends FunSuite:
 
   test("fromTyped creates a function that can read CSV from runtime path") {
-    val csvReader = CSV.fromTyped[("col1", "col2", "col3"), (String, String, String)]
+    val csvReader: Path => CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.fromTyped[("col1", "col2", "col3"), (String, String, String)]
 
     // Get the resource path at runtime
     val resourcePath = os.Path(this.getClass.getClassLoader.getResource("simple.csv").getPath)
@@ -41,7 +42,6 @@ class RuntimeCsvSuite extends FunSuite:
     assertEquals(rows(0).col3, 7.0)
   }
 
-
   test("fromTyped can be reused for multiple files with same schema") {
     val csvReader = CSV.fromTyped[("col1", "col2", "col3"), (String, String, String)]
 
@@ -71,7 +71,21 @@ class RuntimeCsvSuite extends FunSuite:
     }
     assert(thrown.getMessage.contains("CSV headers do not match expected headers"))
     assert(thrown.getMessage.contains("colB"))
-  }
 
+    val sizeCheck = CSV.fromTyped[("col1", "col2", "col3", "col4"), (String, String, String, String)]
+    val thrownSize = intercept[IllegalStateException] {
+      val csv = sizeCheck(resourcePath)
+      csv.toArray
+    }
+    assert(thrownSize.getMessage.contains("You provided: 4 but 3 headers were found in the file"))
+
+    val sizeCheck2 = CSV.fromTyped[("col1", "col2", "col3"), (String, String, String, String)]
+    val thrownSize2 = intercept[IllegalStateException] {
+      val csv = sizeCheck2(resourcePath)
+      csv.toArray
+    }
+    assert(thrownSize2.getMessage.contains("Number of headers in CSV (3) does not match number (4) of types provided for decoding."))
+
+  }
 
 end RuntimeCsvSuite

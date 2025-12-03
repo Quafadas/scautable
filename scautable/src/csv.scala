@@ -259,9 +259,8 @@ object CSV:
 
   /** Creates a function that reads a CSV file from a runtime path and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
-    * Unlike other CSV methods that require the file path at compile time, this method allows you to specify the column types at compile time
-    * but provide the file path at runtime. This is useful when you know the structure of a CSV file in advance but the actual file location
-    * is determined at runtime.
+    * Unlike other CSV methods that require the file path at compile time, this method allows you to specify the column types at compile time but provide the file path at runtime.
+    * This is useful when you know the structure of a CSV file in advance but the actual file location is determined at runtime.
     *
     * Example:
     * {{{
@@ -304,9 +303,19 @@ object CSV:
       val lines = scala.io.Source.fromFile(path.toIO).getLines()
       val (hdrs, iterator) = lines.headers(headers)
       val expectedHeaders = scala.compiletime.constValueTuple[K].toArray.toSeq.asInstanceOf[Seq[String]]
-      hdrs.zip(expectedHeaders).zipWithIndex.foreach{case ((a, b), idx) => if a != b  then
-        throw new IllegalStateException(s"CSV headers do not match expected headers. Expected: $expectedHeaders, but got: $hdrs, but header $a != $b at index $idx")
+      hdrs.zip(expectedHeaders).zipWithIndex.foreach { case ((a, b), idx) =>
+        if a != b then throw new IllegalStateException(s"CSV headers do not match expected headers. Expected: $expectedHeaders, but got: $hdrs, but header $a != $b at index $idx")
       }
+
+      if hdrs.length != expectedHeaders.length then
+        throw new IllegalStateException(s"You provided: ${expectedHeaders.size} but ${hdrs.size} headers were found in the file at ${path.toString}.")
+      end if
+
+      val sizeOfV = scala.compiletime.constValue[Tuple.Size[V]]
+      if hdrs.length != sizeOfV then
+        throw new IllegalStateException(s"Number of headers in CSV (${hdrs.length}) does not match number (${sizeOfV}) of types provided for decoding.")
+      end if
+
       new CsvIterator[K, V](iterator, hdrs)
 
 end CSV
