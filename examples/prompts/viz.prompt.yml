@@ -19,7 +19,7 @@ messages:
 evaluators:
   - name: Output should use vegal lite v6
     string:
-      contains: |
+      startsWith: |
         ```json { "$schema": "https://vega.github.io/schema/vega-lite/v6.json"
 testData:
   - input: Gender

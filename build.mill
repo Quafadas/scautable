@@ -1,56 +1,56 @@
+//| mill-version: 1.1.0-RC2
+//| mill-jvm-version: 21
+//| mvnDeps:
+//| - io.github.quafadas:millSite_mill1_3.7:0.0.53
+//| - com.goyeau::mill-scalafix::0.6.0
+
 package build
 
-import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
+import mill.*, mill.scalalib.*, mill.scalajslib.*
+import mill.*, scalalib.*, publish.*
+import com.goyeau.mill.scalafix.ScalafixModule
+import mill.util.VcsVersion
 
-import mill._, mill.scalalib._, mill.scalajslib._
-import mill._, scalalib._, publish._
+object Config:
+  val oslib = mvn"com.lihaoyi::os-lib:0.11.5"
+  val scalatags = mvn"com.lihaoyi::scalatags::0.13.1"
+  val fansi = mvn"com.lihaoyi::fansi::0.5.1"
 
-import de.tobiasroeser.mill.vcs.version._
-
-import $packages._
-
-object Config {
-  val oslib = ivy"com.lihaoyi::os-lib:0.11.4"
-  val scalatags = ivy"com.lihaoyi::scalatags::0.13.1"
-  val fansi = ivy"com.lihaoyi::fansi::0.5.0"
-
-
-
-  val laminar = ivy"com.raquo::laminar::17.2.1"
-  val munit = ivy"org.scalameta::munit::1.1.1"
-  val scalaVersion = "3.7.0"
+  val laminar = mvn"com.raquo::laminar::17.2.1"
+  val munit = mvn"org.scalameta::munit::1.1.1"
+  val scalaVersion = "3.7.2"
   val scalaJSVersion = "1.19.0"
-}
+end Config
 
-//  mill --import ivy:com.lihaoyi::mill-contrib-bloop: mill.contrib.bloop.Bloop/install
-trait Common extends ScalaModule {
+val extraCompilerOpts = Seq("-Xmax-inlines", "256", "-Wunused:imports")
+
+// mill __.compiledClassesAndSemanticDbFiles
+trait Common extends ScalaModule, ScalafixModule:
   def scalaVersion = Config.scalaVersion
 
-  override def ivyDeps = super.ivyDeps() ++ Agg(
+  override def mvnDeps = super.mvnDeps() ++ Seq(
     Config.scalatags,
     Config.oslib,
     Config.fansi
   )
-  override def scalacOptions: T[Seq[String]] = super.scalacOptions() ++ Seq("-Xmax-inlines", "128")
-}
+  override def scalacOptions = super.scalacOptions() ++ extraCompilerOpts
+end Common
 
-
-trait CommonJS extends Common with ScalaJSModule {
+trait CommonJS extends Common with ScalaJSModule:
   def scalaJSVersion = "1.19.0"
-  override def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"org.scala-js::scalajs-dom::2.8.0",
-    ivy"org.scala-js::scalajs-java-securerandom::1.0.0".withDottyCompat(scalaVersion()),
+  override def mvnDeps = super.mvnDeps() ++ Seq(
+    mvn"org.scala-js::scalajs-dom::2.8.1",
+    mvn"org.scala-js::scalajs-java-securerandom::1.0.0".withDottyCompat(scalaVersion()),
     Config.laminar
   )
-}
+end CommonJS
 
-
-trait PublishModule extends mill.scalalib.PublishModule {
+trait PublishModule extends mill.scalalib.PublishModule:
   override def artifactName = "scautable"
 
-  override def publishVersion = T{ VcsVersion.vcsState().format() }
+  override def publishVersion = Task(VcsVersion.vcsState().format())
 
-  override def pomSettings = T {
+  override def pomSettings = Task {
     PomSettings(
       description = "Automatically generate html tables from scala case classes",
       organization = "io.github.quafadas",
@@ -62,17 +62,17 @@ trait PublishModule extends mill.scalalib.PublishModule {
       )
     )
   }
+end PublishModule
 
-}
+trait CommonTests extends ScalaModule, TestModule.Munit, ScalafixModule:
 
-trait CommonTests extends TestModule.Munit {
-
-  // override def testFramework = "munit.runner.Framework"
-  override def ivyDeps = super.ivyDeps() ++ Agg(
+  // override def defaultTask(): String = "test"
+  override def scalacOptions = super.scalacOptions() ++ extraCompilerOpts
+  override def mvnDeps = super.mvnDeps() ++ Seq(
     Config.munit
   )
-}
+end CommonTests
 
-trait ShareCompileResources extends ScalaModule {
+trait ShareCompileResources extends ScalaModule:
   override def compileResources = super.compileResources() ++ resources()
-}
+end ShareCompileResources

@@ -1,26 +1,29 @@
 package build.examples
 
-import mill._, scalalib._, mill.scalajslib._, mill.scalajslib.api._
+import mill.*, scalalib.*, mill.scalajslib.*, mill.scalajslib.api.*
 
 import build.Config
 
-object `package` extends RootModule with ScalaModule with build.ShareCompileResources {
+object `package` extends ScalaModule with build.ShareCompileResources:
   def scalaVersion = Config.scalaVersion
   override def moduleDeps = Seq(build.scautable.jvm)
 
-  override def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"io.github.quafadas::dedav4s::0.10.0-RC2"
+  override def mvnDeps = super.mvnDeps() ++ Seq(
+    mvn"io.github.quafadas::dedav4s::0.10.0-RC2"
   )
 
-  /**
-    *
-    */
-  object vizserver extends ScalaModule{
+  /** */
+  object vizserver extends ScalaModule:
     def scalaVersion = Config.scalaVersion
     def moduleDeps = Seq(build.examples)
 
-    def mainClass = Some("viz.websockets.serve")
-
-  }
-
-}
+    /** This attempts to leave some logging behind, to tell vscode to port forward to 8085. If it doesn't work, you can port forwrad manually.
+      *
+      * @return
+      */
+    def mainClass = Task {
+      println("Starting vizserver...on https://localhost:8085/")
+      Some("viz.websockets.serve")
+    }
+  end vizserver
+end `package`

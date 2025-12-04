@@ -1,25 +1,23 @@
 package io.github.quafadas.scautable
 
-import scalatags.Text.all.*
-import scala.deriving.Mirror
-import scala.compiletime.erasedValue
-import scala.compiletime.constValue
-import scala.compiletime.summonInline
-import java.time.LocalDate
-import scalatags.Text.TypedTag
-import fansi.Str
-import NamedTuple.*
-import scala.compiletime.constValueTuple
+import scala.NamedTuple.*
 import scala.annotation.nowarn
+import scala.compiletime.constValue
+import scala.compiletime.constValueTuple
+import scala.compiletime.erasedValue
+import scala.compiletime.summonInline
+import scala.deriving.Mirror
+import scalatags.Text.TypedTag
+import scalatags.Text.all.*
 
 /** This is a simple library to render a scala case class as an html table. It assumes the presence of a [[HtmlTableRender]] instance for each type in the case class.
   */
-object scautable extends PlatformSpecific:
+object HtmlRenderer extends PlatformSpecific:
 
   // Aggressively copy-pasta-d from here; https://blog.philipp-martini.de/blog/magic-mirror-scala3/
   protected inline def getTypeclassInstances[A <: Tuple]: List[HtmlTableRender[Any]] =
     inline erasedValue[A] match
-      case _: EmptyTuple => Nil
+      case _: EmptyTuple     => Nil
       case _: (head *: tail) =>
         val headTypeClass =
           summonInline[HtmlTableRender[
@@ -65,7 +63,7 @@ object scautable extends PlatformSpecific:
     protected inline def getInstances[A <: Tuple]: List[TC[Any]] =
       inline erasedValue[A] match
         case _: EmptyTuple => Nil
-        case _: (t *: ts) =>
+        case _: (t *: ts)  =>
           summonInline[TC[t]].asInstanceOf[TC[Any]] :: getInstances[ts]
 
     protected inline def getElemLabels[A <: Tuple]: List[String] =
@@ -131,7 +129,7 @@ object scautable extends PlatformSpecific:
         // table(tbody(header,rows))
         a match
           case p: Product =>
-            td(scautable(p, false)(using this))
+            td(HtmlRenderer(p, false)(using this))
           // case q: Seq[Product] =>
           //   scautable(q)(using this)
 
@@ -207,6 +205,23 @@ object scautable extends PlatformSpecific:
             val cells = a.map(in => tr(inner.tableCell(in)))
             td(table(tbody(cells)))
 
+  given tupleT[V <: Tuple]: HtmlTableRender[V] = new HtmlTableRender[V]:
+    override def tableHeader(a: V): TypedTag[String] =
+      val h = a.asInstanceOf[Product].productElementNames.toList
+      tr(h.map(th(_)))
+    end tableHeader
+
+    override def tableCell(a: V): TypedTag[String] =
+      td(s"$a")
+    end tableCell
+
+    override def tableRow(a: V): TypedTag[String] =
+      val elems = a.asInstanceOf[Product].productIterator.toList
+      val cells = elems.map(e => td(e.toString))
+      tr(cells)
+    end tableRow
+  end tupleT
+
   protected def deriveTableRow[A](a: A)(using instance: HtmlTableRender[A]) =
     instance.tableRow(a)
 
@@ -226,7 +241,7 @@ object scautable extends PlatformSpecific:
 
   protected inline def getElemLabels[A <: Tuple]: List[String] =
     inline erasedValue[A] match
-      case _: EmptyTuple => Nil // stop condition - the tuple is empty
+      case _: EmptyTuple     => Nil // stop condition - the tuple is empty
       case _: (head *: tail) => // yes, in scala 3 we can match on tuples head and tail to deconstruct them step by step
         val headElementLabel =
           constValue[head].toString // bring the head label to value space
@@ -283,11 +298,11 @@ object scautable extends PlatformSpecific:
     apply(a, true, h)
   end apply
 
-  def apply[A <: Product](a: Seq[A], addHeader: Boolean = true, h: List[String])(using
+  def apply[A <: Product, C <: IterableOnce[A]](a: C, addHeader: Boolean = true, h: List[String])(using
       tableDeriveInstance: HtmlTableRender[A]
   ): TypedTag[String] =
     val header = tr(h.map(th(_)))
-    val rows = for (r <- a) yield tableDeriveInstance.tableRow(r)
+    val rows = (for (r <- a) yield tableDeriveInstance.tableRow(r)).iterator.toSeq
     if addHeader then table(thead(header), tbody(rows), id := "scautable", cls := "display")
     else table(thead(header), tbody(rows))
     end if
@@ -296,11 +311,11 @@ object scautable extends PlatformSpecific:
   def apply[A <: Product](a: A, addHeader: Boolean)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
     apply(Seq(a), addHeader, a.productElementNames.toList)
 
-  inline def nt[K <: Tuple, V <: Tuple](a: Seq[NamedTuple[K, V]])(using
+  inline def nt[K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](a: C)(using
       tableDeriveInstance: HtmlTableRender[V]
   ): TypedTag[String] =
     val names = constValueTuple[K].toList.map(_.toString())
-    apply(a.map(_.toTuple), true, names)
+    apply(a.iterator.map(_.toTuple), true, names)
   end nt
 
-end scautable
+end HtmlRenderer

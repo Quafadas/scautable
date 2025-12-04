@@ -1,13 +1,17 @@
 package build.site
 
-import $ivy.`io.github.quafadas:millSite_mill0.12_2.13:0.0.38`
+import mill.*, scalalib.*
+import mill.scalajslib.api.*
+import io.github.quafadas.millSite.*
+import mill.util.VcsVersion
 
-import mill._, scalalib._
-import mill.scalajslib.api._
-import io.github.quafadas.millSite._
+object `package` extends SiteModule:
 
-object `package` extends RootModule with SiteModule {
-  def scalaVersion = build.Config.scalaVersion
-  override def scalacOptions: T[Seq[String]] =  super.scalacOptions() ++ build.scautable.jvm.scalacOptions()
-  override def moduleDeps = Seq(build.scautable.jvm)
-}
+  override def repoLink = Task(
+    build.scautable.jvm.pomSettings().url
+  )
+
+  override def unidocTitle = Task("Scautable API")
+
+  override def unidocDeps = Seq(build.scautable.jvm)
+end `package`

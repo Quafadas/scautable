@@ -1,48 +1,23 @@
 package io.github.quafadas.scautable
+import scala.NamedTuple.*
 
-import java.time.LocalDate
 import io.github.quafadas.table.*
-
-import NamedTuple.*
-
-import scala.compiletime.ops.int.S
 
 class CSVSuite extends munit.FunSuite:
 
-  test("type test") {
-    def csv = CSV.resource("typeTest.csv")
-
-    val tt = csv.headers.zip(csv.numericTypeTest._1)
-    assert(tt.length == csv.headers.length)
-
-    assert(tt.head._2 == ConversionAcc(3, 3, 3)) // All ints are valid double and long
-    assert(tt(1)._2 == ConversionAcc(0, 3, 0))
-    assert(tt(2)._2 == ConversionAcc(0, 3, 3))
-    assert(tt(3)._2 == ConversionAcc(1, 1, 1))
-    assert(tt.last._2 == ConversionAcc(0, 0, 0))
-
-    assertNoDiff(
-      csv.formatTypeTest,
-      """| |conversion % to|   col1|   col2|   col3|  col4|  col5|
-+-+---------------+-------+-------+-------+------+------+
-|0|            int|100.00%|  0.00%|  0.00%|33.33%| 0.00%|
-|1|        doubles|100.00%|100.00%|100.00%|33.33%| 0.00%|
-|2|           long|100.00%|  0.00%|100.00%|33.33%| 0.00%|
-|3| recommendation|    Int| Double|   Long|String|String|
-+-+---------------+-------+-------+-------+------+------+"""
-    )
-  }
-
   test("csv from resource compiles and typechecks") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
-    val titanic: CsvIterator[("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked")] =
+    val titanic: CsvIterator[
+      ("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"),
+      (String, String, String, String, String, String, String, String, String, String, String, String)
+    ] =
       CSV.resource("titanic.csv")
     // val wide = CSV.resource("wide.csv")
   }
 
   test("column safety") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     assert(
       !compileErrors("csv.column[\"notcol\"]").isEmpty()
@@ -83,7 +58,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("columns") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     assert(
       !compileErrors("csv.columns[(\"notcol\")]").isEmpty()
@@ -100,6 +75,18 @@ class CSVSuite extends munit.FunSuite:
 
     def numerics: Iterator[(col1: Int)] = cols.numericCols
     def nonnumerics: Iterator[(col2: String, col3: String)] = cols.nonNumericCols
+
+  }
+
+  test("column order") {
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+
+    // If this compiles, then the column order is preserved
+    val selectCols: Iterator[(col3: String, col2: String, col1: String)] = csv.columns[("col3", "col2", "col1")]
+    val ll = LazyList.from(selectCols)
+    assert(ll.head.col1 == "1")
+    assert(ll.head.col3 == "7")
+    assert(ll.last.col3 == "9")
 
   }
 
@@ -132,7 +119,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("column") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     val column2 = csv.column["col2"]
     val col2 = column2.toArray
@@ -142,21 +129,13 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("drop column") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
-
-    def csv2: Iterator[(col1: String, col2: String, col3: String)] = csv.restart.take(3)
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     val dropped = csv.dropColumn["col2"]
     val out = dropped.toArray
     assertEquals(out.head, ("1", "7"))
     assertEquals(out.tail.head, ("3", "8"))
     assertEquals(out.last, ("5", "9"))
-
-    val dropFirst = csv2.dropColumn["col1"]
-    val out2 = dropFirst.toArray
-    assertEquals(out2.head, ("2", "7"))
-    assertEquals(out2.tail.head, ("4", "8"))
-    assertEquals(out2.last, ("6", "9"))    
 
   }
 
@@ -170,7 +149,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("Drop column, mapColumn, then select another") {
-    def csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     def dropped = csv.dropColumn["col2"].mapColumn["col3", Int](_.toInt)
 
@@ -211,6 +190,30 @@ class CSVSuite extends munit.FunSuite:
           "Column20",
           "Column21",
           "Column22"
+      ),
+      (
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String,
+          String
       )
     ] = CSV.resource("wide22.csv")
     val wide23 = CSV.resource("wide23.csv")
@@ -226,13 +229,13 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("reading data") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     assertEquals(csv.toArray.mkString(","), """(1,2,7),(3,4,8),(5,6,9)""")
   }
 
   test("add columns") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     val added = csv
       .addColumn["col3Times3", Int](_.col3.toInt * 3)
@@ -255,7 +258,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("schema gen") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
     val schema = csv.schemaGen
     assertNoDiff(
       schema,
@@ -278,7 +281,7 @@ import CsvSchema.*"""
   }
 
   test("rename column") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     val renamed: Iterator[(col1: String, col2Renamed: String, col3: String)] = csv.renameColumn["col2", "col2Renamed"]
     val out = renamed.toArray
@@ -288,7 +291,7 @@ import CsvSchema.*"""
   }
 
   test("force column type") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
 
     val renamed: Iterator[(col1: String, col2Renamed: String, col3: String)] = csv.renameColumn["col2", "col2Renamed"].forceColumnType["col2Renamed", String]
     val out = renamed.toArray
@@ -335,7 +338,7 @@ import CsvSchema.*"""
   }
 
   test("console print") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
     assertNoDiff(
       csv.toArray.consoleFormatNt(),
       """| |col1|col2|col3|
@@ -352,7 +355,7 @@ import CsvSchema.*"""
   }
 
   test("header indexes") {
-    val csv: CsvIterator[("col1", "col2", "col3")] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
     assertEquals(csv.headerIndex("col1"), 0)
     assertEquals(csv.headerIndex("col2"), 1)
     assertEquals(csv.headerIndex("col3"), 2)
@@ -391,13 +394,69 @@ import CsvSchema.*"""
 
   }
 
-  test("csv has duplicate headers") {
-    def csv: CsvIterator[("colA", "colA", "colA", "colB", "colC", "colA")] = CSV.resource("dups.csv")
+  test("CSV.resource with AutoGenerated headers parses data_without_headers.csv correctly") {
+    val csv = CSV.resource("data_without_headers.csv", HeaderOptions.AutoGenerated)
 
-    // If the next two lines compile, this is a pretty good indicator that we've deduplicated the headers
-    def dedupCsv: CsvIterator[("colA", "colA_1", "colA_2", "colB", "colC", "colA_5")] = CSV.deduplicateHeaders(csv)
-    val testVal = dedupCsv.drop(1).next().colA_5
-    assert(testVal == "5")
+    assertEquals(csv.headers, List("col_0", "col_1", "col_2"))
+
+    val rows = csv.toArray
+
+    assertEquals(rows.length, 3)
+
+    assertEquals(rows(0).col_0, "Alice")
+    assertEquals(rows(0).col_1, "25")
+    assertEquals(rows(0).col_2, "Engineer")
+
+    assertEquals(rows(1).col_0, "Bob")
+    assertEquals(rows(1).col_1, "30")
+    assertEquals(rows(1).col_2, "Designer")
+
+    assertEquals(rows(2).col_0, "Charlie")
+    assertEquals(rows(2).col_1, "22")
+    assertEquals(rows(2).col_2, "Student")
+  }
+
+  test("CSV.resource with Manual headers parses data_without_headers.csv correctly") {
+    val csv: CsvIterator[("name", "age", "profession"), (String, Int, String)] =
+      CSV.resource("data_without_headers.csv", HeaderOptions.Manual("name", "age", "profession"), TypeInferrer.FirstRow)
+
+    assertEquals(csv.headers, List("name", "age", "profession"))
+
+    val rows = csv.toArray
+
+    assertEquals(rows.length, 3)
+
+    assertEquals(rows(0).name, "Alice")
+    assertEquals(rows(0).age, 25)
+    assertEquals(rows(0).profession, "Engineer")
+
+    assertEquals(rows(1).name, "Bob")
+    assertEquals(rows(1).age, 30)
+    assertEquals(rows(1).profession, "Designer")
+
+    assertEquals(rows(2).name, "Charlie")
+    assertEquals(rows(2).age, 22)
+    assertEquals(rows(2).profession, "Student")
+  }
+
+  test("resource should correctly drop initial lines and combine multi-line headers with FromRows(2, dropFirst = 1)") {
+    val csvIterator = CSV.resource("multiline_headers_dropline.csv", HeaderOptions.FromRows(merge = 2, dropFirst = 1))
+
+    assertEquals(csvIterator.headers, List("Name First", "Age Years"))
+
+    assert(csvIterator.hasNext)
+    val row1 = csvIterator.next()
+    assertEquals(row1.`Name First`, "Alice")
+    assertEquals(row1.`Age Years`, "30")
+    assertEquals(row1.toTuple.toList, List("Alice", "30"))
+
+    assert(csvIterator.hasNext)
+    val row2 = csvIterator.next()
+    assertEquals(row2.`Name First`, "Bob")
+    assertEquals(row2.`Age Years`, "24")
+    assertEquals(row2.toTuple.toList, List("Bob", "24"))
+
+    assert(!csvIterator.hasNext)
   }
 
   // test("url") {

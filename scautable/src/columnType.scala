@@ -15,15 +15,31 @@ object ColumnTyped:
     case Nil    => EmptyTuple
     case h :: t => h *: listToTuple(t)
 
+  // Error type for compile-time failures
+  type ColumnNotFoundError[ColumnName <: String, AvailableColumns <: Tuple]
+
+  // The index of a column name in a tuple of column names
+  type IdxAtName[STR <: String, T <: Tuple] <: Int = T match
+    case EmptyTuple   => -1
+    case head *: tail =>
+      IsMatch[STR, head] match
+        case true  => 0
+        case false => S[IdxAtName[STR, tail]]
+
+  // Get the indexes of multiple column names
+  type IndexesAtNames[Names <: Tuple, Columns <: Tuple] <: Tuple = Names match
+    case EmptyTuple           => EmptyTuple
+    case nameHead *: nameTail => IdxAtName[nameHead, Columns] *: IndexesAtNames[nameTail, Columns]
+
   type Negate[T <: Tuple] <: Tuple = T match
-    case EmptyTuple => EmptyTuple
+    case EmptyTuple     => EmptyTuple
     case (head *: tail) =>
       head match
         case false => true *: Negate[tail]
         case true  => false *: Negate[tail]
 
   type IsColumn[StrConst <: String, T <: Tuple] <: Boolean = T match
-    case EmptyTuple => false
+    case EmptyTuple     => false
     case (head *: tail) =>
       IsMatch[StrConst, head] match
         case true  => true
@@ -31,27 +47,27 @@ object ColumnTyped:
     case _ => false
 
   type ReplaceOneName[T <: Tuple, StrConst <: String, A <: String] <: Tuple = T match
-    case EmptyTuple => EmptyTuple
+    case EmptyTuple           => EmptyTuple
     case nameHead *: nameTail =>
       IsMatch[nameHead, StrConst] match
         case true  => A *: nameTail
         case false => nameHead *: ReplaceOneName[nameTail, StrConst, A]
 
   type ReplaceOneTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple, A] <: Tuple = (N, T) match
-    case (EmptyTuple, _) => EmptyTuple
-    case (_, EmptyTuple) => EmptyTuple
+    case (EmptyTuple, _)                              => EmptyTuple
+    case (_, EmptyTuple)                              => EmptyTuple
     case (nameHead *: nameTail, typeHead *: typeTail) =>
       IsMatch[nameHead, StrConst] match
-        case true => A *: typeTail
+        case true  => A *: typeTail
         case false =>
           typeHead *: ReplaceOneTypeAtName[nameTail, StrConst, typeTail, A]
 
   type DropOneTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple] <: Tuple = (N, T) match
-    case (EmptyTuple, _) => EmptyTuple
-    case (_, EmptyTuple) => EmptyTuple
+    case (EmptyTuple, _)                              => EmptyTuple
+    case (_, EmptyTuple)                              => EmptyTuple
     case (nameHead *: nameTail, typeHead *: typeTail) =>
       IsMatch[nameHead, StrConst] match
-        case true => typeTail
+        case true  => typeTail
         case false =>
           typeHead *: DropOneTypeAtName[nameTail, StrConst, typeTail]
 
@@ -60,23 +76,23 @@ object ColumnTyped:
     case nameHead *: nameTail => GetTypeAtName[N, nameHead, T] *: GetTypesAtNames[N, nameTail, T]
 
   type GetTypeAtName[N <: Tuple, StrConst <: String, T <: Tuple] = (N, T) match
-    case (EmptyTuple, _) => EmptyTuple
-    case (_, EmptyTuple) => EmptyTuple
+    case (EmptyTuple, _)                              => EmptyTuple
+    case (_, EmptyTuple)                              => EmptyTuple
     case (nameHead *: nameTail, typeHead *: typeTail) =>
       IsMatch[nameHead, StrConst] match
-        case true => typeHead
+        case true  => typeHead
         case false =>
           GetTypeAtName[nameTail, StrConst, typeTail]
 
   type DropAfterName[T, StrConst <: String] = T match
-    case EmptyTuple => EmptyTuple
+    case EmptyTuple     => EmptyTuple
     case (head *: tail) =>
       IsMatch[StrConst, head] match
         case true  => EmptyTuple
         case false => head *: DropAfterName[tail, StrConst]
 
   type DropOneName[T, StrConst <: String] <: Tuple = T match
-    case EmptyTuple => EmptyTuple
+    case EmptyTuple     => EmptyTuple
     case (head *: tail) =>
       IsMatch[StrConst, head] match
         case true  => DropOneName[tail, StrConst]
@@ -96,31 +112,31 @@ object ColumnTyped:
 
   type NumericColsIdx[T <: Tuple] <: Tuple =
     T match
-      case EmptyTuple => EmptyTuple
+      case EmptyTuple     => EmptyTuple
       case (head *: tail) =>
         IsNumeric[head] match
           case true  => true *: NumericColsIdx[tail]
           case false => false *: NumericColsIdx[tail]
 
   type SelectFromTuple[T <: Tuple, Bools <: Tuple] <: Tuple = T match
-    case EmptyTuple => EmptyTuple
+    case EmptyTuple     => EmptyTuple
     case (head *: tail) =>
       Bools match
         case (true *: boolTail)  => head *: SelectFromTuple[tail, boolTail]
         case (false *: boolTail) => SelectFromTuple[tail, boolTail]
 
   type AllAreColumns[T <: Tuple, K <: Tuple] <: Boolean = T match
-    case EmptyTuple => true
+    case EmptyTuple   => true
     case head *: tail =>
       IsColumn[head, K] match
         case true  => AllAreColumns[tail, K]
         case false => false
 
   type TupleContainsIdx[Search <: Tuple, In <: Tuple] <: Tuple = In match
-    case EmptyTuple => EmptyTuple
+    case EmptyTuple   => EmptyTuple
     case head *: tail =>
       Search match
-        case EmptyTuple => false *: EmptyTuple
+        case EmptyTuple               => false *: EmptyTuple
         case searchHead *: searchTail =>
           IsColumn[head, Search] match
             case true  => true *: TupleContainsIdx[Search, tail]

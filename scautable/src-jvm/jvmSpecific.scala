@@ -1,13 +1,13 @@
 package io.github.quafadas.scautable
 
 import java.awt.Desktop
-import io.github.quafadas.scautable.scautable.HtmlTableRender
-import NamedTuple.*
+
+import scala.NamedTuple.*
 // import almond.api.JupyterApi
 // import almond.interpreter.api.DisplayData
 // import almond.api.JupyterAPIHolder.value
 
-trait PlatformSpecific:
+private[scautable] trait PlatformSpecific:
 
   private def openBrowserWindow(uri: java.net.URI): Unit =
     if Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE) then Desktop.getDesktop().browse(uri)
@@ -31,10 +31,10 @@ trait PlatformSpecific:
       val runtime = java.lang.Runtime.getRuntime()
       runtime.exec(Array[String](s"""xdg-open $uri]"""))
 
-  inline def desktopShowNt[K <: Tuple, V <: Tuple](a: Seq[NamedTuple[K, V]])(using
-      tableDeriveInstance: HtmlTableRender[V]
+  inline def desktopShowNt[K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](a: C)(using
+      tableDeriveInstance: HtmlRenderer.HtmlTableRender[V]
   ): os.Path =
-    val asString = scautable.nt(a).toString()
+    val asString = HtmlRenderer.nt(a).toString()
     val theHtml = raw"""
 <!DOCTYPE html>
   <html>
@@ -70,8 +70,8 @@ $$(document).ready( function () {
     *   \- summon a HtmlTableRender instance for the case class
     * @return
     */
-  inline def desktopShow[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]) =
-    val asString = scautable(a).toString()
+  inline def desktopShow[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlRenderer.HtmlTableRender[A]) =
+    val asString = HtmlRenderer(a).toString()
     val theHtml = raw"""
 <!DOCTYPE html>
   <html>
@@ -101,6 +101,6 @@ $$(document).ready( function () {
 
   // def almondShow[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlTableRender[A]) =
   //   val kernel = summon[JupyterApi]
-  //   val asString = scautable(a).toString()
+  //   val asString = HtmlRenderer(a).toString()
   //   kernel.publish.html(asString)
 end PlatformSpecific

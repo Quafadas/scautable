@@ -1,15 +1,7 @@
 package io.github.quafadas.scautable
-
-import scala.io.Source
-import scala.util.Try
-import scala.util.chaining.*
-import scala.util.matching.Regex
 import scala.NamedTuple.*
+import scala.annotation.publicInBinary
 import scala.compiletime.*
-import CSV.*
-import ConsoleFormat.*
-import ColumnTyped.*
-import NamedTuple.*
 
 /** A NamedTuple representation of a CSV file.
   *
@@ -29,18 +21,33 @@ import NamedTuple.*
   * ```
   * etc
   */
-class CsvIterator[K <: Tuple](filePath: String, opts: CsvReadOptions) extends Iterator[NamedTuple[K, StringyTuple[K & Tuple]]]:
+
+class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (private val rows: Iterator[String], val headers: Seq[String])(using decoder: RowDecoder[V])
+    extends Iterator[NamedTuple[K, V]]:
+
   type COLUMNS = K
 
   type Col[N <: Int] = Tuple.Elem[K, N]
 
-  def getFilePath: String = filePath
-  def getOpts: CsvReadOptions = opts
-  lazy private val source = Source.fromFile(filePath)
-  lazy private val lineIterator = source.getLines()
-  lazy val headers = CSVParser.parseLine((Source.fromFile(filePath).getLines().next()))
-  lazy val headersTuple =
-    listToTuple(headers)
+  inline override def hasNext: Boolean = rows.hasNext
+
+  // inline override def next() =
+  //   val str = rows.next()
+  //   val splitted = CSVParser.parseLine(str)
+  //   val tuple = listToTuple(splitted).asInstanceOf[StringyTuple[K]]
+  //   NamedTuple.build[K & Tuple]()(tuple)
+  // end next
+
+  inline override def next() =
+    val str = rows.next()
+    val splitted = CSVParser.parseLine(str)
+    val tuple = decoder
+      .decodeRow(splitted)
+      .getOrElse(
+        throw new Exception("Failed to decode row: " + splitted)
+      )
+    NamedTuple.build[K & Tuple]()(tuple)
+  end next
 
   def schemaGen: String =
     val headerTypes = headers.map(header => s"type ${header} = \"$header\"").mkString("\n  ")
@@ -58,48 +65,4 @@ import CsvSchema.*
     headers.indexOf(constValue[S].toString)
   end headerIndex
 
-  inline override def hasNext: Boolean =
-    val hasMore = lineIterator.hasNext
-    if !hasMore then source.close()
-    end if
-    hasMore
-  end hasNext
-
-  // def numericTypeTest(sample: Option[Int] = None) =
-  //   val sampled = sample match
-  //     case Some(n) =>
-  //       this.take(n)
-  //     case None =>
-  //       this
-  //   val asList = headers.map(_ => ConversionAcc(0, 0, 0))
-
-  //   sampled.foldLeft((asList, 0L))((acc: (List[ConversionAcc], Long), elem: NamedTuple[K & Tuple, StringyTuple[K & Tuple]]) =>
-
-  //     val list = elem.toList.asInstanceOf[List[String]].zip(acc._1).map { case (str, acc) =>
-
-  //       (
-  //         ConversionAcc(
-  //           acc.validInts + str.toIntOption.fold(0)(_ => 1),
-  //           acc.validDoubles + str.toDoubleOption.fold(0)(_ => 1),
-  //           acc.validLongs + str.toLongOption.fold(0)(_ => 1)
-  //         )
-  //       )
-  //     }
-  //     (list, acc._2 + 1)
-  //   )
-  // end numericTypeTest
-
-  inline def restart = new CsvIterator[K](filePath, opts)
-  inline def copy = restart
-
-  inline override def next() =
-    if !hasNext then throw new NoSuchElementException("No more lines")
-    end if
-    val str = lineIterator.next()
-    val splitted = CSVParser.parseLine(str)
-    val tuple = listToTuple(splitted).asInstanceOf[StringyTuple[K & Tuple]]
-    NamedTuple.build[K & Tuple]()(tuple)
-  end next
-
-  next() // drop the headers
 end CsvIterator
