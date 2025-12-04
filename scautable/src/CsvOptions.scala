@@ -20,16 +20,16 @@ case class CsvOpts(
 
 object CsvOpts:
   /** Default CSV options: read headers from first row, treat all columns as Strings, use comma delimiter */
-  inline def Default: CsvOpts = CsvOpts(HeaderOptions.Default, TypeInferrer.StringType, ',')
+  val Default: CsvOpts = CsvOpts(HeaderOptions.Default, TypeInferrer.StringType, ',')
 
   /** CSV options with custom header handling */
-  inline def apply(headers: HeaderOptions): CsvOpts = CsvOpts(headers, TypeInferrer.StringType, ',')
+  def apply(headers: HeaderOptions): CsvOpts = CsvOpts(headers, TypeInferrer.StringType, ',')
 
   /** CSV options with custom type inference */
-  inline def withTypeInferrer(typeInferrer: TypeInferrer): CsvOpts = CsvOpts(HeaderOptions.Default, typeInferrer, ',')
+  def withTypeInferrer(typeInferrer: TypeInferrer): CsvOpts = CsvOpts(HeaderOptions.Default, typeInferrer, ',')
 
   /** CSV options with both header handling and type inference */
-  inline def apply(headers: HeaderOptions, typeInferrer: TypeInferrer): CsvOpts =
+  def apply(headers: HeaderOptions, typeInferrer: TypeInferrer): CsvOpts =
     CsvOpts(headers, typeInferrer, ',')
 
 end CsvOpts
