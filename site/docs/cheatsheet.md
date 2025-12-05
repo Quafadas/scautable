@@ -42,7 +42,9 @@ TBD
 | Inferrer | Use Case |
 |----------|----------|
 | `FromAllRows` | Most accurate type detection (default) |
-| `StringType` | Fast parsing when types not needed |
+| `FirstRow` | Fast, but less accurate type detection |
+| `StringType` | Safe Mode |
 | `FromFirstNRows(n)` | Balance between accuracy and speed |
+| `FromTuple[T]` | You have control of type inference. Can decode complex types via implicit evidence |
 
 
