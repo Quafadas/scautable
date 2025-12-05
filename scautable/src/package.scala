@@ -13,7 +13,6 @@ object table:
   export io.github.quafadas.scautable.BadTableException
   export io.github.quafadas.scautable.CsvOpts
 
-
   export io.github.quafadas.scautable.ConsoleFormat.*
   export io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
   export io.github.quafadas.scautable.CSVWriterExtensions.*

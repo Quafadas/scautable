@@ -109,27 +109,78 @@ object CSV:
     // Unwrap Inlined nodes to get to the actual term
     def unwrapInlined(term: Term): Term = term match
       case Inlined(_, _, body) => unwrapInlined(body)
-      case other => other
+      case other               => other
+
+    // Helper to unwrap NamedArg nodes
+    def unwrapNamedArg(term: Term): Term = term match
+      case NamedArg(_, value) => value
+      case other              => other
+
+    // Helper to resolve a term that might be an Ident or a default value call
+    def resolveTerm(term: Term): Option[Expr[HeaderOptions]] =
+      term match
+        case Ident(name) if name.contains("headerOptions") =>
+          // This is a reference to a variable, it's likely using a default
+          None
+        case Select(_, name) if name.contains("$default$") =>
+          // This is a default parameter call - use the actual default
+          // For CsvOpts, the first parameter (headerOptions) default is HeaderOptions.Default
+          Some('{ HeaderOptions.Default })
+        case t if t.tpe <:< TypeRepr.of[HeaderOptions] => Some(t.asExprOf[HeaderOptions])
+        case _                                         => None
 
     val term = unwrapInlined(optsExpr.asTerm)
 
     term match
+      // Handle Block with variable bindings from default parameters
+      case Block(statements, Apply(_, args)) =>
+        // Look for headerOptions named argument
+        val fromNamedArg = args.collectFirst { case NamedArg("headerOptions", value) =>
+          resolveTerm(unwrapNamedArg(value))
+        }.flatten
+
+        // If not found as named arg, try positional args
+        val fromPositionalArg =
+          if fromNamedArg.isEmpty then
+            args
+              .map(unwrapNamedArg)
+              .collectFirst {
+                case i: Ident if i.symbol.name.contains("headerOptions") => resolveTerm(i)
+                case term if term.tpe <:< TypeRepr.of[HeaderOptions]     => resolveTerm(term)
+              }
+              .flatten
+          else None
+
+        // If not found in args, check statements for variable binding
+        val fromStatements =
+          if fromNamedArg.isEmpty && fromPositionalArg.isEmpty then
+            statements.collectFirst {
+              case ValDef(name, tpt, Some(rhs)) if name.contains("headerOptions") && tpt.tpe <:< TypeRepr.of[HeaderOptions] =>
+                resolveTerm(rhs).getOrElse('{ HeaderOptions.Default })
+            }
+          else None
+
+        fromNamedArg.orElse(fromPositionalArg).orElse(fromStatements).getOrElse('{ HeaderOptions.Default })
+
       // CsvOpts(headerOptions, typeInferrer, delimiter) or CsvOpts(headerOptions, typeInferrer) or CsvOpts(headerOptions)
       // First arg is always HeaderOptions if present, otherwise check if it's TypeInferrer (then use default)
       case Apply(_, args) if args.nonEmpty =>
-        val arg = args.head
         val headerOptionsType = TypeRepr.of[HeaderOptions]
         val typeInferrerType = TypeRepr.of[TypeInferrer]
 
-        if arg.tpe <:< headerOptionsType then
-          // First arg is HeaderOptions
-          arg.asExprOf[HeaderOptions]
-        else if arg.tpe <:< typeInferrerType then
-          // First arg is TypeInferrer, so no HeaderOptions specified
-          '{ HeaderOptions.Default }
-        else
-          report.info(s"Unexpected first argument type: ${arg.tpe.show}")
-          '{ HeaderOptions.Default }
+        // Look for headerOptions by name or by position (first arg)
+        args
+          .collectFirst { case NamedArg("headerOptions", value) =>
+            val unwrapped = unwrapNamedArg(value)
+            resolveTerm(unwrapped)
+          }
+          .flatten
+          .orElse {
+            // Check if first arg (unwrapped) is HeaderOptions
+            val firstArg = unwrapNamedArg(args.head)
+            resolveTerm(firstArg)
+          }
+          .getOrElse('{ HeaderOptions.Default })
 
       case Apply(_, Nil) =>
         // No arguments - shouldn't happen but use default
@@ -137,11 +188,11 @@ object CSV:
 
       case _ =>
         // Check if it's CsvOpts.default
-        if optsExpr.matches('{ CsvOpts.default }) then
-          '{ HeaderOptions.Default }
+        if optsExpr.matches('{ CsvOpts.default }) then '{ HeaderOptions.Default }
         else
           report.info(s"Could not extract HeaderOptions from CsvOpts (using default): ${optsExpr.show}")
           '{ HeaderOptions.Default }
+    end match
   end extractHeaderOptions
 
   // Helper to extract TypeInferrer expression from CsvOpts
@@ -150,29 +201,95 @@ object CSV:
     // Unwrap Inlined nodes
     def unwrapInlined(term: Term): Term = term match
       case Inlined(_, _, body) => unwrapInlined(body)
-      case other => other
+      case other               => other
+
+    // Helper to unwrap NamedArg nodes
+    def unwrapNamedArg(term: Term): Term = term match
+      case NamedArg(_, value) => value
+      case other              => other
 
     val term = unwrapInlined(optsExpr.asTerm)
 
     term match
+      // Handle Block with variable bindings from default parameters
+      case Block(statements, Apply(_, args)) =>
+        val typeInferrerType = TypeRepr.of[TypeInferrer]
+
+        // Helper to resolve a term that might be an Ident or a default value call
+        def resolveTerm(term: Term): Option[Expr[TypeInferrer]] =
+          term match
+            case Select(_, name) if name.contains("$default$") =>
+              // This is a default parameter call - use the actual default
+              // For CsvOpts, the second parameter (typeInferrer) default is FromAllRows
+              Some('{ TypeInferrer.FromAllRows })
+            case Ident(name) if name.contains("typeInferrer") =>
+              // This is a reference to a variable, find it in statements
+              statements.collectFirst {
+                case ValDef(varName, _, Some(rhs)) if varName == name =>
+                  resolveTerm(rhs).getOrElse(rhs.asExprOf[TypeInferrer])
+              }
+            case t if t.tpe <:< typeInferrerType => Some(t.asExprOf[TypeInferrer])
+            case _                               => None
+
+        // Look for typeInferrer named argument first
+        val fromNamedArg = args.collectFirst { case NamedArg("typeInferrer", value) =>
+          resolveTerm(unwrapNamedArg(value))
+        }.flatten
+
+        // If not found as named arg, try positional args
+        val fromPositionalArg =
+          if fromNamedArg.isEmpty then
+            args
+              .map(unwrapNamedArg)
+              .collectFirst {
+                case i: Ident                              => resolveTerm(i)
+                case term if term.tpe <:< typeInferrerType => resolveTerm(term)
+              }
+              .flatten
+          else None
+
+        // If not found in args at all, check if there's a variable in statements (default value)
+        val fromStatements =
+          if fromNamedArg.isEmpty && fromPositionalArg.isEmpty then
+            statements.collectFirst {
+              case ValDef(name, tpt, Some(rhs)) if name.contains("typeInferrer") && tpt.tpe <:< typeInferrerType =>
+                resolveTerm(rhs).getOrElse(rhs.asExprOf[TypeInferrer])
+            }
+          else None
+
+        fromNamedArg.orElse(fromPositionalArg).orElse(fromStatements).getOrElse('{ TypeInferrer.StringType })
+
       // CsvOpts can have TypeInferrer as first arg (when HeaderOptions is default) or second arg
       case Apply(_, args) =>
         val typeInferrerType = TypeRepr.of[TypeInferrer]
 
-        // Find TypeInferrer in the arguments
-        args.find(_.tpe <:< typeInferrerType) match
-          case Some(ti) => ti.asExprOf[TypeInferrer]
-          case None =>
-            // No TypeInferrer means using StringType default
-            '{ TypeInferrer.StringType }
+        // Look for typeInferrer by name first, then by type in any position
+        args
+          .collectFirst { case NamedArg("typeInferrer", value) =>
+            val unwrapped = unwrapNamedArg(value)
+            unwrapped match
+              case Select(_, name) if name.contains("$default$") => Some('{ TypeInferrer.FromAllRows })
+              case t if t.tpe <:< typeInferrerType               => Some(t.asExprOf[TypeInferrer])
+              case _                                             => None
+            end match
+          }
+          .flatten
+          .orElse {
+            // Find TypeInferrer in the arguments (unwrap NamedArgs)
+            args.map(unwrapNamedArg).collectFirst {
+              case Select(_, name) if name.contains("$default$") => '{ TypeInferrer.FromAllRows }
+              case term if term.tpe <:< typeInferrerType         => term.asExprOf[TypeInferrer]
+            }
+          }
+          .getOrElse('{ TypeInferrer.StringType })
 
       case _ =>
         // Check if it's CsvOpts.default
-        if optsExpr.matches('{ CsvOpts.default }) then
-          '{ TypeInferrer.FromAllRows }
+        if optsExpr.matches('{ CsvOpts.default }) then '{ TypeInferrer.FromAllRows }
         else
           report.info(s"Could not extract TypeInferrer from CsvOpts (using StringType): ${optsExpr.show}")
           '{ TypeInferrer.StringType }
+    end match
   end extractTypeInferrer
 
   // Helper to extract delimiter expression from CsvOpts
@@ -181,26 +298,51 @@ object CSV:
     // Unwrap Inlined nodes
     def unwrapInlined(term: Term): Term = term match
       case Inlined(_, _, body) => unwrapInlined(body)
-      case other => other
+      case other               => other
+
+    // Helper to unwrap NamedArg nodes
+    def unwrapNamedArg(term: Term): Term = term match
+      case NamedArg(_, value) => value
+      case other              => other
 
     val term = unwrapInlined(optsExpr.asTerm)
 
     term match
+      // Handle Block with variable bindings from default parameters
+      case Block(statements, Apply(_, args)) =>
+        // Look for delimiter by name or as a literal Char
+        args
+          .collectFirst {
+            case NamedArg("delimiter", value) if unwrapNamedArg(value).tpe <:< TypeRepr.of[Char] =>
+              unwrapNamedArg(value).asExprOf[Char]
+          }
+          .orElse {
+            // Look for a Char argument (should be delimiter, unwrap NamedArgs)
+            args.map(unwrapNamedArg).find(_.tpe <:< TypeRepr.of[Char]).map(_.asExprOf[Char])
+          }
+          .getOrElse('{ ',' })
+
       // Try to extract arguments from Apply node
       case Apply(_, args) =>
-        // Look for a Char argument (should be delimiter)
-        args.find(_.tpe <:< TypeRepr.of[Char]) match
-          case Some(del) => del.asExprOf[Char]
-          case None =>
-            // No delimiter arg means using default comma
-            '{ ',' }
+        // Look for delimiter by name first, then by Char type in any position
+        args
+          .collectFirst {
+            case NamedArg("delimiter", value) if unwrapNamedArg(value).tpe <:< TypeRepr.of[Char] =>
+              unwrapNamedArg(value).asExprOf[Char]
+          }
+          .orElse {
+            // Look for a Char argument (should be delimiter, unwrap NamedArgs)
+            args.map(unwrapNamedArg).find(_.tpe <:< TypeRepr.of[Char]).map(_.asExprOf[Char])
+          }
+          .getOrElse('{ ',' })
+
       case _ =>
         // Check if it's CsvOpts.default
-        if optsExpr.matches('{ CsvOpts.default }) then
-          '{ ',' }
+        if optsExpr.matches('{ CsvOpts.default }) then '{ ',' }
         else
           report.info(s"Could not extract delimiter from CsvOpts (using comma): ${optsExpr.show}")
           '{ ',' }
+    end match
   end extractDelimiter
 
   private transparent inline def readHeaderlineAsCsv(path: String, optsExpr: Expr[CsvOpts])(using q: Quotes) =
@@ -427,8 +569,11 @@ object CSV:
       val lines = scala.io.Source.fromFile(path.toIO).getLines()
       val (hdrs, iterator) = lines.headers(headers)
       val expectedHeaders = scala.compiletime.constValueTuple[K].toArray.toSeq.asInstanceOf[Seq[String]]
-      hdrs.zip(expectedHeaders).zipWithIndex.foreach{case ((a, b), idx) => if a != b  then
-        throw new IllegalStateException(s"CSV headers do not match expected headers. Expected: $expectedHeaders, Got: $hdrs. Header mismatch at index $idx: expected '$b', got '$a'")
+      hdrs.zip(expectedHeaders).zipWithIndex.foreach { case ((a, b), idx) =>
+        if a != b then
+          throw new IllegalStateException(
+            s"CSV headers do not match expected headers. Expected: $expectedHeaders, Got: $hdrs. Header mismatch at index $idx: expected '$b', got '$a'"
+          )
       }
 
       if hdrs.length != expectedHeaders.length then

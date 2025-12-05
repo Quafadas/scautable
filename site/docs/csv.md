@@ -34,9 +34,12 @@ val csv_url = CSV.url("https://example.com/simple.csv")
 /**
  * Note: this reads from the _compilers_ current working directory. If you are compiling via bloop through scala-cli, for example, then this will * read the temporary directory _bloop_ is running in, _not_ your project directory.
  */
-val csv_pwd = CSV.pwd("file.csv")
+val opts = CsvOpts(typeInferrer = TypeInferrer.FirstN(1000), delimiter = ';')
+val csv_pwd = CSV.pwd("file.csv", opts)
 
 ```
+
+For customisation options look at `CsvOpts`, and supply that as a second argument to any of the above methods.
 
 ## Strongly Typed CSVs
 

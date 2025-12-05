@@ -22,8 +22,9 @@ import scala.compiletime.*
   * etc
   */
 
-class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (private val rows: Iterator[String], val headers: Seq[String], delimiter: Char = ',')(using decoder: RowDecoder[V])
-    extends Iterator[NamedTuple[K, V]]:
+class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (private val rows: Iterator[String], val headers: Seq[String], delimiter: Char = ',')(using
+    decoder: RowDecoder[V]
+) extends Iterator[NamedTuple[K, V]]:
 
   type COLUMNS = K
 

@@ -1,4 +1,3 @@
-
 package io.github.quafadas.scautable
 
 import io.github.quafadas.table.TypeInferrer

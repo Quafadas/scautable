@@ -22,9 +22,11 @@ object ExcelUtils:
     *   List of header strings
     */
   inline def extractHeaders(filePath: String, sheetName: String, colRange: Option[String]): List[String] =
-    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
-      throw new BadTableException(s"Failed to open Excel file: $filePath")
-    )
+    val workbook = ExcelWorkbookCache
+      .getOrCreate(filePath)
+      .getOrElse(
+        throw new BadTableException(s"Failed to open Excel file: $filePath")
+      )
     val sheet = workbook.getSheet(sheetName)
 
     colRange match

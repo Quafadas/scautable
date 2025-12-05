@@ -1,18 +1,13 @@
 package io.github.quafadas.scautable
 
-
 import scala.NamedTuple.*
 
 import io.github.quafadas.table.{*, given}
 
-
-/**
- * The cell contents of "Numbers.xlsx"
- * 
-Doubles	Int	Longs	Strings
-1.10	1.00	1.00	blah
-2.20	2.00	3.00	blah  
- */
+/** The cell contents of "Numbers.xlsx"
+  *
+  * Doubles Int Longs Strings 1.10 1.00 1.00 blah 2.20 2.00 3.00 blah
+  */
 class ExcelSuite extends munit.FunSuite:
 
   test("excel provider compiles and typechecks") {
@@ -133,7 +128,7 @@ class ExcelSuite extends munit.FunSuite:
     val csv = Excel.resource("Numbers.xlsx", "Sheet1", "A1:D3", TypeInferrer.FirstRow)
 
     // Verify that we can read the data and it compiles with inferred types
-    val rows: List[(Doubles : Double, Int : Int, Longs : Int, Strings : String)] = csv.toList
+    val rows: List[(Doubles: Double, Int: Int, Longs: Int, Strings: String)] = csv.toList
     assertEquals(rows.size, 2)
 
     // Test access to columns with the inferred types (should be same as FirstN(1))
@@ -201,18 +196,11 @@ class ExcelSuite extends munit.FunSuite:
     // Note: Int/Longs columns may be inferred differently with preferIntToBoolean=false
   }
 
-/**
- * Data in cells B6:G11 of Bands.xlsx
-Country	< 1%	1% to 2%	2% to 3%	3% to 4%	> 4%
-Japan	5.0%	15.0%	30.0%	0.0%	0.0%
-UK	0.0%	0.0%	30.0%	0.0%	0.0%
-Europe	0.0%	0.0%	30.0%	0.0%	0.0%
-LatAm	0.0%	0.0%	0.0%	0.0%	0.0%
-Australia	0.0%	0.0%	0.0%	0.0%	0.0%
- */
+  /** Data in cells B6:G11 of Bands.xlsx Country < 1% 1% to 2% 2% to 3% 3% to 4% > 4% Japan 5.0% 15.0% 30.0% 0.0% 0.0% UK 0.0% 0.0% 30.0% 0.0% 0.0% Europe 0.0% 0.0% 30.0% 0.0% 0.0%
+    * LatAm 0.0% 0.0% 0.0% 0.0% 0.0% Australia 0.0% 0.0% 0.0% 0.0% 0.0%
+    */
 
-
-  test("Bands - sheet1"){
+  test("Bands - sheet1") {
     // Deliberately compiles the same table in the same workbook multiple times to probe workbook caching
     val data2 = Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)
     val data1 = Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)
@@ -221,6 +209,6 @@ Australia	0.0%	0.0%	0.0%	0.0%	0.0%
     assertEquals(rows.size, 5)
 
     assertEqualsDouble(rows.column["2% to 3%"].head, 0.3, 0.00001)
-  }  
+  }
 
 end ExcelSuite
