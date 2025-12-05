@@ -106,40 +106,102 @@ object CSV:
   // Helper to extract HeaderOptions from CsvOpts expression
   private def extractHeaderOptions(optsExpr: Expr[CsvOpts])(using Quotes): Expr[HeaderOptions] =
     import quotes.reflect.*
-    optsExpr match
-      // The main pattern: CsvOpts(headers, typeInferrer, delimiter) from case class constructor
-      case '{ CsvOpts($hdrs: HeaderOptions, $ti: TypeInferrer, $del: Char) } => hdrs
-      // CsvOpts.apply(headers) - single arg factory
-      case '{ CsvOpts.apply($hdrs: HeaderOptions) } => hdrs
-      // CsvOpts.apply(headers, typeInferrer) - two arg factory
-      case '{ CsvOpts.apply($hdrs: HeaderOptions, $ti: TypeInferrer) } => hdrs
-      // CsvOpts.Default
-      case '{ CsvOpts.default } => '{ HeaderOptions.Default }
-      // CsvOpts.withTypeInferrer(typeInferrer)
-      case '{ CsvOpts.apply($ti: TypeInferrer) } => '{ HeaderOptions.Default }
-      case _ =>
-        report.info(s"Could not extract HeaderOptions from CsvOpts (using default): ${optsExpr.show}")
+    // Unwrap Inlined nodes to get to the actual term
+    def unwrapInlined(term: Term): Term = term match
+      case Inlined(_, _, body) => unwrapInlined(body)
+      case other => other
+
+    val term = unwrapInlined(optsExpr.asTerm)
+
+    term match
+      // CsvOpts(headerOptions, typeInferrer, delimiter) or CsvOpts(headerOptions, typeInferrer) or CsvOpts(headerOptions)
+      // First arg is always HeaderOptions if present, otherwise check if it's TypeInferrer (then use default)
+      case Apply(_, args) if args.nonEmpty =>
+        val arg = args.head
+        val headerOptionsType = TypeRepr.of[HeaderOptions]
+        val typeInferrerType = TypeRepr.of[TypeInferrer]
+
+        if arg.tpe <:< headerOptionsType then
+          // First arg is HeaderOptions
+          arg.asExprOf[HeaderOptions]
+        else if arg.tpe <:< typeInferrerType then
+          // First arg is TypeInferrer, so no HeaderOptions specified
+          '{ HeaderOptions.Default }
+        else
+          report.info(s"Unexpected first argument type: ${arg.tpe.show}")
+          '{ HeaderOptions.Default }
+
+      case Apply(_, Nil) =>
+        // No arguments - shouldn't happen but use default
         '{ HeaderOptions.Default }
+
+      case _ =>
+        // Check if it's CsvOpts.default
+        if optsExpr.matches('{ CsvOpts.default }) then
+          '{ HeaderOptions.Default }
+        else
+          report.info(s"Could not extract HeaderOptions from CsvOpts (using default): ${optsExpr.show}")
+          '{ HeaderOptions.Default }
   end extractHeaderOptions
 
   // Helper to extract TypeInferrer expression from CsvOpts
   private def extractTypeInferrer(optsExpr: Expr[CsvOpts])(using Quotes): Expr[TypeInferrer] =
     import quotes.reflect.*
-    optsExpr match
-      // The main pattern: CsvOpts(headers, typeInferrer, delimiter) from case class constructor
-      case '{ CsvOpts($hdrs: HeaderOptions, $ti: TypeInferrer, $del: Char) } => ti
-      // CsvOpts.apply(headers) - single arg factory returns StringType
-      case '{ CsvOpts.apply($hdrs: HeaderOptions) } => '{ TypeInferrer.StringType }
-      // CsvOpts.apply(headers, typeInferrer) - two arg factory
-      case '{ CsvOpts.apply($hdrs: HeaderOptions, $ti: TypeInferrer) } => ti
-      // CsvOpts.Default
-      case '{ CsvOpts.default } => '{ TypeInferrer.FromAllRows }
-      // CsvOpts.withTypeInferrer(typeInferrer)
-      case '{ CsvOpts.apply($ti: TypeInferrer) } => ti
+    // Unwrap Inlined nodes
+    def unwrapInlined(term: Term): Term = term match
+      case Inlined(_, _, body) => unwrapInlined(body)
+      case other => other
+
+    val term = unwrapInlined(optsExpr.asTerm)
+
+    term match
+      // CsvOpts can have TypeInferrer as first arg (when HeaderOptions is default) or second arg
+      case Apply(_, args) =>
+        val typeInferrerType = TypeRepr.of[TypeInferrer]
+
+        // Find TypeInferrer in the arguments
+        args.find(_.tpe <:< typeInferrerType) match
+          case Some(ti) => ti.asExprOf[TypeInferrer]
+          case None =>
+            // No TypeInferrer means using StringType default
+            '{ TypeInferrer.StringType }
+
       case _ =>
-        report.info(s"Could not extract TypeInferrer from CsvOpts (using StringType): ${optsExpr.show}")
-        '{ TypeInferrer.StringType }
+        // Check if it's CsvOpts.default
+        if optsExpr.matches('{ CsvOpts.default }) then
+          '{ TypeInferrer.FromAllRows }
+        else
+          report.info(s"Could not extract TypeInferrer from CsvOpts (using StringType): ${optsExpr.show}")
+          '{ TypeInferrer.StringType }
   end extractTypeInferrer
+
+  // Helper to extract delimiter expression from CsvOpts
+  private def extractDelimiter(optsExpr: Expr[CsvOpts])(using Quotes): Expr[Char] =
+    import quotes.reflect.*
+    // Unwrap Inlined nodes
+    def unwrapInlined(term: Term): Term = term match
+      case Inlined(_, _, body) => unwrapInlined(body)
+      case other => other
+
+    val term = unwrapInlined(optsExpr.asTerm)
+
+    term match
+      // Try to extract arguments from Apply node
+      case Apply(_, args) =>
+        // Look for a Char argument (should be delimiter)
+        args.find(_.tpe <:< TypeRepr.of[Char]) match
+          case Some(del) => del.asExprOf[Char]
+          case None =>
+            // No delimiter arg means using default comma
+            '{ ',' }
+      case _ =>
+        // Check if it's CsvOpts.default
+        if optsExpr.matches('{ CsvOpts.default }) then
+          '{ ',' }
+        else
+          report.info(s"Could not extract delimiter from CsvOpts (using comma): ${optsExpr.show}")
+          '{ ',' }
+  end extractDelimiter
 
   private transparent inline def readHeaderlineAsCsv(path: String, optsExpr: Expr[CsvOpts])(using q: Quotes) =
     import q.reflect.*
@@ -147,13 +209,15 @@ object CSV:
 
     val csvHeadersExpr = extractHeaderOptions(optsExpr)
     val typeInferrerExpr = extractTypeInferrer(optsExpr)
+    val delimiterExpr = extractDelimiter(optsExpr)
 
     // Extract value for compile-time processing
     val csvHeaders: HeaderOptions = csvHeadersExpr.valueOrAbort
+    val delimiter: Char = delimiterExpr.valueOrAbort
 
     val source = Source.fromFile(path)
     val lineIterator: Iterator[String] = source.getLines()
-    val (headers, iter) = lineIterator.headers(csvHeaders)
+    val (headers, iter) = lineIterator.headers(csvHeaders, delimiter)
 
     if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
     end if
@@ -164,8 +228,8 @@ object CSV:
       val filePathExpr = Expr(path)
       '{
         val lines = scala.io.Source.fromFile($filePathExpr).getLines()
-        val (headers, iterator) = lines.headers(${ csvHeadersExpr })
-        new CsvIterator[Hdrs, Data](iterator, headers)
+        val (headers, iterator) = lines.headers(${ csvHeadersExpr }, ${ delimiterExpr })
+        new CsvIterator[Hdrs, Data](iterator, headers, ${ delimiterExpr })
       }
     end constructWithTypes
 
@@ -180,26 +244,26 @@ object CSV:
             constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
 
           case '{ TypeInferrer.FirstRow } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter, true)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
             inferredTypeRepr.asType match
               case '[v] =>
                 constructWithTypes[hdrs & Tuple, v & Tuple]
             end match
 
           case '{ TypeInferrer.FromAllRows } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
             inferredTypeRepr.asType match
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             end match
 
           case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter, true, n)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
             inferredTypeRepr.asType match
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             end match
 
           case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
             inferredTypeRepr.asType match
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             end match
@@ -249,9 +313,11 @@ object CSV:
 
     val csvHeadersExpr = extractHeaderOptions(optsExpr)
     val typeInferrerExpr = extractTypeInferrer(optsExpr)
+    val delimiterExpr = extractDelimiter(optsExpr)
 
     // Extract value for compile-time processing
     val csvHeaders: HeaderOptions = csvHeadersExpr.valueOrAbort
+    val delimiter: Char = delimiterExpr.valueOrAbort
 
     val content = csvContentExpr.valueOrAbort
 
@@ -259,7 +325,7 @@ object CSV:
     end if
 
     val lines = content.linesIterator
-    val (headers, iter) = lines.headers(csvHeaders)
+    val (headers, iter) = lines.headers(csvHeaders, delimiter)
 
     if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
 
@@ -271,8 +337,8 @@ object CSV:
       '{
         val content = $csvContentExpr
         val lines = content.linesIterator
-        val (headers, iterator) = lines.headers($csvHeadersExpr)
-        new CsvIterator[Hdrs, Data](iterator, headers)
+        val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
+        new CsvIterator[Hdrs, Data](iterator, headers, $delimiterExpr)
       }
 
     headerTupleExpr match
@@ -286,26 +352,26 @@ object CSV:
             constructWithTypes[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
 
           case '{ TypeInferrer.FirstRow } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter, true)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
             inferredTypeRepr.asType match
               case '[v] =>
                 constructWithTypes[hdrs & Tuple, v & Tuple]
             end match
 
           case '{ TypeInferrer.FromAllRows } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
             inferredTypeRepr.asType match
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             end match
 
           case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter, true, n)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
             inferredTypeRepr.asType match
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             end match
 
           case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
-            val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n)
+            val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
             inferredTypeRepr.asType match
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
             end match

@@ -16,6 +16,25 @@ class CSVSuite extends munit.FunSuite:
     // val wide = CSV.resource("wide.csv")
   }
 
+  test("delimiter config") {
+    val csv: CsvIterator[("col1", "col2", "col3"), (Int, Int, Int)] = CSV.resource("simple_semicolon.csv", CsvOpts(HeaderOptions.Default, TypeInferrer.FromAllRows, ';'))
+  }
+
+  test("delimiter config with merged headers") {
+    val csv: CsvIterator[("col1 1", "col2 2", "col3 7"), (Int, Int, Int)] = CSV.resource(
+      "simple_semicolon.csv",
+      CsvOpts(HeaderOptions.FromRows(merge = 2, dropFirst = 0), TypeInferrer.FromAllRows, ';')
+    )
+    assertEquals(csv.toSeq.length, 2)
+
+    val csv2: CsvIterator[("1", "2", "7"), (Int, Int, Int)] = CSV.resource(
+      "simple_semicolon.csv",
+      CsvOpts(HeaderOptions.FromRows(merge = 1, dropFirst = 1), TypeInferrer.FirstN(2), ';')
+    )
+    assertEquals(csv2.toSeq.length, 2)
+
+  }
+
   test("column safety") {
     def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
