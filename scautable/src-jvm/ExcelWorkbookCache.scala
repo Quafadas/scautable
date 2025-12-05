@@ -1,11 +1,13 @@
 package io.github.quafadas.scautable
 
-import org.apache.poi.ss.usermodel.Workbook
-import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.io.File
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
+
 import scala.util.Try
+
+import org.apache.poi.ss.usermodel.Workbook
+import org.apache.poi.ss.usermodel.WorkbookFactory
 
 /** Thread-safe cache for Excel workbook instances to avoid file contention and improve performance.
   *

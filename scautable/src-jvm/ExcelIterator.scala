@@ -2,8 +2,10 @@ package io.github.quafadas.scautable
 
 import scala.NamedTuple.*
 import scala.collection.JavaConverters.*
+
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.util.CellRangeAddress
+
 import io.github.quafadas.scautable.BadTableException
 import io.github.quafadas.scautable.ExcelWorkbookCache
 

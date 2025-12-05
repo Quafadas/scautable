@@ -1,13 +1,18 @@
 package io.github.quafadas.scautable
 
-import scala.quoted.*
-import io.github.quafadas.scautable.ColumnTyped.*
-import io.github.quafadas.table.TypeInferrer
-import org.apache.poi.ss.usermodel.{Row, Cell, CellType, DateUtil}
-import org.apache.poi.ss.util.CellRangeAddress
 import scala.collection.JavaConverters.*
+import scala.quoted.*
+
+import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.ss.usermodel.CellType
+import org.apache.poi.ss.usermodel.DateUtil
+import org.apache.poi.ss.usermodel.Row
+import org.apache.poi.ss.util.CellRangeAddress
+
 import io.github.quafadas.scautable.BadTableException
+import io.github.quafadas.scautable.ColumnTyped.*
 import io.github.quafadas.scautable.ExcelWorkbookCache
+import io.github.quafadas.table.TypeInferrer
 
 /** Compile-time macro functions for reading val initial = ColumnTypeInfo() val finalInfo = cells.foldLeft(initial)(updateTypeInfo) files These macros perform Excel file inspection
   * at compile time to determine structure
@@ -47,7 +52,6 @@ object ExcelMacros:
   /** Macro implementation for reading Excel files from an absolute path
     */
   def readExcelAbsolutePath(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
-    import quotes.reflect.*
 
     val fPath = pathExpr.valueOrAbort
     val colRange = colRangeExpr.value

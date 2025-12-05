@@ -1,10 +1,10 @@
 package io.github.quafadas.scautable
 
-import scala.quoted.*
 import scala.io.Source
-import ColumnTyped.*
-import HeaderOptions.headers
+import scala.quoted.*
 
+import io.github.quafadas.scautable.ColumnTyped.*
+import io.github.quafadas.scautable.HeaderOptions.headers
 import io.github.quafadas.table.TypeInferrer
 
 object CSV:
