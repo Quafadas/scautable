@@ -16,11 +16,11 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.url("https://somewhere.com/file.csv")
     * }}}
     */
-  transparent inline def url[T](inline csvContent: String): Any = url[T](csvContent, CsvOpts.Default)
+  transparent inline def url[T](inline csvContent: String): Any = url[T](csvContent, CsvOpts.default)
 
   transparent inline def url[T](inline csvContent: String, inline headers: HeaderOptions): Any = url[T](csvContent, CsvOpts(headers))
 
-  transparent inline def url[T](inline csvContent: String, inline dataType: TypeInferrer): Any = url[T](csvContent, CsvOpts.withTypeInferrer(dataType))
+  transparent inline def url[T](inline csvContent: String, inline dataType: TypeInferrer): Any = url[T](csvContent, CsvOpts.apply(dataType))
 
   transparent inline def url[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any = url[T](path, CsvOpts(headers, dataType))
 
@@ -37,11 +37,11 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.pwd("file.csv")
     * }}}
     */
-  transparent inline def pwd[T](inline csvContent: String): Any = pwd[T](csvContent, CsvOpts.Default)
+  transparent inline def pwd[T](inline csvContent: String): Any = pwd[T](csvContent, CsvOpts.default)
 
   transparent inline def pwd[T](inline csvContent: String, inline headers: HeaderOptions): Any = pwd[T](csvContent, CsvOpts(headers))
 
-  transparent inline def pwd[T](inline csvContent: String, inline dataType: TypeInferrer): Any = pwd[T](csvContent, CsvOpts.withTypeInferrer(dataType))
+  transparent inline def pwd[T](inline csvContent: String, inline dataType: TypeInferrer): Any = pwd[T](csvContent, CsvOpts.apply(dataType))
 
   transparent inline def pwd[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any = pwd[T](path, CsvOpts(headers, dataType))
 
@@ -54,11 +54,11 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.resource("file.csv")
     * }}}
     */
-  transparent inline def resource[T](inline csvContent: String): Any = resource[T](csvContent, CsvOpts.Default)
+  transparent inline def resource[T](inline csvContent: String): Any = resource[T](csvContent, CsvOpts.default)
 
   transparent inline def resource[T](inline csvContent: String, inline headers: HeaderOptions): Any = resource[T](csvContent, CsvOpts(headers))
 
-  transparent inline def resource[T](inline csvContent: String, inline dataType: TypeInferrer): Any = resource[T](csvContent, CsvOpts.withTypeInferrer(dataType))
+  transparent inline def resource[T](inline csvContent: String, inline dataType: TypeInferrer): Any = resource[T](csvContent, CsvOpts.apply(dataType))
 
   transparent inline def resource[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any = resource[T](path, CsvOpts(headers, dataType))
 
@@ -71,11 +71,11 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.absolutePath("/absolute/path/to/file.csv")
     * }}}
     */
-  transparent inline def absolutePath[T](inline csvContent: String): Any = absolutePath[T](csvContent, CsvOpts.Default)
+  transparent inline def absolutePath[T](inline csvContent: String): Any = absolutePath[T](csvContent, CsvOpts.default)
 
   transparent inline def absolutePath[T](inline csvContent: String, inline headers: HeaderOptions): Any = absolutePath[T](csvContent, CsvOpts(headers))
 
-  transparent inline def absolutePath[T](inline csvContent: String, inline dataType: TypeInferrer): Any = absolutePath[T](csvContent, CsvOpts.withTypeInferrer(dataType))
+  transparent inline def absolutePath[T](inline csvContent: String, inline dataType: TypeInferrer): Any = absolutePath[T](csvContent, CsvOpts.apply(dataType))
 
   transparent inline def absolutePath[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any = absolutePath[T](path, CsvOpts(headers, dataType))
 
@@ -90,11 +90,11 @@ object CSV:
     * }}}
     */
 
-  transparent inline def fromString[T](inline csvContent: String): Any = fromString[T](csvContent, CsvOpts.Default)
+  transparent inline def fromString[T](inline csvContent: String): Any = fromString[T](csvContent, CsvOpts.default)
 
   transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions): Any = fromString[T](csvContent, CsvOpts(headers))
 
-  transparent inline def fromString[T](inline csvContent: String, inline dataType: TypeInferrer): Any = fromString[T](csvContent, CsvOpts.withTypeInferrer(dataType))
+  transparent inline def fromString[T](inline csvContent: String, inline dataType: TypeInferrer): Any = fromString[T](csvContent, CsvOpts.apply(dataType))
 
   transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any =
     fromString[T](csvContent, CsvOpts(headers, dataType))
@@ -114,9 +114,9 @@ object CSV:
       // CsvOpts.apply(headers, typeInferrer) - two arg factory
       case '{ CsvOpts.apply($hdrs: HeaderOptions, $ti: TypeInferrer) } => hdrs
       // CsvOpts.Default
-      case '{ CsvOpts.Default } => '{ HeaderOptions.Default }
+      case '{ CsvOpts.default } => '{ HeaderOptions.Default }
       // CsvOpts.withTypeInferrer(typeInferrer)
-      case '{ CsvOpts.withTypeInferrer($ti: TypeInferrer) } => '{ HeaderOptions.Default }
+      case '{ CsvOpts.apply($ti: TypeInferrer) } => '{ HeaderOptions.Default }
       case _ =>
         report.info(s"Could not extract HeaderOptions from CsvOpts (using default): ${optsExpr.show}")
         '{ HeaderOptions.Default }
@@ -133,9 +133,9 @@ object CSV:
       // CsvOpts.apply(headers, typeInferrer) - two arg factory
       case '{ CsvOpts.apply($hdrs: HeaderOptions, $ti: TypeInferrer) } => ti
       // CsvOpts.Default
-      case '{ CsvOpts.Default } => '{ TypeInferrer.StringType }
+      case '{ CsvOpts.default } => '{ TypeInferrer.FromAllRows }
       // CsvOpts.withTypeInferrer(typeInferrer)
-      case '{ CsvOpts.withTypeInferrer($ti: TypeInferrer) } => ti
+      case '{ CsvOpts.apply($ti: TypeInferrer) } => ti
       case _ =>
         report.info(s"Could not extract TypeInferrer from CsvOpts (using StringType): ${optsExpr.show}")
         '{ TypeInferrer.StringType }

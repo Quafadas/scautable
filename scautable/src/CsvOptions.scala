@@ -14,22 +14,22 @@ import io.github.quafadas.table.TypeInferrer
   */
 case class CsvOpts(
     headerOptions: HeaderOptions = HeaderOptions.Default,
-    typeInferrer: TypeInferrer = TypeInferrer.StringType,
+    typeInferrer: TypeInferrer = TypeInferrer.FromAllRows,
     delimiter: Char = ','
 )
 
 object CsvOpts:
-  /** Default CSV options: read headers from first row, treat all columns as Strings, use comma delimiter */
-  val Default: CsvOpts = CsvOpts(HeaderOptions.Default, TypeInferrer.StringType, ',')
+  /** Default CSV options: read headers from first row, infer types from all rows, use comma delimiter */
+  transparent inline def default: CsvOpts = CsvOpts(HeaderOptions.Default, TypeInferrer.FromAllRows, ',')
 
   /** CSV options with custom header handling */
-  def apply(headers: HeaderOptions): CsvOpts = CsvOpts(headers, TypeInferrer.StringType, ',')
+  inline def apply(headers: HeaderOptions): CsvOpts = CsvOpts(headers, TypeInferrer.StringType, ',')
 
   /** CSV options with custom type inference */
-  def withTypeInferrer(typeInferrer: TypeInferrer): CsvOpts = CsvOpts(HeaderOptions.Default, typeInferrer, ',')
+  inline def apply(typeInferrer: TypeInferrer): CsvOpts = CsvOpts(HeaderOptions.Default, typeInferrer, ',')
 
   /** CSV options with both header handling and type inference */
-  def apply(headers: HeaderOptions, typeInferrer: TypeInferrer): CsvOpts =
+  inline def apply(headers: HeaderOptions, typeInferrer: TypeInferrer): CsvOpts =
     CsvOpts(headers, typeInferrer, ',')
 
 end CsvOpts

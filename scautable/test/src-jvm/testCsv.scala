@@ -6,18 +6,18 @@ import io.github.quafadas.table.*
 class CSVSuite extends munit.FunSuite:
 
   test("csv from resource compiles and typechecks") {
-    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (Int, Int, Int)] = CSV.resource("simple.csv", CsvOpts.default)
 
     val titanic: CsvIterator[
       ("PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"),
       (String, String, String, String, String, String, String, String, String, String, String, String)
     ] =
-      CSV.resource("titanic.csv")
+      CSV.resource("titanic.csv", TypeInferrer.StringType)
     // val wide = CSV.resource("wide.csv")
   }
 
   test("column safety") {
-    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     assert(
       !compileErrors("csv.column[\"notcol\"]").isEmpty()
@@ -58,7 +58,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("columns") {
-    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     assert(
       !compileErrors("csv.columns[(\"notcol\")]").isEmpty()
@@ -79,7 +79,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("column order") {
-    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     // If this compiles, then the column order is preserved
     val selectCols: Iterator[(col3: String, col2: String, col1: String)] = csv.columns[("col3", "col2", "col1")]
@@ -95,7 +95,7 @@ class CSVSuite extends munit.FunSuite:
       case Male, Female
     end Gender
 
-    def titanic = CSV.resource("titanic.csv")
+    def titanic = CSV.resource("titanic.csv", TypeInferrer.StringType)
     def data = titanic
       .mapColumn["Sex", Gender]((x: String) => Gender.valueOf(x.capitalize))
       .dropColumn["PassengerId"]
@@ -119,7 +119,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("column") {
-    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     val column2 = csv.column["col2"]
     val col2 = column2.toArray
@@ -129,7 +129,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("drop column") {
-    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     val dropped = csv.dropColumn["col2"]
     val out = dropped.toArray
@@ -140,7 +140,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("easy print") {
-    def csv = CSV.resource("simple.csv").toVector
+    def csv = CSV.resource("simple.csv", TypeInferrer.StringType).toVector
     csv.ptbln
 
     val seq2 = Vector((1, 2), (3, 4))
@@ -149,7 +149,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("Drop column, mapColumn, then select another") {
-    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    def csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     def dropped = csv.dropColumn["col2"].mapColumn["col3", Int](_.toInt)
 
@@ -229,13 +229,13 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("reading data") {
-    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     assertEquals(csv.toArray.mkString(","), """(1,2,7),(3,4,8),(5,6,9)""")
   }
 
   test("add columns") {
-    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     val added = csv
       .addColumn["col3Times3", Int](_.col3.toInt * 3)
@@ -258,7 +258,7 @@ class CSVSuite extends munit.FunSuite:
   }
 
   test("schema gen") {
-    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
     val schema = csv.schemaGen
     assertNoDiff(
       schema,
@@ -281,7 +281,7 @@ import CsvSchema.*"""
   }
 
   test("rename column") {
-    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     val renamed: Iterator[(col1: String, col2Renamed: String, col3: String)] = csv.renameColumn["col2", "col2Renamed"]
     val out = renamed.toArray
@@ -291,7 +291,7 @@ import CsvSchema.*"""
   }
 
   test("force column type") {
-    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     val renamed: Iterator[(col1: String, col2Renamed: String, col3: String)] = csv.renameColumn["col2", "col2Renamed"].forceColumnType["col2Renamed", String]
     val out = renamed.toArray
@@ -301,7 +301,7 @@ import CsvSchema.*"""
   }
 
   test("map column") {
-    def csv = CSV.resource("simple.csv")
+    def csv = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     def mapCol2 = csv.mapColumn["col2", Int]((s: String) => s.toInt)
     val result = mapCol2.toArray
@@ -322,7 +322,7 @@ import CsvSchema.*"""
     /** If this compiles, then hopefully we have borked the typelevel bookkeeping
       */
 
-    def csv = CSV.resource("simple.csv")
+    def csv = CSV.resource("simple.csv", TypeInferrer.StringType)
 
     def composed = csv
       .mapColumn["col2", Int]((s: String) => s.toInt)
@@ -338,7 +338,7 @@ import CsvSchema.*"""
   }
 
   test("console print") {
-    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
     assertNoDiff(
       csv.toArray.consoleFormatNt(),
       """| |col1|col2|col3|
@@ -355,7 +355,7 @@ import CsvSchema.*"""
   }
 
   test("header indexes") {
-    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv")
+    val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
     assertEquals(csv.headerIndex("col1"), 0)
     assertEquals(csv.headerIndex("col2"), 1)
     assertEquals(csv.headerIndex("col3"), 2)
