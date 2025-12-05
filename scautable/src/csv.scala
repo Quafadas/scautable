@@ -16,13 +16,15 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.url("https://somewhere.com/file.csv")
     * }}}
     */
-  transparent inline def url[T](inline csvContent: String): Any = url[T](csvContent, HeaderOptions.Default, TypeInferrer.StringType)
+  transparent inline def url[T](inline csvContent: String): Any = url[T](csvContent, CsvOpts.Default)
 
-  transparent inline def url[T](inline csvContent: String, inline headers: HeaderOptions): Any = url[T](csvContent, headers, TypeInferrer.StringType)
+  transparent inline def url[T](inline csvContent: String, inline headers: HeaderOptions): Any = url[T](csvContent, CsvOpts(headers))
 
-  transparent inline def url[T](inline csvContent: String, inline dataType: TypeInferrer): Any = url[T](csvContent, HeaderOptions.Default, dataType)
+  transparent inline def url[T](inline csvContent: String, inline dataType: TypeInferrer): Any = url[T](csvContent, CsvOpts.withTypeInferrer(dataType))
 
-  transparent inline def url[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${ readCsvFromUrl('path, 'headers, 'dataType) }
+  transparent inline def url[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any = url[T](path, CsvOpts(headers, dataType))
+
+  transparent inline def url[T](inline path: String, inline opts: CsvOpts) = ${ readCsvFromUrl('path, 'opts) }
 
   /** Reads a CSV present in the current _compiler_ working directory resources and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -35,13 +37,15 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.pwd("file.csv")
     * }}}
     */
-  transparent inline def pwd[T](inline csvContent: String): Any = pwd[T](csvContent, HeaderOptions.Default, TypeInferrer.StringType)
+  transparent inline def pwd[T](inline csvContent: String): Any = pwd[T](csvContent, CsvOpts.Default)
 
-  transparent inline def pwd[T](inline csvContent: String, inline headers: HeaderOptions): Any = pwd[T](csvContent, headers, TypeInferrer.StringType)
+  transparent inline def pwd[T](inline csvContent: String, inline headers: HeaderOptions): Any = pwd[T](csvContent, CsvOpts(headers))
 
-  transparent inline def pwd[T](inline csvContent: String, inline dataType: TypeInferrer): Any = pwd[T](csvContent, HeaderOptions.Default, dataType)
+  transparent inline def pwd[T](inline csvContent: String, inline dataType: TypeInferrer): Any = pwd[T](csvContent, CsvOpts.withTypeInferrer(dataType))
 
-  transparent inline def pwd[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${ readCsvFromCurrentDir('path, 'headers, 'dataType) }
+  transparent inline def pwd[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any = pwd[T](path, CsvOpts(headers, dataType))
+
+  transparent inline def pwd[T](inline path: String, inline opts: CsvOpts) = ${ readCsvFromCurrentDir('path, 'opts) }
 
   /** Reads a CSV present in java resources and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -50,13 +54,15 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.resource("file.csv")
     * }}}
     */
-  transparent inline def resource[T](inline csvContent: String): Any = resource[T](csvContent, HeaderOptions.Default, TypeInferrer.StringType)
+  transparent inline def resource[T](inline csvContent: String): Any = resource[T](csvContent, CsvOpts.Default)
 
-  transparent inline def resource[T](inline csvContent: String, inline headers: HeaderOptions): Any = resource[T](csvContent, headers, TypeInferrer.StringType)
+  transparent inline def resource[T](inline csvContent: String, inline headers: HeaderOptions): Any = resource[T](csvContent, CsvOpts(headers))
 
-  transparent inline def resource[T](inline csvContent: String, inline dataType: TypeInferrer): Any = resource[T](csvContent, HeaderOptions.Default, dataType)
+  transparent inline def resource[T](inline csvContent: String, inline dataType: TypeInferrer): Any = resource[T](csvContent, CsvOpts.withTypeInferrer(dataType))
 
-  transparent inline def resource[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${ readCsvResource('path, 'headers, 'dataType) }
+  transparent inline def resource[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any = resource[T](path, CsvOpts(headers, dataType))
+
+  transparent inline def resource[T](inline path: String, inline opts: CsvOpts) = ${ readCsvResource('path, 'opts) }
 
   /** Reads a CSV file from an absolute path and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -65,13 +71,15 @@ object CSV:
     *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.absolutePath("/absolute/path/to/file.csv")
     * }}}
     */
-  transparent inline def absolutePath[T](inline csvContent: String): Any = absolutePath[T](csvContent, HeaderOptions.Default, TypeInferrer.StringType)
+  transparent inline def absolutePath[T](inline csvContent: String): Any = absolutePath[T](csvContent, CsvOpts.Default)
 
-  transparent inline def absolutePath[T](inline csvContent: String, inline headers: HeaderOptions): Any = absolutePath[T](csvContent, headers, TypeInferrer.StringType)
+  transparent inline def absolutePath[T](inline csvContent: String, inline headers: HeaderOptions): Any = absolutePath[T](csvContent, CsvOpts(headers))
 
-  transparent inline def absolutePath[T](inline csvContent: String, inline dataType: TypeInferrer): Any = absolutePath[T](csvContent, HeaderOptions.Default, dataType)
+  transparent inline def absolutePath[T](inline csvContent: String, inline dataType: TypeInferrer): Any = absolutePath[T](csvContent, CsvOpts.withTypeInferrer(dataType))
 
-  transparent inline def absolutePath[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${ readCsvAbsolutePath('path, 'headers, 'dataType) }
+  transparent inline def absolutePath[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any = absolutePath[T](path, CsvOpts(headers, dataType))
+
+  transparent inline def absolutePath[T](inline path: String, inline opts: CsvOpts) = ${ readCsvAbsolutePath('path, 'opts) }
 
   /** Reads a CSV from a String and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
@@ -82,24 +90,70 @@ object CSV:
     * }}}
     */
 
-  // transparent inline def fromString[T](inline csvContent: String): Any = fromString[T](csvContent, HeaderOptions.Default, TypeInferrer.StringType)
-  transparent inline def fromString[T](inline csvContent: String): Any = fromString[T](csvContent, HeaderOptions.Default, TypeInferrer.StringType)
+  transparent inline def fromString[T](inline csvContent: String): Any = fromString[T](csvContent, CsvOpts.Default)
 
-  transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions): Any = fromString[T](csvContent, headers, TypeInferrer.StringType)
+  transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions): Any = fromString[T](csvContent, CsvOpts(headers))
 
-  transparent inline def fromString[T](inline csvContent: String, inline dataType: TypeInferrer): Any = fromString[T](csvContent, HeaderOptions.Default, dataType)
+  transparent inline def fromString[T](inline csvContent: String, inline dataType: TypeInferrer): Any = fromString[T](csvContent, CsvOpts.withTypeInferrer(dataType))
 
-  transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions, inline dataType: TypeInferrer) = ${
-    readCsvFromString('csvContent, 'headers, 'dataType)
+  transparent inline def fromString[T](inline csvContent: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any =
+    fromString[T](csvContent, CsvOpts(headers, dataType))
+
+  transparent inline def fromString[T](inline csvContent: String, inline opts: CsvOpts) = ${
+    readCsvFromString('csvContent, 'opts)
   }
 
-  private transparent inline def readHeaderlineAsCsv(path: String, csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using q: Quotes) =
+  // Helper to extract HeaderOptions from CsvOpts expression
+  private def extractHeaderOptions(optsExpr: Expr[CsvOpts])(using Quotes): Expr[HeaderOptions] =
+    import quotes.reflect.*
+    optsExpr match
+      // The main pattern: CsvOpts(headers, typeInferrer, delimiter) from case class constructor
+      case '{ CsvOpts($hdrs: HeaderOptions, $ti: TypeInferrer, $del: Char) } => hdrs
+      // CsvOpts.apply(headers) - single arg factory
+      case '{ CsvOpts.apply($hdrs: HeaderOptions) } => hdrs
+      // CsvOpts.apply(headers, typeInferrer) - two arg factory
+      case '{ CsvOpts.apply($hdrs: HeaderOptions, $ti: TypeInferrer) } => hdrs
+      // CsvOpts.Default
+      case '{ CsvOpts.Default } => '{ HeaderOptions.Default }
+      // CsvOpts.withTypeInferrer(typeInferrer)
+      case '{ CsvOpts.withTypeInferrer($ti: TypeInferrer) } => '{ HeaderOptions.Default }
+      case _ =>
+        report.info(s"Could not extract HeaderOptions from CsvOpts (using default): ${optsExpr.show}")
+        '{ HeaderOptions.Default }
+  end extractHeaderOptions
+
+  // Helper to extract TypeInferrer expression from CsvOpts
+  private def extractTypeInferrer(optsExpr: Expr[CsvOpts])(using Quotes): Expr[TypeInferrer] =
+    import quotes.reflect.*
+    optsExpr match
+      // The main pattern: CsvOpts(headers, typeInferrer, delimiter) from case class constructor
+      case '{ CsvOpts($hdrs: HeaderOptions, $ti: TypeInferrer, $del: Char) } => ti
+      // CsvOpts.apply(headers) - single arg factory returns StringType
+      case '{ CsvOpts.apply($hdrs: HeaderOptions) } => '{ TypeInferrer.StringType }
+      // CsvOpts.apply(headers, typeInferrer) - two arg factory
+      case '{ CsvOpts.apply($hdrs: HeaderOptions, $ti: TypeInferrer) } => ti
+      // CsvOpts.Default
+      case '{ CsvOpts.Default } => '{ TypeInferrer.StringType }
+      // CsvOpts.withTypeInferrer(typeInferrer)
+      case '{ CsvOpts.withTypeInferrer($ti: TypeInferrer) } => ti
+      case _ =>
+        report.info(s"Could not extract TypeInferrer from CsvOpts (using StringType): ${optsExpr.show}")
+        '{ TypeInferrer.StringType }
+  end extractTypeInferrer
+
+  private transparent inline def readHeaderlineAsCsv(path: String, optsExpr: Expr[CsvOpts])(using q: Quotes) =
     import q.reflect.*
     import io.github.quafadas.scautable.HeaderOptions.*
 
+    val csvHeadersExpr = extractHeaderOptions(optsExpr)
+    val typeInferrerExpr = extractTypeInferrer(optsExpr)
+
+    // Extract value for compile-time processing
+    val csvHeaders: HeaderOptions = csvHeadersExpr.valueOrAbort
+
     val source = Source.fromFile(path)
     val lineIterator: Iterator[String] = source.getLines()
-    val (headers, iter) = lineIterator.headers(csvHeaders.valueOrAbort)
+    val (headers, iter) = lineIterator.headers(csvHeaders)
 
     if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
     end if
@@ -110,14 +164,14 @@ object CSV:
       val filePathExpr = Expr(path)
       '{
         val lines = scala.io.Source.fromFile($filePathExpr).getLines()
-        val (headers, iterator) = lines.headers(${ csvHeaders })
+        val (headers, iterator) = lines.headers(${ csvHeadersExpr })
         new CsvIterator[Hdrs, Data](iterator, headers)
       }
     end constructWithTypes
 
     headerTupleExpr match
       case '{ $tup: hdrs } =>
-        dataType match
+        typeInferrerExpr match
 
           case '{ TypeInferrer.FromTuple[t]() } =>
             constructWithTypes[hdrs & Tuple, t & Tuple]
@@ -145,7 +199,6 @@ object CSV:
             end match
 
           case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
-            println(preferIntToBoolean)
             val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n)
             inferredTypeRepr.asType match
               case '[v] => constructWithTypes[hdrs & Tuple, v & Tuple]
@@ -157,7 +210,7 @@ object CSV:
 
   end readHeaderlineAsCsv
 
-  private def readCsvFromUrl(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
+  private def readCsvFromUrl(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     import quotes.reflect.*
 
     report.warning(
@@ -166,21 +219,21 @@ object CSV:
     val source = Source.fromURL(pathExpr.valueOrAbort)
     val tmpPath = os.temp(dir = os.pwd, prefix = "temp_csv_", suffix = ".csv")
     os.write.over(tmpPath, source.toArray.mkString)
-    readHeaderlineAsCsv(tmpPath.toString, csvHeaders, dataType)
+    readHeaderlineAsCsv(tmpPath.toString, optsExpr)
 
   end readCsvFromUrl
 
-  private def readCsvFromCurrentDir(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
+  private def readCsvFromCurrentDir(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     val path = os.pwd / pathExpr.valueOrAbort
-    readHeaderlineAsCsv(path.toString, csvHeaders, dataType)
+    readHeaderlineAsCsv(path.toString, optsExpr)
   end readCsvFromCurrentDir
 
-  def readCsvAbsolutePath(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
+  def readCsvAbsolutePath(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     val path = pathExpr.valueOrAbort
-    readHeaderlineAsCsv(path, csvHeaders, dataType)
+    readHeaderlineAsCsv(path, optsExpr)
   end readCsvAbsolutePath
 
-  private def readCsvResource(pathExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
+  private def readCsvResource(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
@@ -188,12 +241,17 @@ object CSV:
     if resourcePath == null then report.throwError(s"Resource not found: $path")
     end if
 
-    readHeaderlineAsCsv(resourcePath.getPath, csvHeaders, dataType)
+    readHeaderlineAsCsv(resourcePath.getPath, optsExpr)
   end readCsvResource
 
-  private def readCsvFromString(csvContentExpr: Expr[String], csvHeaders: Expr[HeaderOptions], dataType: Expr[TypeInferrer])(using Quotes) =
+  private def readCsvFromString(csvContentExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     import quotes.reflect.*
-    import io.github.quafadas.scautable.HeaderOptions.*
+
+    val csvHeadersExpr = extractHeaderOptions(optsExpr)
+    val typeInferrerExpr = extractTypeInferrer(optsExpr)
+
+    // Extract value for compile-time processing
+    val csvHeaders: HeaderOptions = csvHeadersExpr.valueOrAbort
 
     val content = csvContentExpr.valueOrAbort
 
@@ -201,7 +259,7 @@ object CSV:
     end if
 
     val lines = content.linesIterator
-    val (headers, iter) = lines.headers(csvHeaders.valueOrAbort)
+    val (headers, iter) = lines.headers(csvHeaders)
 
     if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
 
@@ -213,13 +271,13 @@ object CSV:
       '{
         val content = $csvContentExpr
         val lines = content.linesIterator
-        val (headers, iterator) = lines.headers($csvHeaders)
+        val (headers, iterator) = lines.headers($csvHeadersExpr)
         new CsvIterator[Hdrs, Data](iterator, headers)
       }
 
     headerTupleExpr match
       case '{ $tup: hdrs } =>
-        dataType match
+        typeInferrerExpr match
 
           case '{ TypeInferrer.FromTuple[t]() } =>
             constructWithTypes[hdrs & Tuple, t & Tuple]
