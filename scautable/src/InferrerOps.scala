@@ -51,7 +51,7 @@ private[scautable] object InferrerOps:
     end if
   end inferMostGeneralType
 
-  def inferrer(using Quotes)(rows: Iterator[String], preferIntToBoolean: Boolean, numRows: Int = 1) =
+  def inferrer(using Quotes)(rows: Iterator[String], preferIntToBoolean: Boolean, numRows: Int = 1, delimiter: Char = ',') =
     import quotes.reflect.*
 
     validateInput(rows, numRows)
@@ -59,7 +59,7 @@ private[scautable] object InferrerOps:
     val sampleRows = rows.take(numRows).toList
     validateSampleRows(sampleRows)
 
-    val parsedRows = sampleRows.map(line => CSVParser.parseLine(line))
+    val parsedRows = sampleRows.map(line => CSVParser.parseLine(line, delimiter))
     validateColumnConsistency(parsedRows)
 
     val columns = parsedRows.transpose
