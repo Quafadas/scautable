@@ -9,7 +9,7 @@ Our first move, is to tell the _compiler_, where your CSV file may be found. `CS
 ```scala mdoc
 import io.github.quafadas.table.*
 
-val csv : CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.fromString("col1,col2,col3\n1,2,7\n3,4,8\n5,6,9")
+val csv : CsvIterator[("col1", "col2", "col3"), (Int, Int, Int)] = CSV.fromString("col1,col2,col3\n1,2,7\n3,4,8\n5,6,9")
 
 val asList = LazyList.from(csv)
 
