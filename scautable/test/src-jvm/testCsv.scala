@@ -361,11 +361,11 @@ import CsvSchema.*"""
     assertNoDiff(
       csv.toArray.consoleFormatNt(),
       """| |col1|col2|col3|
-+-+----+----+----+
+|-|----|----|----|
 |0|   1|   2|   7|
 |1|   3|   4|   8|
 |2|   5|   6|   9|
-+-+----+----+----+""".trim()
+|-|----|----|----|""".trim()
     )
 
     val titanic = CSV.resource("titanic.csv").toArray

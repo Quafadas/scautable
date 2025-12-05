@@ -129,6 +129,6 @@ object ConsoleFormat:
     cells.mkString("|", "|", "|") + "\n"
   end formatHeader
 
-  inline private def rowSeparator(colSizes: Seq[Int]) = colSizes map { "-" * _ } mkString ("+", "+", "+")
+  inline private def rowSeparator(colSizes: Seq[Int]) = colSizes map { "-" * _ } mkString ("|", "|", "|")
 
 end ConsoleFormat

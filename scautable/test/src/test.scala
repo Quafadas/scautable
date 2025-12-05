@@ -15,7 +15,7 @@ class HtmlRenderSuite extends munit.FunSuite:
     val console = ConsoleFormat.consoleFormat_(startSeq, false)
     assertEquals(
       console,
-      s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n|1|    2|booyakashah|\n+-+-----+-----------+"""
+      s"""| |anInt|    aString|\n|-|-----|-----------|\n|0|    1|          2|\n|1|    2|booyakashah|\n|-|-----|-----------|"""
     )
   }
 
@@ -29,7 +29,7 @@ class HtmlRenderSuite extends munit.FunSuite:
     val console = ConsoleFormat.consoleFormat_(startSeq, false)
     assertEquals(
       console,
-      s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n|1|    2|booyakashah|\n|2|    3|        boo|\n|3|    4|       booy|\n+-+-----+-----------+"""
+      s"""| |anInt|    aString|\n|-|-----|-----------|\n|0|    1|          2|\n|1|    2|booyakashah|\n|2|    3|        boo|\n|3|    4|       booy|\n|-|-----|-----------|"""
     )
   }
 
@@ -44,7 +44,7 @@ class HtmlRenderSuite extends munit.FunSuite:
   //   scautable.printlnConsole(startSeq, true)
   //   assertEquals(
   //     console,
-  //     s"""| |anInt|    aString|\n+-+-----+-----------+\n|0|    1|          2|\n|1|    2|booyakashah|\n|2|    3|        boo|\n|3|    4|       booy|\n+-+-----+-----------+"""
+  //     s"""| |anInt|    aString|\n|-|-----|-----------|\n|0|    1|          2|\n|1|    2|booyakashah|\n|2|    3|        boo|\n|3|    4|       booy|\n|-|-----|-----------|"""
   //   )
   // }
 
