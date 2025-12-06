@@ -1,0 +1,12 @@
+package build.benchmark
+
+import mill._, scalalib._, publish._
+import contrib.jmh.JmhModule
+
+// mill benchmark.runJmh scautable.benchmark.TableBenchmark -jvmArgs -rf json
+
+object `package` extends JmhModule with ScalaModule with build.ShareCompileResources :
+	def scalaVersion = build.scautable.jvm.scalaVersion
+	def jmhCoreVersion = "1.37"
+	override def moduleDeps: Seq[JavaModule] = Seq(build.scautable.jvm)
+	// def enableBsp = false
