@@ -89,7 +89,7 @@ class FixedWidthResourceSuite extends munit.FunSuite {
   }
 
   test("FixedWidth.resource with no trimming") {
-    val data = FixedWidth.resource(
+    val data: FixedWidthIterator[("name", "age", "city"), (String, Double, String)] = FixedWidth.resource(
       "simple_fixed.txt",
       FixedWidthOpts(
         HeaderOptions.FromRows(1, 0),
@@ -103,14 +103,14 @@ class FixedWidthResourceSuite extends munit.FunSuite {
     val first = rows.head
 
     // Without trimming, should have trailing spaces where they exist in the file
-    assertEquals(first.name, "Alice     ", "name should have 5 trailing spaces")
+    assertEquals(first.name, "Alice      ", "name should have 6 trailing spaces")
     assertEquals(first.age, 30.0, "age should be Double (untrimmed values inferred as Double)")
-    // NYC has no trailing spaces in the file, so it's just "NYC"
-    assertEquals(first.city, "NYC", "city is just 'NYC' with no padding in the file")
+    // NYC has trailing spaces in the file to fill the column
+    assertEquals(first.city, "NYC    ", "city has 4 trailing spaces")
   }
 
   test("FixedWidth.resource with default padding char") {
-    val data = FixedWidth.resource(
+    val data: FixedWidthIterator[("name", "age", "city"), (String, Int, String)] = FixedWidth.resource(
       "simple_fixed.txt",
       FixedWidthOpts(
         HeaderOptions.FromRows(1, 0),
