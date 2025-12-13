@@ -5,7 +5,7 @@ import io.github.quafadas.table.*
 class CsvColumnsSuite extends munit.FunSuite:
 
   test("simple.csv - loads column data correctly") {
-    val cols = CsvColumnsReader.resource("simple.csv")
+    val cols = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.Columns))
 
     // Check column access - columns should be arrays
     val col1: Array[Int] = cols.col1
@@ -19,7 +19,7 @@ class CsvColumnsSuite extends munit.FunSuite:
   }
 
   test("simple.csv - StringType inference") {
-    val cols = CsvColumnsReader.resource("simple.csv", TypeInferrer.StringType)
+    val cols = CSV.resource("simple.csv", CsvOpts(TypeInferrer.StringType, ReadAs.Columns))
 
     val col1: Array[String] = cols.col1
     val col2: Array[String] = cols.col2
@@ -31,7 +31,7 @@ class CsvColumnsSuite extends munit.FunSuite:
   }
 
   test("simple.csv - all columns have same length") {
-    val cols = CsvColumnsReader.resource("simple.csv")
+    val cols = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.Columns))
 
     assertEquals(cols.col1.length, cols.col2.length)
     assertEquals(cols.col2.length, cols.col3.length)
@@ -40,10 +40,10 @@ class CsvColumnsSuite extends munit.FunSuite:
 
   test("fromString - basic functionality") {
     // Note: string must be inline literal for compile-time processing
-    val cols = CsvColumnsReader.fromString("""name,age,score
+    val cols = CSV.fromString("""name,age,score
 Alice,30,95.5
 Bob,25,87.3
-Charlie,35,92.1""")
+Charlie,35,92.1""", CsvOpts(readAs = ReadAs.Columns))
 
     val names: Array[String] = cols.name
     val ages: Array[Int] = cols.age
@@ -55,7 +55,7 @@ Charlie,35,92.1""")
   }
 
   test("cereals.csv - loads all 77 rows correctly") {
-    val cols = CsvColumnsReader.resource("cereals.csv")
+    val cols = CSV.resource("cereals.csv", CsvOpts(readAs = ReadAs.Columns))
 
     // Check all columns exist and have correct length (77 cereals)
     assertEquals(cols.name.length, 77)
@@ -76,7 +76,7 @@ Charlie,35,92.1""")
   }
 
   test("cereals.csv - numeric columns are typed correctly") {
-    val cols = CsvColumnsReader.resource("cereals.csv")
+    val cols = CSV.resource("cereals.csv", CsvOpts(readAs = ReadAs.Columns))
 
     // These should be Int arrays
     val calories: Array[Int] = cols.calories
@@ -97,7 +97,7 @@ Charlie,35,92.1""")
   }
 
   test("titanic.csv - loads all 891 rows correctly") {
-    val cols = CsvColumnsReader.resource("titanic.csv")
+    val cols = CSV.resource("titanic.csv", CsvOpts(readAs = ReadAs.Columns))
 
     // Check all columns exist and have correct length (891 passengers)
     assertEquals(cols.PassengerId.length, 891)
@@ -121,7 +121,7 @@ Charlie,35,92.1""")
   }
 
   test("titanic.csv - handles missing values with Option types") {
-    val cols = CsvColumnsReader.resource("titanic.csv")
+    val cols = CSV.resource("titanic.csv", CsvOpts(readAs = ReadAs.Columns))
 
     // Age has missing values, should be Option[Double] or Option[Int]
     val ages: Array[Option[Double]] = cols.Age
@@ -143,7 +143,7 @@ Charlie,35,92.1""")
   }
 
   test("titanic.csv - survival statistics") {
-    val cols = CsvColumnsReader.resource("titanic.csv")
+    val cols = CSV.resource("titanic.csv", CsvOpts(readAs = ReadAs.Columns))
 
     val survived: Array[Boolean] = cols.Survived
     val totalSurvivors = survived.count(_ == true)
