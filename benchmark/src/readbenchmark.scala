@@ -31,6 +31,7 @@ class ReadBenchmark extends TableBenchmark:
 			val row = data.next()
 			bh.consume(row)
 			count += 1
+    end while
 		count
 	end readIteratorOnly
 
