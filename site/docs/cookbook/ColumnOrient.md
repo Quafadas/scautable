@@ -15,17 +15,17 @@ Scautable can read CSV data directly into a columnar format using the `ReadAs.Co
 import io.github.quafadas.table.*
 
 // Read directly as columns - returns NamedTuple of Arrays
-val cols = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.Columns))
+val simpleCols = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.Columns))
 
 // Access columns directly as typed arrays
-val col1: Array[Int] = cols.col1
-val col2: Array[Int] = cols.col2
-val col3: Array[Int] = cols.col3
+val col1: Array[Int] = simpleCols.col1
+val col2: Array[Int] = simpleCols.col2
+val col3: Array[Int] = simpleCols.col3
 
 // Works with type inference too
-val titanic = CSV.resource("titanic.csv", CsvOpts(TypeInferrer.FromAllRows, ReadAs.Columns))
-val ages: Array[Option[Double]] = titanic.Age
-val survived: Array[Boolean] = titanic.Survived
+val titanicCols = CSV.resource("titanic.csv", CsvOpts(TypeInferrer.FromAllRows, ReadAs.Columns))
+val ages: Array[Option[Double]] = titanicCols.Age
+val survived: Array[Boolean] = titanicCols.Survived
 
 ```
 
@@ -41,17 +41,17 @@ import io.github.quafadas.table.*
 import vecxt.all.cumsum
 import vecxt.BoundsCheck.DoBoundsCheck.yes
 
-type cols = ("Name", "Sex", "Age")
+type ColSubset = ("Name", "Sex", "Age")
 
 val data = CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
             .take(3)
-            .columns[cols]
+            .columns[ColSubset]
 
-val cols = LazyList.from(data).toColumnOrientedAs[Array]
+val colData = LazyList.from(data).toColumnOrientedAs[Array]
 
-cols.Age
+colData.Age
 
-cols.Age.map(_.get).cumsum
+colData.Age.map(_.get).cumsum
 
 ```
 
