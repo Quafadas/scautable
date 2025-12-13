@@ -83,8 +83,8 @@ object CsvOpts:
 
   /** CSV options with readAs mode.
     *
-    * Use this overload when you only need to specify whether to read the CSV as rows (iterator) or columns (arrays).
-    * All other options (headers, type inference, delimiter) use their defaults.
+    * Use this overload when you only need to specify whether to read the CSV as rows (iterator) or columns (arrays). All other options (headers, type inference, delimiter) use
+    * their defaults.
     *
     * @param readAs
     *   Whether to read as rows (iterator) or columns (arrays)

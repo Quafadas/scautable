@@ -40,10 +40,13 @@ class CsvColumnsSuite extends munit.FunSuite:
 
   test("fromString - basic functionality") {
     // Note: string must be inline literal for compile-time processing
-    val cols = CSV.fromString("""name,age,score
+    val cols = CSV.fromString(
+      """name,age,score
 Alice,30,95.5
 Bob,25,87.3
-Charlie,35,92.1""", CsvOpts(readAs = ReadAs.Columns))
+Charlie,35,92.1""",
+      CsvOpts(readAs = ReadAs.Columns)
+    )
 
     val names: Array[String] = cols.name
     val ages: Array[Int] = cols.age
