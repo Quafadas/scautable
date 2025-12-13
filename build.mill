@@ -12,6 +12,7 @@ import mill.*, scalalib.*, publish.*
 import com.goyeau.mill.scalafix.ScalafixModule
 import mill.util.VcsVersion
 
+// mill mill.scalalib.scalafmt/
 object Config:
   val oslib = mvn"com.lihaoyi::os-lib:0.11.5"
   val scalatags = mvn"com.lihaoyi::scalatags::0.13.1"
