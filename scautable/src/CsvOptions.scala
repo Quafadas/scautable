@@ -64,7 +64,7 @@ object CsvOpts:
 
   /** CSV options with custom header handling.
     *
-    * Uses default type inference (StringType for safety), comma delimiter, and row-oriented reading.
+    * Uses default type inference (FromAllRows), comma delimiter, and row-oriented reading.
     */
   inline def apply(headers: HeaderOptions): CsvOpts = CsvOpts(headers, TypeInferrer.FromAllRows, ',', ReadAs.Rows)
 
