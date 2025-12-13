@@ -1,8 +1,10 @@
 package io.github.quafadas.scautable
 
+import scala.collection.JavaConverters.*
+
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.util.CellRangeAddress
-import scala.collection.JavaConverters.*
+
 import io.github.quafadas.scautable.BadTableException
 import io.github.quafadas.scautable.ExcelWorkbookCache
 
@@ -22,9 +24,11 @@ object ExcelUtils:
     *   List of header strings
     */
   inline def extractHeaders(filePath: String, sheetName: String, colRange: Option[String]): List[String] =
-    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
-      throw new BadTableException(s"Failed to open Excel file: $filePath")
-    )
+    val workbook = ExcelWorkbookCache
+      .getOrCreate(filePath)
+      .getOrElse(
+        throw new BadTableException(s"Failed to open Excel file: $filePath")
+      )
     val sheet = workbook.getSheet(sheetName)
 
     colRange match

@@ -1,16 +1,21 @@
 package io.github.quafadas.scautable
 
-import scala.quoted.*
-import io.github.quafadas.scautable.ColumnTyped.*
-import io.github.quafadas.table.TypeInferrer
-import org.apache.poi.ss.usermodel.{Row, Cell, CellType, DateUtil}
-import org.apache.poi.ss.util.CellRangeAddress
 import scala.collection.JavaConverters.*
-import io.github.quafadas.scautable.BadTableException
-import io.github.quafadas.scautable.ExcelWorkbookCache
+import scala.quoted.*
 
-/** Compile-time macro functions for reading     val initial = ColumnTypeInfo()
-    val finalInfo = cells.foldLeft(initial)(updateTypeInfo) files These macros perform Excel file inspection at compile time to determine structure
+import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.ss.usermodel.CellType
+import org.apache.poi.ss.usermodel.DateUtil
+import org.apache.poi.ss.usermodel.Row
+import org.apache.poi.ss.util.CellRangeAddress
+
+import io.github.quafadas.scautable.BadTableException
+import io.github.quafadas.scautable.ColumnTyped.*
+import io.github.quafadas.scautable.ExcelWorkbookCache
+import io.github.quafadas.table.TypeInferrer
+
+/** Compile-time macro functions for reading val initial = ColumnTypeInfo() val finalInfo = cells.foldLeft(initial)(updateTypeInfo) files These macros perform Excel file inspection
+  * at compile time to determine structure
   */
 object ExcelMacros:
 
@@ -47,7 +52,6 @@ object ExcelMacros:
   /** Macro implementation for reading Excel files from an absolute path
     */
   def readExcelAbsolutePath(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
-    import quotes.reflect.*
 
     val fPath = pathExpr.valueOrAbort
     val colRange = colRangeExpr.value
@@ -127,9 +131,11 @@ object ExcelMacros:
   /** Extracts headers from an Excel sheet, either from a specific range or the first row
     */
   private def extractHeaders(filePath: String, sheetName: String, colRange: Option[String]): List[String] =
-    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
-      throw new BadTableException(s"Failed to open Excel file: $filePath")
-    )
+    val workbook = ExcelWorkbookCache
+      .getOrCreate(filePath)
+      .getOrElse(
+        throw new BadTableException(s"Failed to open Excel file: $filePath")
+      )
     val sheet = workbook.getSheet(sheetName)
 
     colRange match
@@ -198,58 +204,60 @@ object ExcelMacros:
   ): quotes.reflect.TypeRepr =
     import quotes.reflect.*
 
-    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
-      throw new BadTableException(s"Failed to open Excel file: $filePath")
-    )
+    val workbook = ExcelWorkbookCache
+      .getOrCreate(filePath)
+      .getOrElse(
+        throw new BadTableException(s"Failed to open Excel file: $filePath")
+      )
     val sheet = workbook.getSheet(sheetName)
 
-      // Extract data based on column range or use all columns
-      val columnData: List[List[Cell]] = colRange match
-        case Some(range) if range.nonEmpty =>
-          val cellRange = CellRangeAddress.valueOf(range)
-          val firstRow = cellRange.getFirstRow
-          val lastRow = cellRange.getLastRow
-          val firstCol = cellRange.getFirstColumn
-          val lastCol = cellRange.getLastColumn
-          
-          // Read only the specific rows from the range (including headers)
-          val targetRows = (firstRow to lastRow).map(sheet.getRow).filter(_ != null).toList
-          
-          targetRows.map { row =>
-            (firstCol to lastCol).map { i =>
-              row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
-            }.toList
-          }
-        case _ =>
-          val sheetIterator = sheet.iterator().asScala
-          // Skip header row
-          if sheetIterator.hasNext then sheetIterator.next()
-          end if
-          val sampleRows = sheetIterator.take(numRows).toList
-          sampleRows.map { row =>
-            // Ensure we extract exactly headers.length columns to match headers
-            (0 until headers.length).map { i =>
-              row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
-            }.toList
-          }
+    // Extract data based on column range or use all columns
+    val columnData: List[List[Cell]] = colRange match
+      case Some(range) if range.nonEmpty =>
+        val cellRange = CellRangeAddress.valueOf(range)
+        val firstRow = cellRange.getFirstRow
+        val lastRow = cellRange.getLastRow
+        val firstCol = cellRange.getFirstColumn
+        val lastCol = cellRange.getLastColumn
 
-      // Transpose to get columns instead of rows
-      val columns = columnData.transpose
+        // Read only the specific rows from the range (including headers)
+        val targetRows = (firstRow to lastRow).map(sheet.getRow).filter(_ != null).toList
 
-      // Infer type for each column using Apache POI cell types
-      // SKIP THE FIRST ROW (header row) for type inference
-      val columnTypes: List[TypeRepr] = columns.map { columnCells =>
-        // TODO Interaction with HeaderOptions
-        val dataRows = columnCells.drop(1) // Skip header row
-        inferColumnTypeFromCells(dataRows, preferIntToBoolean)
-      }
+        targetRows.map { row =>
+          (firstCol to lastCol).map { i =>
+            row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
+          }.toList
+        }
+      case _ =>
+        val sheetIterator = sheet.iterator().asScala
+        // Skip header row
+        if sheetIterator.hasNext then sheetIterator.next()
+        end if
+        val sampleRows = sheetIterator.take(numRows).toList
+        sampleRows.map { row =>
+          // Ensure we extract exactly headers.length columns to match headers
+          (0 until headers.length).map { i =>
+            row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
+          }.toList
+        }
 
-      // Build tuple type from column types
-      val tupleType: TypeRepr = columnTypes.foldRight(TypeRepr.of[EmptyTuple]) { (tpe, acc) =>
-        TypeRepr.of[*:].appliedTo(List(tpe, acc))
-      }
+    // Transpose to get columns instead of rows
+    val columns = columnData.transpose
 
-      tupleType
+    // Infer type for each column using Apache POI cell types
+    // SKIP THE FIRST ROW (header row) for type inference
+    val columnTypes: List[TypeRepr] = columns.map { columnCells =>
+      // TODO Interaction with HeaderOptions
+      val dataRows = columnCells.drop(1) // Skip header row
+      inferColumnTypeFromCells(dataRows, preferIntToBoolean)
+    }
+
+    // Build tuple type from column types
+    val tupleType: TypeRepr = columnTypes.foldRight(TypeRepr.of[EmptyTuple]) { (tpe, acc) =>
+      TypeRepr.of[*:].appliedTo(List(tpe, acc))
+    }
+
+    tupleType
   end inferTypesFromExcelDataDirect
 
   /** Infer the most appropriate Scala type for a column based on Apache POI cell types
@@ -345,7 +353,7 @@ object ExcelMacros:
     // println(s"  Final: couldBeInt=${finalInfo.couldBeInt}, couldBeDouble=${finalInfo.couldBeDouble}, couldBeBoolean=${finalInfo.couldBeBoolean}, seenEmpty=${finalInfo.seenEmpty}")
 
     // Determine the most appropriate type based on what the column could be
-    val baseType = 
+    val baseType =
       // If we have no cells, default to String (safest option)
       if cells.isEmpty then TypeRepr.of[String]
       else if preferIntToBoolean then

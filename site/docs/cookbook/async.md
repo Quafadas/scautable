@@ -1,21 +1,21 @@
 # Async
 
-One situation for me is enriching table data from an external source, that is perhaps a network call away. 
+One situation for me is enriching table data from an external source, that is perhaps a network call away.
 
-Making all those calls in sequence can be slow... 
+Making all those calls in sequence can be slow...
 
 But it we call the `addColumn` method on an already materialised collection... we can get async behaviour. The strategy below works, but is naive... useful for a quick and dirty
 
 ```scala mdoc
 
 import io.github.quafadas.table.*
-import scala.concurrent._  
-import scala.concurrent.duration._  
-import ExecutionContext.Implicits.global 
+import scala.concurrent._
+import scala.concurrent.duration._
+import ExecutionContext.Implicits.global
 
 val data = CSV.fromString("id\n1\n2\n3").toSeq
 
-def slowNetworkFetch(id: String) = {
+def slowNetworkFetch(id: Int) = {
     blocking {
       Thread.sleep(1000)
       s"The Answer $id"
@@ -25,7 +25,7 @@ def slowNetworkFetch(id: String) = {
 println(
 data
   .addColumn["answer", Future[String]](
-    row => 
+    row =>
       Future(slowNetworkFetch(row.id))
   )
   .mapColumn["answer", String](Await.result(_, Duration.Inf))
@@ -39,14 +39,14 @@ If we want something more "idiomatic" in terms of `Future` handling, we can drop
 
 val d2 = data
   .addColumn["answer_tmp", Future[String]](
-    row => 
+    row =>
       Future(slowNetworkFetch(row.id))
   )
 
 val resolved = Await.result(Future.traverse(d2.column["answer_tmp"])(identity), Duration.Inf)
 
 println(
-d2.zip(resolved).map{ (row, res) => 
+d2.zip(resolved).map{ (row, res) =>
   row ++ (answer = res)
 }
 .dropColumn["answer_tmp"]

@@ -2,8 +2,10 @@ package io.github.quafadas.scautable
 
 import scala.NamedTuple.*
 import scala.collection.JavaConverters.*
+
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.util.CellRangeAddress
+
 import io.github.quafadas.scautable.BadTableException
 import io.github.quafadas.scautable.ExcelWorkbookCache
 
@@ -50,9 +52,11 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
 
   // Lazy-initialized sheet iterator to avoid opening file until needed
   private lazy val sheetIterator =
-    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
-      throw new BadTableException(s"Failed to open Excel file: $filePath")
-    )
+    val workbook = ExcelWorkbookCache
+      .getOrCreate(filePath)
+      .getOrElse(
+        throw new BadTableException(s"Failed to open Excel file: $filePath")
+      )
     val sheet = workbook.getSheet(sheetName)
     // Create an iterator that gives us rows by index for the specified range
     colRange match
@@ -62,7 +66,8 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
         val dataRowIndices = (dataStartRow to lastRow).toIterator
         dataRowIndices.map(rowIndex => sheet.getRow(rowIndex)).filter(_ != null)
       case _ =>
-        sheet.iterator().asScala  // For no range, use default iterator
+        sheet.iterator().asScala // For no range, use default iterator
+    end match
   end sheetIterator
 
   // Track current row number for error reporting - starts where data begins
@@ -70,7 +75,7 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     case None                          => 0
     case Some(range) if range.nonEmpty =>
       val (firstRow, _, _, _) = parseRange(range)
-      firstRow + 1  // Skip the header row - data starts at firstRow + 1
+      firstRow + 1 // Skip the header row - data starts at firstRow + 1
     case _ => 0
 
   // Extract headers from the first row or specified range
@@ -90,9 +95,11 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     */
   private inline def extractHeadersFromRange(range: String): List[String] =
     val (firstRow, _, firstCol, lastCol) = parseRange(range)
-    val workbook = ExcelWorkbookCache.getOrCreate(filePath).getOrElse(
-      throw new BadTableException(s"Failed to open Excel file: $filePath")
-    )
+    val workbook = ExcelWorkbookCache
+      .getOrCreate(filePath)
+      .getOrElse(
+        throw new BadTableException(s"Failed to open Excel file: $filePath")
+      )
     val sheet = workbook.getSheet(sheetName)
     val headerRow = sheet.getRow(firstRow)
     val cells =
@@ -140,7 +147,9 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     val decodedTuple = decoder
       .decodeRow(cellValues)
       .getOrElse(
-        throw new Exception(s"Failed to decode row $currentRowIndex: $cellValues")
+        throw new Exception(
+          s"Failed to decode row $currentRowIndex: $cellValues.\n One cause could be if you do not have `given` cell decoders for your column types. Please check your given imports."
+        )
       )
 
     currentRowIndex += 1

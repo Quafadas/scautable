@@ -1,5 +1,7 @@
 package io.github.quafadas
 
+import scala.quoted.*
+
 object table:
   export io.github.quafadas.scautable.CSV
   export io.github.quafadas.scautable.CSV.*
@@ -9,8 +11,7 @@ object table:
   export io.github.quafadas.scautable.ExcelIterator
   export io.github.quafadas.scautable.Excel.*
   export io.github.quafadas.scautable.BadTableException
-
-
+  export io.github.quafadas.scautable.CsvOpts
 
   export io.github.quafadas.scautable.ConsoleFormat.*
   export io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
@@ -56,6 +57,38 @@ object table:
       *   The tuple type to use for decoding each row.
       */
     case FromTuple[T]()
+  end TypeInferrer
+
+  object TypeInferrer:
+    given FromExpr[TypeInferrer] with
+      def unapply(x: Expr[TypeInferrer])(using Quotes): Option[TypeInferrer] =
+        import quotes.reflect.*
+
+        x match
+          case '{ TypeInferrer.FirstRow } =>
+            Some(TypeInferrer.FirstRow)
+
+          case '{ TypeInferrer.StringType } =>
+            Some(TypeInferrer.StringType)
+
+          case '{ TypeInferrer.FromAllRows } =>
+            Some(TypeInferrer.FromAllRows)
+
+          case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
+            Some(TypeInferrer.FirstN(n, preferIntToBoolean))
+
+          case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
+            Some(TypeInferrer.FirstN(n))
+
+          case '{ TypeInferrer.FromTuple[t]() } =>
+            Some(TypeInferrer.FromTuple())
+
+          case _ =>
+            report.info(s"Could not extract TypeInferrer from: ${x.show}")
+            None
+        end match
+      end unapply
+    end given
   end TypeInferrer
 
 end table
