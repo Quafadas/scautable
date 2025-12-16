@@ -5,7 +5,6 @@ import scala.quoted.*
 object table:
   export io.github.quafadas.scautable.CSV
   export io.github.quafadas.scautable.CSV.*
-  export io.github.quafadas.scautable.CsvColumnsReader
   export io.github.quafadas.scautable.HtmlRenderer
   export io.github.quafadas.scautable.CsvIterator
   export io.github.quafadas.scautable.Excel

@@ -1,12 +1,37 @@
 # Column Orient
 
-"Vector" style computation is beyond the scope of scautable itself. However, it's clear that a row oriented representation of the data, is not always the right construct - particulaly for analysis type tasks. 
+"Vector" style computation is beyond the scope of scautable itself. However, it's clear that a row oriented representation of the data, is not always the right construct - particularly for analysis type tasks. 
 
 To note again: **statistics is beyond the scope of scautable**. 
 
-It is encouraged to wheel in some other alternative mathematics / stats libary (entirely at your own discretion / risk).
+It is encouraged to wheel in some other alternative mathematics / stats library (entirely at your own discretion / risk).
 
-What scautable will do, is re-arrange the data so that it's in a columnar format. Performance is untested - it should work on a single pass of the underlying data.
+## Reading CSV directly as columns
+
+Scautable can read CSV data directly into a columnar format using the `ReadAs.Columns` option. This is more efficient than reading rows and then converting, as it only requires a single pass through the data:
+
+```scala mdoc
+
+import io.github.quafadas.table.*
+
+// Read directly as columns - returns NamedTuple of Arrays
+val simpleCols = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.Columns))
+
+// Access columns directly as typed arrays
+val col1: Array[Int] = simpleCols.col1
+val col2: Array[Int] = simpleCols.col2
+val col3: Array[Int] = simpleCols.col3
+
+// Works with type inference too
+val titanicCols = CSV.resource("titanic.csv", CsvOpts(TypeInferrer.FromAllRows, ReadAs.Columns))
+val ages: Array[Option[Double]] = titanicCols.Age
+val survived: Array[Boolean] = titanicCols.Survived
+
+```
+
+## Converting row-oriented data to columns
+
+Alternatively, you can read data as rows (the default) and then convert to columnar format:
 
 ```scala mdoc
 
@@ -16,16 +41,18 @@ import io.github.quafadas.table.*
 import vecxt.all.cumsum
 import vecxt.BoundsCheck.DoBoundsCheck.yes
 
-type cols = ("Name", "Sex", "Age")
+type ColSubset = ("Name", "Sex", "Age")
 
 val data = CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
             .take(3)
-            .columns[cols]
+            .columns[ColSubset]
 
-val cols = LazyList.from(data).toColumnOrientedAs[Array]
+val colData = LazyList.from(data).toColumnOrientedAs[Array]
 
-cols.Age
+colData.Age
 
-cols.Age.map(_.get).cumsum
+colData.Age.map(_.get).cumsum
 
 ```
+
+The direct columnar reading (first approach) is recommended when you know upfront that you need columnar access, as it's more efficient.
