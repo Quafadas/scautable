@@ -41,6 +41,32 @@ val csv_pwd = CSV.pwd("file.csv", opts)
 
 For customisation options look at `CsvOpts`, and supply that as a second argument to any of the above methods.
 
+## Columnar Reading
+
+By default, CSV data is read as an iterator of rows (`CsvIterator`). For analytical workloads, you can read CSV data directly into a columnar format using `ReadAs.Columns`:
+
+```scala mdoc
+import io.github.quafadas.table.*
+
+// Read as columns - returns NamedTuple of Arrays
+val columnar = CSV.fromString("name,age,score\nAlice,30,95.5\nBob,25,87.3", CsvOpts(readAs = ReadAs.Columns))
+
+// Access columns directly as typed arrays
+val names: Array[String] = columnar.name
+val ages: Array[Int] = columnar.age
+val scores: Array[Double] = columnar.score
+
+println(s"Average age: ${ages.sum.toDouble / ages.length}")
+println(s"Max score: ${scores.max}")
+```
+
+Columnar reading:
+- Loads all data into memory at once
+- Provides direct array access to columns
+- More efficient for column-oriented analytics
+- Works with all CSV reading methods (`resource`, `absolutePath`, `fromString`, etc.)
+- Supports all type inference options
+
 ## Strongly Typed CSVs
 
 Scautable analyzes the CSV file and provides types and names for the columns. That means should get IDE support, auto complete, error messages for non sensical code, etc.
