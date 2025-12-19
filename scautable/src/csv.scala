@@ -455,6 +455,17 @@ object CSV:
 
     val readAsTerm = unwrapTerm(readAsExpr.asTerm)
 
+    // Helper to extract type parameter from ReadAs enum case application
+    def extractDenseArrayType(term: Term, caseName: String): Option[TypeRepr] =
+      term match
+        // Match: ReadAs.ArrayDenseColMajor.apply[T]() or ReadAs.ArrayDenseRowMajor.apply[T]()
+        case Typed(Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _), _) if enumName == caseName =>
+          Some(targs.head.tpe)
+        case Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _) if enumName == caseName =>
+          Some(targs.head.tpe)
+        case _ => None
+    end extractDenseArrayType
+
     // Determine which mode we're in and extract element type if needed
     val isColumnMode = readAsTerm match
       case Select(_, "Columns") => true
@@ -464,13 +475,8 @@ object CSV:
           case '{ io.github.quafadas.scautable.ReadAs.Columns } => true
           case _                                                => false
     
-    val denseColMajorType: Option[TypeRepr] = readAsTerm match
-      case Apply(TypeApply(Select(_, "ArrayDenseColMajor"), targs), _) => Some(targs.head.tpe)
-      case _ => None
-
-    val denseRowMajorType: Option[TypeRepr] = readAsTerm match
-      case Apply(TypeApply(Select(_, "ArrayDenseRowMajor"), targs), _) => Some(targs.head.tpe)
-      case _ => None
+    val denseColMajorType: Option[TypeRepr] = extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
+    val denseRowMajorType: Option[TypeRepr] = extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
 
     val source = Source.fromFile(path)
     val lineIterator: Iterator[String] = source.getLines()
@@ -518,6 +524,10 @@ object CSV:
 
     def constructDenseArrayColMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
       val filePathExpr = Expr(path)
+      // Summon the decoder at compile-time
+      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+      }
       '{
         val source = scala.io.Source.fromFile($filePathExpr)
         val lines = source.getLines()
@@ -541,13 +551,14 @@ object CSV:
         val totalElements = numRows * numCols
         val data = new Array[T](totalElements)(using $ct)
 
-        // Fill data in column-major order: data is laid out column by column
+        // Decode each column using ColumnDecoder and fill in column-major order
+        val decoder = $decoderExpr
         var colIdx = 0
         while colIdx < numCols do
-          val col = buffers(colIdx)
+          val colData = decoder.decodeColumn(buffers(colIdx))
           var rowIdx = 0
           while rowIdx < numRows do
-            data(colIdx * numRows + rowIdx) = col(rowIdx).asInstanceOf[T]
+            data(colIdx * numRows + rowIdx) = colData(rowIdx)
             rowIdx += 1
           end while
           colIdx += 1
@@ -561,6 +572,10 @@ object CSV:
 
     def constructDenseArrayRowMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
       val filePathExpr = Expr(path)
+      // Summon the decoder at compile-time
+      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+      }
       '{
         val source = scala.io.Source.fromFile($filePathExpr)
         val lines = source.getLines()
@@ -584,15 +599,17 @@ object CSV:
         val totalElements = numRows * numCols
         val data = new Array[T](totalElements)(using $ct)
 
-        // Fill data in row-major order: data is laid out row by row
-        var rowIdx = 0
-        while rowIdx < numRows do
-          var colIdx = 0
-          while colIdx < numCols do
-            data(rowIdx * numCols + colIdx) = buffers(colIdx)(rowIdx).asInstanceOf[T]
-            colIdx += 1
+        // Decode each column using ColumnDecoder
+        val decoder = $decoderExpr
+        var colIdx = 0
+        while colIdx < numCols do
+          val colData = decoder.decodeColumn(buffers(colIdx))
+          var rowIdx = 0
+          while rowIdx < numRows do
+            data(rowIdx * numCols + colIdx) = colData(rowIdx)
+            rowIdx += 1
           end while
-          rowIdx += 1
+          colIdx += 1
         end while
 
         // In row-major: rowStride = 1 (next row element), colStride = numCols (next column element)
@@ -766,6 +783,17 @@ object CSV:
 
     val readAsTerm = unwrapTerm(readAsExpr.asTerm)
 
+    // Helper to extract type parameter from ReadAs enum case application
+    def extractDenseArrayType(term: Term, caseName: String): Option[TypeRepr] =
+      term match
+        // Match: ReadAs.ArrayDenseColMajor.apply[T]() or ReadAs.ArrayDenseRowMajor.apply[T]()
+        case Typed(Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _), _) if enumName == caseName =>
+          Some(targs.head.tpe)
+        case Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _) if enumName == caseName =>
+          Some(targs.head.tpe)
+        case _ => None
+    end extractDenseArrayType
+
     // Determine which mode we're in and extract element type if needed
     val isColumnMode = readAsTerm match
       case Select(_, "Columns") => true
@@ -775,13 +803,8 @@ object CSV:
           case '{ io.github.quafadas.scautable.ReadAs.Columns } => true
           case _                                                => false
     
-    val denseColMajorType: Option[TypeRepr] = readAsTerm match
-      case Apply(TypeApply(Select(_, "ArrayDenseColMajor"), targs), _) => Some(targs.head.tpe)
-      case _ => None
-
-    val denseRowMajorType: Option[TypeRepr] = readAsTerm match
-      case Apply(TypeApply(Select(_, "ArrayDenseRowMajor"), targs), _) => Some(targs.head.tpe)
-      case _ => None
+    val denseColMajorType: Option[TypeRepr] = extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
+    val denseRowMajorType: Option[TypeRepr] = extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
 
     val content = csvContentExpr.valueOrAbort
 
@@ -828,6 +851,10 @@ object CSV:
       }
 
     def constructDenseArrayColMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+      // Summon the decoder at compile-time
+      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+      }
       '{
         val content = $csvContentExpr
         val lines = content.linesIterator
@@ -849,13 +876,14 @@ object CSV:
         val totalElements = numRows * numCols
         val data = new Array[T](totalElements)(using $ct)
 
-        // Fill data in column-major order: data is laid out column by column
+        // Decode each column using ColumnDecoder and fill in column-major order
+        val decoder = $decoderExpr
         var colIdx = 0
         while colIdx < numCols do
-          val col = buffers(colIdx)
+          val colData = decoder.decodeColumn(buffers(colIdx))
           var rowIdx = 0
           while rowIdx < numRows do
-            data(colIdx * numRows + rowIdx) = col(rowIdx).asInstanceOf[T]
+            data(colIdx * numRows + rowIdx) = colData(rowIdx)
             rowIdx += 1
           end while
           colIdx += 1
@@ -868,6 +896,10 @@ object CSV:
     end constructDenseArrayColMajor
 
     def constructDenseArrayRowMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+      // Summon the decoder at compile-time
+      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+      }
       '{
         val content = $csvContentExpr
         val lines = content.linesIterator
@@ -889,15 +921,17 @@ object CSV:
         val totalElements = numRows * numCols
         val data = new Array[T](totalElements)(using $ct)
 
-        // Fill data in row-major order: data is laid out row by row
-        var rowIdx = 0
-        while rowIdx < numRows do
-          var colIdx = 0
-          while colIdx < numCols do
-            data(rowIdx * numCols + colIdx) = buffers(colIdx)(rowIdx).asInstanceOf[T]
-            colIdx += 1
+        // Decode each column using ColumnDecoder
+        val decoder = $decoderExpr
+        var colIdx = 0
+        while colIdx < numCols do
+          val colData = decoder.decodeColumn(buffers(colIdx))
+          var rowIdx = 0
+          while rowIdx < numRows do
+            data(rowIdx * numCols + colIdx) = colData(rowIdx)
+            rowIdx += 1
           end while
-          rowIdx += 1
+          colIdx += 1
         end while
 
         // In row-major: rowStride = 1 (next row element), colStride = numCols (next column element)
