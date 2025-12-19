@@ -184,6 +184,18 @@ Charlie,35,92.1""",
     assertEquals(col3.toSeq, Seq("7", "8", "9"))
   }
 
+  test("CSV.resource with ReadAs.Columns and Manual types".only) {
+    val cols = CSV.resource("simple.csv", CsvOpts(TypeInferrer.FromTuple[(String, Int, String)](), ReadAs.Columns))
+
+    val col1: Array[String] = cols.col1
+    val col2: Array[Int] = cols.col2
+    val col3: Array[String] = cols.col3
+
+    assertEquals(col1.toSeq, Seq("1", "3", "5"))
+    assertEquals(col2.toSeq, Seq(2, 4, 6))
+    assertEquals(col3.toSeq, Seq("7", "8", "9"))
+  }
+
   test("CSV.fromString with ReadAs.Columns") {
     val cols = CSV.fromString(
       """name,age,score
