@@ -447,6 +447,70 @@ object CSV:
       case _ => None
   end extractDenseArrayType
 
+  // Helper to build dense array expression from buffers - column-major layout
+  private[scautable] def buildDenseArrayColMajor[T: Type](using Quotes)(
+    buffersExpr: Expr[Array[scala.collection.mutable.ArrayBuffer[String]]],
+    decoderExpr: Expr[ColumnDecoder[T]],
+    ct: Expr[scala.reflect.ClassTag[T]]
+  ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+    '{
+      val buffers = $buffersExpr
+      val numCols = buffers.length
+      val numRows = if buffers.nonEmpty then buffers(0).length else 0
+      val totalElements = numRows * numCols
+      val data = new Array[T](totalElements)(using $ct)
+
+      // Decode each column using ColumnDecoder and fill in column-major order
+      val decoder = $decoderExpr
+      var colIdx = 0
+      while colIdx < numCols do
+        val colData = decoder.decodeColumn(buffers(colIdx))
+        var rowIdx = 0
+        while rowIdx < numRows do
+          data(colIdx * numRows + rowIdx) = colData(rowIdx)
+          rowIdx += 1
+        end while
+        colIdx += 1
+      end while
+
+      // In column-major: colStride = 1 (stride between rows in same column), rowStride = numRows (stride between columns at same row)
+      val result = (data, numRows, 1, numRows, numCols)
+      NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
+    }
+  end buildDenseArrayColMajor
+
+  // Helper to build dense array expression from buffers - row-major layout
+  private[scautable] def buildDenseArrayRowMajor[T: Type](using Quotes)(
+    buffersExpr: Expr[Array[scala.collection.mutable.ArrayBuffer[String]]],
+    decoderExpr: Expr[ColumnDecoder[T]],
+    ct: Expr[scala.reflect.ClassTag[T]]
+  ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+    '{
+      val buffers = $buffersExpr
+      val numCols = buffers.length
+      val numRows = if buffers.nonEmpty then buffers(0).length else 0
+      val totalElements = numRows * numCols
+      val data = new Array[T](totalElements)(using $ct)
+
+      // Decode each column using ColumnDecoder
+      val decoder = $decoderExpr
+      var colIdx = 0
+      while colIdx < numCols do
+        val colData = decoder.decodeColumn(buffers(colIdx))
+        var rowIdx = 0
+        while rowIdx < numRows do
+          data(rowIdx * numCols + colIdx) = colData(rowIdx)
+          rowIdx += 1
+        end while
+        colIdx += 1
+      end while
+
+      // In row-major: rowStride = 1 (stride between columns in same row), colStride = numCols (stride between rows at same column)
+      val result = (data, 1, numCols, numRows, numCols)
+      NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
+    }
+  end buildDenseArrayRowMajor
+
   private transparent inline def readHeaderlineAsCsv(path: String, optsExpr: Expr[CsvOpts])(using q: Quotes) =
     import q.reflect.*
     import io.github.quafadas.scautable.HeaderOptions.*
@@ -529,7 +593,7 @@ object CSV:
       val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
         report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
       }
-      '{
+      val buffersExpr = '{
         val source = scala.io.Source.fromFile($filePathExpr)
         val lines = source.getLines()
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
@@ -547,28 +611,9 @@ object CSV:
         }
 
         source.close()
-
-        val numRows = if buffers.nonEmpty then buffers(0).length else 0
-        val totalElements = numRows * numCols
-        val data = new Array[T](totalElements)(using $ct)
-
-        // Decode each column using ColumnDecoder and fill in column-major order
-        val decoder = $decoderExpr
-        var colIdx = 0
-        while colIdx < numCols do
-          val colData = decoder.decodeColumn(buffers(colIdx))
-          var rowIdx = 0
-          while rowIdx < numRows do
-            data(colIdx * numRows + rowIdx) = colData(rowIdx)
-            rowIdx += 1
-          end while
-          colIdx += 1
-        end while
-
-        // In column-major: colStride = 1 (stride between rows in same column), rowStride = numRows (stride between columns at same row)
-        val result = (data, numRows, 1, numRows, numCols)
-        NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
+        buffers
       }
+      CSV.buildDenseArrayColMajor[T](buffersExpr, decoderExpr, ct)
     end constructDenseArrayColMajor
 
     def constructDenseArrayRowMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
@@ -577,7 +622,7 @@ object CSV:
       val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
         report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
       }
-      '{
+      val buffersExpr = '{
         val source = scala.io.Source.fromFile($filePathExpr)
         val lines = source.getLines()
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
@@ -595,28 +640,9 @@ object CSV:
         }
 
         source.close()
-
-        val numRows = if buffers.nonEmpty then buffers(0).length else 0
-        val totalElements = numRows * numCols
-        val data = new Array[T](totalElements)(using $ct)
-
-        // Decode each column using ColumnDecoder
-        val decoder = $decoderExpr
-        var colIdx = 0
-        while colIdx < numCols do
-          val colData = decoder.decodeColumn(buffers(colIdx))
-          var rowIdx = 0
-          while rowIdx < numRows do
-            data(rowIdx * numCols + colIdx) = colData(rowIdx)
-            rowIdx += 1
-          end while
-          colIdx += 1
-        end while
-
-        // In row-major: rowStride = 1 (stride between columns in same row), colStride = numCols (stride between rows at same column)
-        val result = (data, 1, numCols, numRows, numCols)
-        NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
+        buffers
       }
+      CSV.buildDenseArrayRowMajor[T](buffersExpr, decoderExpr, ct)
     end constructDenseArrayRowMajor
 
     // Handle dense array modes first
@@ -845,7 +871,7 @@ object CSV:
       val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
         report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
       }
-      '{
+      val buffersExpr = '{
         val content = $csvContentExpr
         val lines = content.linesIterator
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
@@ -862,27 +888,9 @@ object CSV:
           end while
         }
 
-        val numRows = if buffers.nonEmpty then buffers(0).length else 0
-        val totalElements = numRows * numCols
-        val data = new Array[T](totalElements)(using $ct)
-
-        // Decode each column using ColumnDecoder and fill in column-major order
-        val decoder = $decoderExpr
-        var colIdx = 0
-        while colIdx < numCols do
-          val colData = decoder.decodeColumn(buffers(colIdx))
-          var rowIdx = 0
-          while rowIdx < numRows do
-            data(colIdx * numRows + rowIdx) = colData(rowIdx)
-            rowIdx += 1
-          end while
-          colIdx += 1
-        end while
-
-        // In column-major: colStride = 1 (stride between rows in same column), rowStride = numRows (stride between columns at same row)
-        val result = (data, numRows, 1, numRows, numCols)
-        NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
+        buffers
       }
+      CSV.buildDenseArrayColMajor[T](buffersExpr, decoderExpr, ct)
     end constructDenseArrayColMajor
 
     def constructDenseArrayRowMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
@@ -890,7 +898,7 @@ object CSV:
       val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
         report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
       }
-      '{
+      val buffersExpr = '{
         val content = $csvContentExpr
         val lines = content.linesIterator
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
@@ -907,27 +915,9 @@ object CSV:
           end while
         }
 
-        val numRows = if buffers.nonEmpty then buffers(0).length else 0
-        val totalElements = numRows * numCols
-        val data = new Array[T](totalElements)(using $ct)
-
-        // Decode each column using ColumnDecoder
-        val decoder = $decoderExpr
-        var colIdx = 0
-        while colIdx < numCols do
-          val colData = decoder.decodeColumn(buffers(colIdx))
-          var rowIdx = 0
-          while rowIdx < numRows do
-            data(rowIdx * numCols + colIdx) = colData(rowIdx)
-            rowIdx += 1
-          end while
-          colIdx += 1
-        end while
-
-        // In row-major: rowStride = 1 (stride between columns in same row), colStride = numCols (stride between rows at same column)
-        val result = (data, 1, numCols, numRows, numCols)
-        NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
+        buffers
       }
+      CSV.buildDenseArrayRowMajor[T](buffersExpr, decoderExpr, ct)
     end constructDenseArrayRowMajor
 
     // Handle dense array modes first
