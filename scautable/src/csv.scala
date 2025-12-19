@@ -435,6 +435,18 @@ object CSV:
     end match
   end toArrayTupleType
 
+  // Helper to extract type parameter from ReadAs dense array enum case application
+  private[scautable] def extractDenseArrayType(using Quotes)(term: quotes.reflect.Term, caseName: String): Option[quotes.reflect.TypeRepr] =
+    import quotes.reflect.*
+    term match
+      // Match: ReadAs.ArrayDenseColMajor.apply[T]() or ReadAs.ArrayDenseRowMajor.apply[T]()
+      case Typed(Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _), _) if enumName == caseName =>
+        Some(targs.head.tpe)
+      case Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _) if enumName == caseName =>
+        Some(targs.head.tpe)
+      case _ => None
+  end extractDenseArrayType
+
   private transparent inline def readHeaderlineAsCsv(path: String, optsExpr: Expr[CsvOpts])(using q: Quotes) =
     import q.reflect.*
     import io.github.quafadas.scautable.HeaderOptions.*
@@ -455,17 +467,6 @@ object CSV:
 
     val readAsTerm = unwrapTerm(readAsExpr.asTerm)
 
-    // Helper to extract type parameter from ReadAs enum case application
-    def extractDenseArrayType(term: Term, caseName: String): Option[TypeRepr] =
-      term match
-        // Match: ReadAs.ArrayDenseColMajor.apply[T]() or ReadAs.ArrayDenseRowMajor.apply[T]()
-        case Typed(Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _), _) if enumName == caseName =>
-          Some(targs.head.tpe)
-        case Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _) if enumName == caseName =>
-          Some(targs.head.tpe)
-        case _ => None
-    end extractDenseArrayType
-
     // Determine which mode we're in and extract element type if needed
     val isColumnMode = readAsTerm match
       case Select(_, "Columns") => true
@@ -475,8 +476,8 @@ object CSV:
           case '{ io.github.quafadas.scautable.ReadAs.Columns } => true
           case _                                                => false
     
-    val denseColMajorType: Option[TypeRepr] = extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
-    val denseRowMajorType: Option[TypeRepr] = extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
+    val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
+    val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
 
     val source = Source.fromFile(path)
     val lineIterator: Iterator[String] = source.getLines()
@@ -564,7 +565,7 @@ object CSV:
           colIdx += 1
         end while
 
-        // In column-major: colStride = 1 (next column element), rowStride = numRows (next row element)
+        // In column-major: colStride = 1 (stride between rows in same column), rowStride = numRows (stride between columns at same row)
         val result = (data, numRows, 1, numRows, numCols)
         NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
       }
@@ -612,7 +613,7 @@ object CSV:
           colIdx += 1
         end while
 
-        // In row-major: rowStride = 1 (next row element), colStride = numCols (next column element)
+        // In row-major: rowStride = 1 (stride between columns in same row), colStride = numCols (stride between rows at same column)
         val result = (data, 1, numCols, numRows, numCols)
         NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
       }
@@ -783,17 +784,6 @@ object CSV:
 
     val readAsTerm = unwrapTerm(readAsExpr.asTerm)
 
-    // Helper to extract type parameter from ReadAs enum case application
-    def extractDenseArrayType(term: Term, caseName: String): Option[TypeRepr] =
-      term match
-        // Match: ReadAs.ArrayDenseColMajor.apply[T]() or ReadAs.ArrayDenseRowMajor.apply[T]()
-        case Typed(Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _), _) if enumName == caseName =>
-          Some(targs.head.tpe)
-        case Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _) if enumName == caseName =>
-          Some(targs.head.tpe)
-        case _ => None
-    end extractDenseArrayType
-
     // Determine which mode we're in and extract element type if needed
     val isColumnMode = readAsTerm match
       case Select(_, "Columns") => true
@@ -803,8 +793,8 @@ object CSV:
           case '{ io.github.quafadas.scautable.ReadAs.Columns } => true
           case _                                                => false
     
-    val denseColMajorType: Option[TypeRepr] = extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
-    val denseRowMajorType: Option[TypeRepr] = extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
+    val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
+    val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
 
     val content = csvContentExpr.valueOrAbort
 
@@ -889,7 +879,7 @@ object CSV:
           colIdx += 1
         end while
 
-        // In column-major: colStride = 1 (next column element), rowStride = numRows (next row element)
+        // In column-major: colStride = 1 (stride between rows in same column), rowStride = numRows (stride between columns at same row)
         val result = (data, numRows, 1, numRows, numCols)
         NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
       }
@@ -934,7 +924,7 @@ object CSV:
           colIdx += 1
         end while
 
-        // In row-major: rowStride = 1 (next row element), colStride = numCols (next column element)
+        // In row-major: rowStride = 1 (stride between columns in same row), colStride = numCols (stride between rows at same column)
         val result = (data, 1, numCols, numRows, numCols)
         NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
       }

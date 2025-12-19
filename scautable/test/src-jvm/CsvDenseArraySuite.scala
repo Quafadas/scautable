@@ -19,7 +19,7 @@ class CsvDenseArraySuite extends munit.FunSuite:
     assertEquals(cols, 3)
     assertEquals(data.length, 9)
 
-    // In column-major order: colStride = 1 (next element in same column), rowStride = rows (jump to next column)
+    // In column-major order: colStride = 1 (stride between rows within a column), rowStride = rows (stride between columns)
     assertEquals(colStride, 1)
     assertEquals(rowStride, 3)
   }
@@ -84,7 +84,7 @@ class CsvDenseArraySuite extends munit.FunSuite:
     assertEquals(cols, 3)
     assertEquals(data.length, 9)
 
-    // In row-major order: rowStride = 1 (next element in same row), colStride = cols (jump to next row)
+    // In row-major order: rowStride = 1 (stride between columns within a row), colStride = cols (stride between rows)
     assertEquals(rowStride, 1)
     assertEquals(colStride, 3)
   }
