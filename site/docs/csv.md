@@ -67,6 +67,8 @@ Columnar reading:
 - Works with all CSV reading methods (`resource`, `absolutePath`, `fromString`, etc.)
 - Supports all type inference options
 
+For advanced use cases requiring a single dense array with stride information (e.g., for BLAS/LAPACK interop), see `ReadAs.ArrayDenseColMajor[T]()` and `ReadAs.ArrayDenseRowMajor[T]()` in the [Column Orient cookbook](cookbook/ColumnOrient.md#reading-csv-as-dense-arrays).
+
 ## Strongly Typed CSVs
 
 Scautable analyzes the CSV file and provides types and names for the columns. That means should get IDE support, auto complete, error messages for non sensical code, etc.
