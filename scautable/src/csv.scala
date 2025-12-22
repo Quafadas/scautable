@@ -435,6 +435,82 @@ object CSV:
     end match
   end toArrayTupleType
 
+  // Helper to extract type parameter from ReadAs dense array enum case application
+  private[scautable] def extractDenseArrayType(using Quotes)(term: quotes.reflect.Term, caseName: String): Option[quotes.reflect.TypeRepr] =
+    import quotes.reflect.*
+    term match
+      // Match: ReadAs.ArrayDenseColMajor.apply[T]() or ReadAs.ArrayDenseRowMajor.apply[T]()
+      case Typed(Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _), _) if enumName == caseName =>
+        Some(targs.head.tpe)
+      case Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _) if enumName == caseName =>
+        Some(targs.head.tpe)
+      case _ => None
+  end extractDenseArrayType
+
+  // Helper to build dense array expression from buffers - column-major layout
+  private[scautable] def buildDenseArrayColMajor[T: Type](using Quotes)(
+    buffersExpr: Expr[Array[scala.collection.mutable.ArrayBuffer[String]]],
+    decoderExpr: Expr[ColumnDecoder[T]],
+    ct: Expr[scala.reflect.ClassTag[T]]
+  ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+    '{
+      val buffers = $buffersExpr
+      val numCols = buffers.length
+      val numRows = if buffers.nonEmpty then buffers(0).length else 0
+      val totalElements = numRows * numCols
+      val data = new Array[T](totalElements)(using $ct)
+
+      // Decode each column using ColumnDecoder and fill in column-major order
+      val decoder = $decoderExpr
+      var colIdx = 0
+      while colIdx < numCols do
+        val colData = decoder.decodeColumn(buffers(colIdx))
+        var rowIdx = 0
+        while rowIdx < numRows do
+          data(colIdx * numRows + rowIdx) = colData(rowIdx)
+          rowIdx += 1
+        end while
+        colIdx += 1
+      end while
+
+      // In column-major: colStride = 1 (stride between rows in same column), rowStride = numRows (stride between columns at same row)
+      val result = (data, numRows, 1, numRows, numCols)
+      NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
+    }
+  end buildDenseArrayColMajor
+
+  // Helper to build dense array expression from buffers - row-major layout
+  private[scautable] def buildDenseArrayRowMajor[T: Type](using Quotes)(
+    buffersExpr: Expr[Array[scala.collection.mutable.ArrayBuffer[String]]],
+    decoderExpr: Expr[ColumnDecoder[T]],
+    ct: Expr[scala.reflect.ClassTag[T]]
+  ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+    '{
+      val buffers = $buffersExpr
+      val numCols = buffers.length
+      val numRows = if buffers.nonEmpty then buffers(0).length else 0
+      val totalElements = numRows * numCols
+      val data = new Array[T](totalElements)(using $ct)
+
+      // Decode each column using ColumnDecoder
+      val decoder = $decoderExpr
+      var colIdx = 0
+      while colIdx < numCols do
+        val colData = decoder.decodeColumn(buffers(colIdx))
+        var rowIdx = 0
+        while rowIdx < numRows do
+          data(rowIdx * numCols + colIdx) = colData(rowIdx)
+          rowIdx += 1
+        end while
+        colIdx += 1
+      end while
+
+      // In row-major: rowStride = 1 (stride between columns in same row), colStride = numCols (stride between rows at same column)
+      val result = (data, 1, numCols, numRows, numCols)
+      NamedTuple.build[("data", "rowStride", "colStride", "rows", "cols")]()(result)
+    }
+  end buildDenseArrayRowMajor
+
   private transparent inline def readHeaderlineAsCsv(path: String, optsExpr: Expr[CsvOpts])(using q: Quotes) =
     import q.reflect.*
     import io.github.quafadas.scautable.HeaderOptions.*
@@ -455,13 +531,17 @@ object CSV:
 
     val readAsTerm = unwrapTerm(readAsExpr.asTerm)
 
-    val isColumnMode: Boolean = readAsTerm match
-      case Select(_, name) if name == "Columns" => true
-      case _                                    =>
+    // Determine which mode we're in and extract element type if needed
+    val isColumnMode = readAsTerm match
+      case Select(_, "Columns") => true
+      case _ =>
         readAsExpr match
           case '{ ReadAs.Columns }                              => true
           case '{ io.github.quafadas.scautable.ReadAs.Columns } => true
           case _                                                => false
+    
+    val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
+    val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
 
     val source = Source.fromFile(path)
     val lineIterator: Iterator[String] = source.getLines()
@@ -507,95 +587,173 @@ object CSV:
       }
     end constructColumnArrays
 
-    if !isColumnMode then
-      headerTupleExpr match
-        case '{ $tup: hdrs } =>
-          typeInferrerExpr match
+    def constructDenseArrayColMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+      val filePathExpr = Expr(path)
+      // Summon the decoder at compile-time
+      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+      }
+      val buffersExpr = '{
+        val source = scala.io.Source.fromFile($filePathExpr)
+        val lines = source.getLines()
+        val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
 
-            case '{ TypeInferrer.FromTuple[t]() } =>
-              constructRowIterator[hdrs & Tuple, t & Tuple]
+        val numCols = headers.length
+        val buffers = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
 
-            case '{ TypeInferrer.StringType } =>
-              constructRowIterator[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
+        iterator.foreach { line =>
+          val parsed = CSVParser.parseLine(line, $delimiterExpr)
+          var i = 0
+          while i < parsed.length && i < numCols do
+            buffers(i) += parsed(i)
+            i += 1
+          end while
+        }
 
-            case '{ TypeInferrer.FirstRow } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
-              inferredTypeRepr.asType match
-                case '[v] =>
-                  constructRowIterator[hdrs & Tuple, v & Tuple]
+        source.close()
+        buffers
+      }
+      CSV.buildDenseArrayColMajor[T](buffersExpr, decoderExpr, ct)
+    end constructDenseArrayColMajor
+
+    def constructDenseArrayRowMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+      val filePathExpr = Expr(path)
+      // Summon the decoder at compile-time
+      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+      }
+      val buffersExpr = '{
+        val source = scala.io.Source.fromFile($filePathExpr)
+        val lines = source.getLines()
+        val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
+
+        val numCols = headers.length
+        val buffers = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
+
+        iterator.foreach { line =>
+          val parsed = CSVParser.parseLine(line, $delimiterExpr)
+          var i = 0
+          while i < parsed.length && i < numCols do
+            buffers(i) += parsed(i)
+            i += 1
+          end while
+        }
+
+        source.close()
+        buffers
+      }
+      CSV.buildDenseArrayRowMajor[T](buffersExpr, decoderExpr, ct)
+    end constructDenseArrayRowMajor
+
+    // Handle dense array modes first
+    denseColMajorType match
+      case Some(elemType) =>
+        elemType.asType match
+          case '[t] =>
+            given Expr[scala.reflect.ClassTag[t]] = Expr.summon[scala.reflect.ClassTag[t]].getOrElse {
+              report.throwError(s"ClassTag not found for type ${elemType.show}")
+            }
+            constructDenseArrayColMajor[t]
+      case None =>
+        denseRowMajorType match
+          case Some(elemType) =>
+            elemType.asType match
+              case '[t] =>
+                given Expr[scala.reflect.ClassTag[t]] = Expr.summon[scala.reflect.ClassTag[t]].getOrElse {
+                  report.throwError(s"ClassTag not found for type ${elemType.show}")
+                }
+                constructDenseArrayRowMajor[t]
+          case None =>
+            // Handle rows or columns mode
+            if !isColumnMode then
+              headerTupleExpr match
+                case '{ $tup: hdrs } =>
+                  typeInferrerExpr match
+
+                    case '{ TypeInferrer.FromTuple[t]() } =>
+                      constructRowIterator[hdrs & Tuple, t & Tuple]
+
+                    case '{ TypeInferrer.StringType } =>
+                      constructRowIterator[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
+
+                    case '{ TypeInferrer.FirstRow } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
+                      inferredTypeRepr.asType match
+                        case '[v] =>
+                          constructRowIterator[hdrs & Tuple, v & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FromAllRows } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
+                      inferredTypeRepr.asType match
+                        case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
+                      inferredTypeRepr.asType match
+                        case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
+                      inferredTypeRepr.asType match
+                        case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                      end match
+
+                case _ =>
+                  report.throwError("Could not infer literal header tuple.")
               end match
+            else // isColumnMode
+              headerTupleExpr match
+                case '{ $tup: hdrs } =>
+                  typeInferrerExpr match
 
-            case '{ TypeInferrer.FromAllRows } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
-              inferredTypeRepr.asType match
-                case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                    case '{ TypeInferrer.FromTuple[t]() } =>
+                      val arrayTypeRepr = toArrayTupleType(TypeRepr.of[t])
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.StringType } =>
+                      val stringyType = TypeRepr.of[StringyTuple[hdrs & Tuple]]
+                      val arrayTypeRepr = toArrayTupleType(stringyType)
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FirstRow } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
+                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FromAllRows } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
+                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
+                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
+                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                case _ =>
+                  report.throwError("Could not infer literal header tuple.")
               end match
-
-            case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
-              inferredTypeRepr.asType match
-                case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
-              end match
-
-            case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
-              inferredTypeRepr.asType match
-                case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
-              end match
-
-        case _ =>
-          report.throwError("Could not infer literal header tuple.")
-      end match
-    else // isColumnMode
-      headerTupleExpr match
-        case '{ $tup: hdrs } =>
-          typeInferrerExpr match
-
-            case '{ TypeInferrer.FromTuple[t]() } =>
-              val arrayTypeRepr = toArrayTupleType(TypeRepr.of[t])
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-            case '{ TypeInferrer.StringType } =>
-              val stringyType = TypeRepr.of[StringyTuple[hdrs & Tuple]]
-              val arrayTypeRepr = toArrayTupleType(stringyType)
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-            case '{ TypeInferrer.FirstRow } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
-              val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-            case '{ TypeInferrer.FromAllRows } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
-              val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-            case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
-              val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-            case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
-              val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-        case _ =>
-          report.throwError("Could not infer literal header tuple.")
-      end match
-    end if
+            end if
 
   end readHeaderlineAsCsv
 
@@ -650,13 +808,19 @@ object CSV:
       case Inlined(_, _, body) => unwrapTerm(body)
       case other               => other
 
-    val isColumnMode: Boolean = unwrapTerm(readAsExpr.asTerm) match
+    val readAsTerm = unwrapTerm(readAsExpr.asTerm)
+
+    // Determine which mode we're in and extract element type if needed
+    val isColumnMode = readAsTerm match
       case Select(_, "Columns") => true
-      case _                    =>
+      case _ =>
         readAsExpr match
           case '{ ReadAs.Columns }                              => true
           case '{ io.github.quafadas.scautable.ReadAs.Columns } => true
           case _                                                => false
+    
+    val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
+    val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
 
     val content = csvContentExpr.valueOrAbort
 
@@ -702,95 +866,169 @@ object CSV:
         NamedTuple.build[Hdrs & Tuple]()(typedColumns)
       }
 
-    if !isColumnMode then
-      headerTupleExpr match
-        case '{ $tup: hdrs } =>
-          typeInferrerExpr match
+    def constructDenseArrayColMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+      // Summon the decoder at compile-time
+      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+      }
+      val buffersExpr = '{
+        val content = $csvContentExpr
+        val lines = content.linesIterator
+        val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
 
-            case '{ TypeInferrer.FromTuple[t]() } =>
-              constructRowIterator[hdrs & Tuple, t & Tuple]
+        val numCols = headers.length
+        val buffers = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
 
-            case '{ TypeInferrer.StringType } =>
-              constructRowIterator[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
+        iterator.foreach { line =>
+          val parsed = CSVParser.parseLine(line, $delimiterExpr)
+          var i = 0
+          while i < parsed.length && i < numCols do
+            buffers(i) += parsed(i)
+            i += 1
+          end while
+        }
 
-            case '{ TypeInferrer.FirstRow } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
-              inferredTypeRepr.asType match
-                case '[v] =>
-                  constructRowIterator[hdrs & Tuple, v & Tuple]
+        buffers
+      }
+      CSV.buildDenseArrayColMajor[T](buffersExpr, decoderExpr, ct)
+    end constructDenseArrayColMajor
+
+    def constructDenseArrayRowMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+      // Summon the decoder at compile-time
+      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+      }
+      val buffersExpr = '{
+        val content = $csvContentExpr
+        val lines = content.linesIterator
+        val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
+
+        val numCols = headers.length
+        val buffers = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
+
+        iterator.foreach { line =>
+          val parsed = CSVParser.parseLine(line, $delimiterExpr)
+          var i = 0
+          while i < parsed.length && i < numCols do
+            buffers(i) += parsed(i)
+            i += 1
+          end while
+        }
+
+        buffers
+      }
+      CSV.buildDenseArrayRowMajor[T](buffersExpr, decoderExpr, ct)
+    end constructDenseArrayRowMajor
+
+    // Handle dense array modes first
+    denseColMajorType match
+      case Some(elemType) =>
+        elemType.asType match
+          case '[t] =>
+            given Expr[scala.reflect.ClassTag[t]] = Expr.summon[scala.reflect.ClassTag[t]].getOrElse {
+              report.throwError(s"ClassTag not found for type ${elemType.show}")
+            }
+            constructDenseArrayColMajor[t]
+      case None =>
+        denseRowMajorType match
+          case Some(elemType) =>
+            elemType.asType match
+              case '[t] =>
+                given Expr[scala.reflect.ClassTag[t]] = Expr.summon[scala.reflect.ClassTag[t]].getOrElse {
+                  report.throwError(s"ClassTag not found for type ${elemType.show}")
+                }
+                constructDenseArrayRowMajor[t]
+          case None =>
+            // Handle rows or columns mode
+            if !isColumnMode then
+              headerTupleExpr match
+                case '{ $tup: hdrs } =>
+                  typeInferrerExpr match
+
+                    case '{ TypeInferrer.FromTuple[t]() } =>
+                      constructRowIterator[hdrs & Tuple, t & Tuple]
+
+                    case '{ TypeInferrer.StringType } =>
+                      constructRowIterator[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
+
+                    case '{ TypeInferrer.FirstRow } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
+                      inferredTypeRepr.asType match
+                        case '[v] =>
+                          constructRowIterator[hdrs & Tuple, v & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FromAllRows } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
+                      inferredTypeRepr.asType match
+                        case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
+                      inferredTypeRepr.asType match
+                        case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
+                      inferredTypeRepr.asType match
+                        case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                      end match
+
+                case _ =>
+                  report.throwError("Could not infer literal header tuple.")
               end match
+            else // isColumnMode
+              headerTupleExpr match
+                case '{ $tup: hdrs } =>
+                  typeInferrerExpr match
 
-            case '{ TypeInferrer.FromAllRows } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
-              inferredTypeRepr.asType match
-                case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                    case '{ TypeInferrer.FromTuple[t]() } =>
+                      val arrayTypeRepr = toArrayTupleType(TypeRepr.of[t])
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.StringType } =>
+                      val stringyType = TypeRepr.of[StringyTuple[hdrs & Tuple]]
+                      val arrayTypeRepr = toArrayTupleType(stringyType)
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FirstRow } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
+                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FromAllRows } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
+                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
+                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                    case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
+                      val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
+                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                      arrayTypeRepr.asType match
+                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                      end match
+
+                case _ =>
+                  report.throwError("Could not infer literal header tuple.")
               end match
-
-            case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
-              inferredTypeRepr.asType match
-                case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
-              end match
-
-            case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
-              inferredTypeRepr.asType match
-                case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
-              end match
-
-        case _ =>
-          report.throwError("Could not infer literal header tuple.")
-      end match
-    else // isColumnMode
-      headerTupleExpr match
-        case '{ $tup: hdrs } =>
-          typeInferrerExpr match
-
-            case '{ TypeInferrer.FromTuple[t]() } =>
-              val arrayTypeRepr = toArrayTupleType(TypeRepr.of[t])
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-            case '{ TypeInferrer.StringType } =>
-              val stringyType = TypeRepr.of[StringyTuple[hdrs & Tuple]]
-              val arrayTypeRepr = toArrayTupleType(stringyType)
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-            case '{ TypeInferrer.FirstRow } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
-              val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-            case '{ TypeInferrer.FromAllRows } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
-              val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-            case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
-              val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-            case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
-              val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
-              val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-              arrayTypeRepr.asType match
-                case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-              end match
-
-        case _ =>
-          report.throwError("Could not infer literal header tuple.")
-      end match
-    end if
+            end if
   end readCsvFromString
 
   /** Creates a function that reads a CSV file from a runtime path and returns a [[io.github.quafadas.scautable.CsvIterator]].

@@ -7,10 +7,14 @@ import scala.quoted.*
   *
   *   - `Rows`: Returns `CsvIterator[K, V]` - lazy row-by-row iteration
   *   - `Columns`: Returns `NamedTuple[K, (Array[T1], Array[T2], ...)]` - eager column arrays
+  *   - `ArrayDenseColMajor[T]`: Returns `NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]` - single dense array in column-major order
+  *   - `ArrayDenseRowMajor[T]`: Returns `NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]` - single dense array in row-major order
   */
 enum ReadAs:
   case Rows
   case Columns
+  case ArrayDenseColMajor[T]()
+  case ArrayDenseRowMajor[T]()
 end ReadAs
 
 object ReadAs:

@@ -68,3 +68,97 @@ colData.Age.map(_.get).cumsum
 ```
 
 The direct columnar reading (first approach) is recommended when you know upfront that you need columnar access, as it's more efficient.
+
+## Reading CSV as Dense Arrays
+
+For interoperability with numerical libraries (e.g., BLAS, LAPACK) or when you need a single contiguous memory layout, scautable provides dense array reading modes. These modes read all CSV data into a single flat array with stride information for accessing rows and columns.
+
+### Column-Major Dense Arrays
+
+Column-major layout stores data column-by-column in memory, which is the standard layout for Fortran and mathematical libraries like BLAS/LAPACK.
+
+```scala mdoc
+
+import io.github.quafadas.table.*
+
+// Read as column-major dense array
+val colMajor = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.ArrayDenseColMajor[Int]()))
+
+// Access the fields
+val cmData: Array[Int] = colMajor.data        // The flat array containing all data
+val cmRowStride: Int = colMajor.rowStride     // Stride to next row = numRows
+val cmColStride: Int = colMajor.colStride     // Stride to next column = 1
+val cmRows: Int = colMajor.rows               // Number of rows
+val cmCols: Int = colMajor.cols               // Number of columns
+
+// Access element at row i, col j
+def getElementColMajor(i: Int, j: Int): Int = 
+  cmData(j * cmRowStride + i * cmColStride)
+
+// Example: get element at row 1, col 1
+val cmElement = getElementColMajor(1, 1)
+
+```
+
+In column-major layout:
+- `colStride = 1` (next element in the same column)
+- `rowStride = numRows` (jump to the next row)
+- Data is stored: `[col0_row0, col0_row1, ..., col1_row0, col1_row1, ...]`
+
+### Row-Major Dense Arrays
+
+Row-major layout stores data row-by-row in memory, which is the standard layout for C and most programming languages.
+
+```scala mdoc
+
+import io.github.quafadas.table.*
+
+// Read as row-major dense array
+val rowMajor = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.ArrayDenseRowMajor[Double]()))
+
+// Access the fields
+val rmData: Array[Double] = rowMajor.data     // The flat array containing all data
+val rmRowStride: Int = rowMajor.rowStride     // Stride to next row = 1
+val rmColStride: Int = rowMajor.colStride     // Stride to next column = numCols
+val rmRows: Int = rowMajor.rows               // Number of rows
+val rmCols: Int = rowMajor.cols               // Number of columns
+
+// Access element at row i, col j
+def getElementRowMajor(i: Int, j: Int): Double = 
+  rmData(i * rmColStride + j * rmRowStride)
+
+// Example: get element at row 0, col 2
+val rmElement = getElementRowMajor(0, 2)
+
+```
+
+In row-major layout:
+- `rowStride = 1` (next element in the same row)
+- `colStride = numCols` (jump to the next column)
+- Data is stored: `[row0_col0, row0_col1, ..., row1_col0, row1_col1, ...]`
+
+### Type Safety
+
+The dense array modes require a type parameter specifying the array element type:
+
+```scala
+// Strongly typed as Array[Int]
+val intArray = CSV.resource("data.csv", CsvOpts(readAs = ReadAs.ArrayDenseColMajor[Int]()))
+
+// Strongly typed as Array[Double]
+val doubleArray = CSV.resource("data.csv", CsvOpts(readAs = ReadAs.ArrayDenseRowMajor[Double]()))
+
+// Strongly typed as Array[String]
+val stringArray = CSV.fromString("a,b\nfoo,bar", CsvOpts(readAs = ReadAs.ArrayDenseColMajor[String]()))
+```
+
+The type conversion is handled automatically using scautable's `ColumnDecoder` infrastructure, which supports `Int`, `Long`, `Double`, `Boolean`, `String`, and `Option` types.
+
+### Use Cases
+
+Dense arrays are particularly useful for:
+
+- **Numerical computing**: Passing data to BLAS/LAPACK or other numerical libraries
+- **Machine learning**: Preparing data for algorithms that expect contiguous arrays
+- **Performance**: Single memory allocation and cache-friendly access patterns
+- **Interop**: Integration with libraries expecting specific memory layouts (column-major for Fortran/R, row-major for C/Python)
