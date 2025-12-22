@@ -14,4 +14,4 @@ out
 .DS_Store
 
 # XL
-examples/resources/*.xlsx
+examples/resources/*.xlsxbenchmark_output.txt
