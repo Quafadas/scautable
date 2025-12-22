@@ -9,4 +9,4 @@ object `package` extends JmhModule with ScalaModule with build.ShareCompileResou
 	def scalaVersion = build.scautable.jvm.scalaVersion
 	def jmhCoreVersion = "1.37"
 	override def moduleDeps: Seq[JavaModule] = Seq(build.scautable.jvm)
-	// def enableBsp = false
+	def enableBsp = false
