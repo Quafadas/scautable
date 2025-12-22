@@ -15,3 +15,7 @@ out
 
 # XL
 examples/resources/*.xlsx
+benchmark_output.txt
+
+# Benchmark generated data
+benchmark/resources/benchmark_*.csv
