@@ -96,15 +96,25 @@ Reading file twice has minimal overhead:
 
 ## Conclusion
 
-**The two-pass approach with pre-allocation is recommended for the common case** where CSV data needs to be decoded to typed arrays. It provides:
-- 4-11% performance improvement for typed arrays
-- Predictable memory allocation
-- Minimal overhead from double file reads
+**The two-pass approach with pre-allocation shows 4-11% performance improvements** for the common case where CSV data needs to be decoded to typed arrays:
+- Small files (1K): 9% faster
+- Medium files (100K): 11% faster
+- Large files (1M): 4% faster
 
-The current ArrayBuffer approach should be retained as an option for:
-- Very large parse-only workloads  
-- Streaming/non-seekable data sources
-- Pre-loaded string content without type decoding
+However, after evaluating the results, **the decision was made not to implement the two-pass approach in production code**. The reasons:
+- The performance gains (4-11%) are relatively modest
+- The implementation complexity doesn't justify the minor improvements
+- The current ArrayBuffer approach is simpler and more maintainable
+- ArrayBuffer handles edge cases (streaming, unknown sizes) more naturally
+
+This benchmark serves as a record of the experiment and provides valuable insights into the trade-offs between the two approaches. The current ArrayBuffer implementation remains the recommended approach for scautable.
+
+### If You Need Better Performance
+
+For users who need maximum performance and can accept the constraints:
+- Use the two-pass file-based approach from `benchmark/src/CsvReadingStrategies.scala`
+- Ideal for: Known file sizes, repeated processing, memory-constrained environments
+- Not suitable for: Streaming sources, unknown data sizes, simplicity requirements
 
 ## Code Location
 

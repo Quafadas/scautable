@@ -2,14 +2,19 @@
 
 ## Quick Start
 
-### Generate Test Data
+### Generate Test Data (Required First Step)
+
+**Note:** The benchmark CSV files are not included in the repository to keep it small. You must generate them first:
+
 ```bash
 ./mill benchmark.runMain scautable.benchmark.GenerateBenchmarkData
 ```
 This creates benchmark CSV files in `benchmark/resources/`:
-- `benchmark_1k.csv` - 1,000 rows
-- `benchmark_100k.csv` - 100,000 rows  
-- `benchmark_1m.csv` - 1,000,000 rows
+- `benchmark_1k.csv` - 1,000 rows (~40KB)
+- `benchmark_100k.csv` - 100,000 rows (~4.3MB)  
+- `benchmark_1m.csv` - 1,000,000 rows (~45MB)
+
+These files are git-ignored and will not be committed.
 
 ### Run All Benchmarks
 ```bash

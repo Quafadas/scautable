@@ -14,4 +14,8 @@ out
 .DS_Store
 
 # XL
-examples/resources/*.xlsxbenchmark_output.txt
+examples/resources/*.xlsx
+benchmark_output.txt
+
+# Benchmark generated data
+benchmark/resources/benchmark_*.csv
