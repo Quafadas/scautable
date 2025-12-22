@@ -22,15 +22,27 @@ class CsvArrayReadBenchmark:
   @Setup(Level.Trial)
   def setup(): Unit =
     // Load CSV files into memory for consistent benchmarking
-    csv1k = Source.fromFile("benchmark/resources/benchmark_1k.csv").mkString
-    csv100k = Source.fromFile("benchmark/resources/benchmark_100k.csv").mkString
-    csv1m = Source.fromFile("benchmark/resources/benchmark_1m.csv").mkString
+    // Find project root by looking for build.mill
+    val projectRoot = findProjectRoot()
+    csv1k = Source.fromFile(s"$projectRoot/benchmark/resources/benchmark_1k.csv").mkString
+    csv100k = Source.fromFile(s"$projectRoot/benchmark/resources/benchmark_100k.csv").mkString
+    csv1m = Source.fromFile(s"$projectRoot/benchmark/resources/benchmark_1m.csv").mkString
     
-    println(s"Loaded benchmark data:")
+    println(s"Loaded benchmark data from: $projectRoot")
     println(s"  1K rows: ${csv1k.length} bytes")
     println(s"  100K rows: ${csv100k.length} bytes")
     println(s"  1M rows: ${csv1m.length} bytes")
   end setup
+  
+  private def findProjectRoot(): String =
+    var dir = new java.io.File(System.getProperty("user.dir"))
+    while dir != null && !new java.io.File(dir, "build.mill").exists() do
+      dir = dir.getParentFile
+    end while
+    if dir == null then
+      throw new RuntimeException("Could not find project root (build.mill)")
+    dir.getAbsolutePath
+  end findProjectRoot
 
   // ========== Small file (1K rows) ==========
   
@@ -140,25 +152,38 @@ end CsvArrayReadBenchmark
 @Measurement(iterations = 5, time = 3)
 class CsvFileReadBenchmark:
 
+  private def findProjectRoot(): String =
+    var dir = new java.io.File(System.getProperty("user.dir"))
+    while dir != null && !new java.io.File(dir, "build.mill").exists() do
+      dir = dir.getParentFile
+    end while
+    if dir == null then
+      throw new RuntimeException("Could not find project root (build.mill)")
+    dir.getAbsolutePath
+  end findProjectRoot
+
   // Test two-pass approach with actual file I/O (reading file twice)
   
   @Benchmark
   def twoPassFromFile_1k(bh: Blackhole): Unit =
-    val (headers, columns) = readWithTwoPassFromFile("benchmark/resources/benchmark_1k.csv")
+    val projectRoot = findProjectRoot()
+    val (headers, columns) = readWithTwoPassFromFile(s"$projectRoot/benchmark/resources/benchmark_1k.csv")
     bh.consume(headers)
     bh.consume(columns)
   end twoPassFromFile_1k
 
   @Benchmark
   def twoPassFromFile_100k(bh: Blackhole): Unit =
-    val (headers, columns) = readWithTwoPassFromFile("benchmark/resources/benchmark_100k.csv")
+    val projectRoot = findProjectRoot()
+    val (headers, columns) = readWithTwoPassFromFile(s"$projectRoot/benchmark/resources/benchmark_100k.csv")
     bh.consume(headers)
     bh.consume(columns)
   end twoPassFromFile_100k
 
   @Benchmark
   def twoPassFromFile_1m(bh: Blackhole): Unit =
-    val (headers, columns) = readWithTwoPassFromFile("benchmark/resources/benchmark_1m.csv")
+    val projectRoot = findProjectRoot()
+    val (headers, columns) = readWithTwoPassFromFile(s"$projectRoot/benchmark/resources/benchmark_1m.csv")
     bh.consume(headers)
     bh.consume(columns)
   end twoPassFromFile_1m
@@ -167,7 +192,8 @@ class CsvFileReadBenchmark:
   
   @Benchmark
   def arrayBufferFromFile_1k(bh: Blackhole): Unit =
-    val content = Source.fromFile("benchmark/resources/benchmark_1k.csv").mkString
+    val projectRoot = findProjectRoot()
+    val content = Source.fromFile(s"$projectRoot/benchmark/resources/benchmark_1k.csv").mkString
     val (headers, buffers) = readWithArrayBuffer(content)
     bh.consume(headers)
     bh.consume(buffers)
@@ -175,7 +201,8 @@ class CsvFileReadBenchmark:
 
   @Benchmark
   def arrayBufferFromFile_100k(bh: Blackhole): Unit =
-    val content = Source.fromFile("benchmark/resources/benchmark_100k.csv").mkString
+    val projectRoot = findProjectRoot()
+    val content = Source.fromFile(s"$projectRoot/benchmark/resources/benchmark_100k.csv").mkString
     val (headers, buffers) = readWithArrayBuffer(content)
     bh.consume(headers)
     bh.consume(buffers)
@@ -183,7 +210,8 @@ class CsvFileReadBenchmark:
 
   @Benchmark
   def arrayBufferFromFile_1m(bh: Blackhole): Unit =
-    val content = Source.fromFile("benchmark/resources/benchmark_1m.csv").mkString
+    val projectRoot = findProjectRoot()
+    val content = Source.fromFile(s"$projectRoot/benchmark/resources/benchmark_1m.csv").mkString
     val (headers, buffers) = readWithArrayBuffer(content)
     bh.consume(headers)
     bh.consume(buffers)
