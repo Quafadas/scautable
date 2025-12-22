@@ -107,6 +107,22 @@ However, after evaluating the results, **the decision was made not to implement 
 - The current ArrayBuffer approach is simpler and more maintainable
 - ArrayBuffer handles edge cases (streaming, unknown sizes) more naturally
 
+### OS-Level Line Counting Experiment
+
+An additional experiment was conducted using OS-level `wc -l` command for line counting instead of Java-based iteration. Results showed:
+- **Small files (1K)**: 5x slower due to process spawning overhead (~2ms)
+- **Medium files (100K)**: ~2% faster (marginal)
+- **Large files (1M)**: ~6% faster
+
+**Conclusion**: OS-level counting is not recommended due to:
+- High process spawning overhead for small/medium files
+- Cross-platform compatibility issues (Unix/Linux only)
+- Modest gains don't justify added complexity
+
+See `benchmark/OS_LEVEL_COUNTING_RESULTS.md` for detailed analysis.
+
+### Final Recommendation
+
 This benchmark serves as a record of the experiment and provides valuable insights into the trade-offs between the two approaches. The current ArrayBuffer implementation remains the recommended approach for scautable.
 
 ### If You Need Better Performance
@@ -114,7 +130,7 @@ This benchmark serves as a record of the experiment and provides valuable insigh
 For users who need maximum performance and can accept the constraints:
 - Use the two-pass file-based approach from `benchmark/src/CsvReadingStrategies.scala`
 - Ideal for: Known file sizes, repeated processing, memory-constrained environments
-- Not suitable for: Streaming sources, unknown data sizes, simplicity requirements
+- Not suitable for: Streaming sources, unknown data sizes, simplicity requirements, small files
 
 ## Code Location
 

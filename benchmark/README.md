@@ -1,5 +1,14 @@
 # Running CSV Reading Benchmarks
 
+## Overview
+
+This benchmark compares different approaches for reading CSV files into array format:
+1. **ArrayBuffer approach** (current implementation): Dynamic growth with resizing
+2. **Two-pass with Java-based counting**: Count rows by iterating, then pre-allocate
+3. **Two-pass with OS-level counting**: Use `wc -l` to count rows, then pre-allocate
+
+**Result**: ArrayBuffer remains the recommended approach. Two-pass shows modest gains (4-11%) but adds complexity. OS-level counting adds process overhead that hurts small/medium files.
+
 ## Quick Start
 
 ### Generate Test Data (Required First Step)

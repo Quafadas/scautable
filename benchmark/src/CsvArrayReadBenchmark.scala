@@ -216,5 +216,31 @@ class CsvFileReadBenchmark:
     bh.consume(headers)
     bh.consume(buffers)
   end arrayBufferFromFile_1m
+  
+  // Two-pass with OS-level line counting (using wc -l)
+  
+  @Benchmark
+  def twoPassOsCount_1k(bh: Blackhole): Unit =
+    val projectRoot = findProjectRoot()
+    val (headers, columns) = readWithTwoPassFromFileOsCount(s"$projectRoot/benchmark/resources/benchmark_1k.csv")
+    bh.consume(headers)
+    bh.consume(columns)
+  end twoPassOsCount_1k
+
+  @Benchmark
+  def twoPassOsCount_100k(bh: Blackhole): Unit =
+    val projectRoot = findProjectRoot()
+    val (headers, columns) = readWithTwoPassFromFileOsCount(s"$projectRoot/benchmark/resources/benchmark_100k.csv")
+    bh.consume(headers)
+    bh.consume(columns)
+  end twoPassOsCount_100k
+
+  @Benchmark
+  def twoPassOsCount_1m(bh: Blackhole): Unit =
+    val projectRoot = findProjectRoot()
+    val (headers, columns) = readWithTwoPassFromFileOsCount(s"$projectRoot/benchmark/resources/benchmark_1m.csv")
+    bh.consume(headers)
+    bh.consume(columns)
+  end twoPassOsCount_1m
 
 end CsvFileReadBenchmark

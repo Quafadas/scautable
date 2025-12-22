@@ -101,7 +101,7 @@ object CsvReadingStrategies:
     (headers, columns)
   end readWithTwoPass
 
-  /** Two-pass approach reading from file twice (more efficient for large files) */
+  /** Two-pass approach reading from file twice (Java-based line counting) */
   def readWithTwoPassFromFile(
     filepath: String,
     delimiter: Char = ','
@@ -151,6 +151,62 @@ object CsvReadingStrategies:
       source2.close()
     end try
   end readWithTwoPassFromFile
+
+  /** Count lines using OS-level wc command (faster for large files) */
+  private def countLinesOsLevel(path: String): Int =
+    import os.*
+    val result = os.proc("wc", "-l", path).call()
+    result.out.text().trim.split("\\s+").head.toInt
+  end countLinesOsLevel
+
+  /** Two-pass approach using OS-level line counting (potentially faster) */
+  def readWithTwoPassFromFileOsCount(
+    filepath: String,
+    delimiter: Char = ','
+  ): (Seq[String], Array[Array[String]]) =
+    import scala.io.Source
+    
+    // First pass: Count total lines using OS command (includes header)
+    val totalLines = countLinesOsLevel(filepath)
+    val numRows = totalLines - 1 // Subtract header line
+    
+    // Read header
+    val headers = 
+      val source = Source.fromFile(filepath)
+      try
+        val headerLine = source.getLines().next()
+        parseLine(headerLine, delimiter)
+      finally
+        source.close()
+      end try
+    
+    val numCols = headers.length
+    
+    // Pre-allocate arrays of exact size
+    val columns = Array.fill(numCols)(new Array[String](numRows))
+    
+    // Second pass: Fill arrays
+    val source2 = Source.fromFile(filepath)
+    try
+      val lines2 = source2.getLines()
+      if lines2.hasNext then lines2.next() // Skip header
+      
+      var rowIdx = 0
+      lines2.foreach { line =>
+        val parsed = parseLine(line, delimiter)
+        var colIdx = 0
+        while colIdx < parsed.length && colIdx < numCols do
+          columns(colIdx)(rowIdx) = parsed(colIdx)
+          colIdx += 1
+        end while
+        rowIdx += 1
+      }
+      
+      (headers, columns)
+    finally
+      source2.close()
+    end try
+  end readWithTwoPassFromFileOsCount
 
   /** Convert column buffers to typed arrays (simulating the decoding step) */
   def decodeColumns(buffers: Array[ArrayBuffer[String]]): Array[AnyRef] =
