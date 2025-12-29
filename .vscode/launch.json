@@ -17,6 +17,16 @@
     {
       "type": "scala",
       "request": "launch",
+      "name": "examples",
+      "buildTarget": "examples",
+      "mainClass": "examples.cereals",
+      "args": [
+        "cereals"
+      ]
+    },
+    {
+      "type": "scala",
+      "request": "launch",
       "name": "example",
       "buildTarget": "examples",
       "mainClass": "cereals",

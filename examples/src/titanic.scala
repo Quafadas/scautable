@@ -19,6 +19,7 @@ import scala.concurrent.Future
 import io.github.quafadas.scautable.ColumnTyped
 import scala.Tuple.Elem
 import io.github.quafadas.scautable.ColumnTyped.IdxAtName
+import io.github.quafadas.scautable.plots.*
 
 enum Gender:
   case Male, Female, Unknown
@@ -100,15 +101,15 @@ end Gender
 
   group.ptbln
 
-  println("plots")
-  data.plotPieChart["Sex"]
-  data.plotPieChart["Survived"]
+  // println("plots")
+  // data.plotPieChart["Sex"]
+  // data.plotPieChart["Survived"]
   data.plotHistogram["Fare"]
-  data.plotPieChart["AgeIsDefined"]
-  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotHistogram["Age"]
-  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotMarginalHistogram["Age", "Fare"]
-  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotScatter["Age", "Fare"]
-  data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotRegression["Age", "Fare"]
+  // data.plotPieChart["AgeIsDefined"]
+  // data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotHistogram["Age"]
+  // data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotMarginalHistogram["Age", "Fare"]
+  // data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotScatter["Age", "Fare"]
+  // data.filter(_.Age.isDefined).mapColumn["Age", Double](_.get).plotRegression["Age", "Fare"]
 
 end titanic
 

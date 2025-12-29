@@ -3,8 +3,8 @@
   "data": {"values": [
 
   ]},
-  "width": 1000,
-  "height": 1000,
+  "width": 800,
+  "height": 500,
   "mark": {
     "type": "bar",
     "tooltip": true
