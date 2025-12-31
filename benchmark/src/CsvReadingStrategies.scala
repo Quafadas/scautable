@@ -23,8 +23,7 @@ object CsvReadingStrategies:
           if i + 1 < line.length && line.charAt(i + 1) == '"' then
             cellBuffer.append('"')
             i += 1
-          else
-            inQuotes = false
+          else inQuotes = false
         case c if c == delimiter && !inQuotes =>
           result.append(cellBuffer.toString)
           cellBuffer.clear()
@@ -41,18 +40,18 @@ object CsvReadingStrategies:
 
   /** Current ArrayBuffer-based approach (as in csv.scala lines 683-703) */
   def readWithArrayBuffer(
-    content: String,
-    delimiter: Char = ','
+      content: String,
+      delimiter: Char = ','
   ): (Seq[String], Array[ArrayBuffer[String]]) =
     val lines = content.linesIterator
-    
+
     // Get headers
     val headerLine = if lines.hasNext then lines.next() else ""
     val headers = parseLine(headerLine, delimiter)
-    
+
     val numCols = headers.length
     val buffers = Array.fill(numCols)(ArrayBuffer[String]())
-    
+
     // Read all rows into ArrayBuffers
     lines.foreach { line =>
       val parsed = parseLine(line, delimiter)
@@ -62,30 +61,30 @@ object CsvReadingStrategies:
         i += 1
       end while
     }
-    
+
     (headers, buffers)
   end readWithArrayBuffer
 
   /** Two-pass approach with pre-allocated arrays */
   def readWithTwoPass(
-    content: String,
-    delimiter: Char = ','
+      content: String,
+      delimiter: Char = ','
   ): (Seq[String], Array[Array[String]]) =
     val lines = content.linesIterator
-    
+
     // Get headers
     val headerLine = if lines.hasNext then lines.next() else ""
     val headers = parseLine(headerLine, delimiter)
-    
+
     val numCols = headers.length
-    
+
     // First pass: Count rows
     val remainingLines = lines.toList
     val numRows = remainingLines.length
-    
+
     // Pre-allocate arrays of exact size
     val columns = Array.fill(numCols)(new Array[String](numRows))
-    
+
     // Second pass: Fill arrays
     var rowIdx = 0
     remainingLines.foreach { line =>
@@ -97,44 +96,45 @@ object CsvReadingStrategies:
       end while
       rowIdx += 1
     }
-    
+
     (headers, columns)
   end readWithTwoPass
 
   /** Two-pass approach reading from file twice (Java-based line counting) */
   def readWithTwoPassFromFile(
-    filepath: String,
-    delimiter: Char = ','
+      filepath: String,
+      delimiter: Char = ','
   ): (Seq[String], Array[Array[String]]) =
     import scala.io.Source
-    
+
     // First pass: Read headers and count rows
-    val (headers, numRows) = 
+    val (headers, numRows) =
       val source1 = Source.fromFile(filepath)
       try
         val lines1 = source1.getLines()
         val headerLine = if lines1.hasNext then lines1.next() else ""
         val hdrs = parseLine(headerLine, delimiter)
-        
+
         var rowCount = 0
-        lines1.foreach { _ => rowCount += 1 }
-        
+        lines1.foreach(_ => rowCount += 1)
+
         (hdrs, rowCount)
-      finally
-        source1.close()
+      finally source1.close()
       end try
-    
+    end val
+
     val numCols = headers.length
-    
+
     // Pre-allocate arrays of exact size
     val columns = Array.fill(numCols)(new Array[String](numRows))
-    
+
     // Second pass: Fill arrays
     val source2 = Source.fromFile(filepath)
     try
       val lines2 = source2.getLines()
       if lines2.hasNext then lines2.next() // Skip header
-      
+      end if
+
       var rowIdx = 0
       lines2.foreach { line =>
         val parsed = parseLine(line, delimiter)
@@ -145,10 +145,9 @@ object CsvReadingStrategies:
         end while
         rowIdx += 1
       }
-      
+
       (headers, columns)
-    finally
-      source2.close()
+    finally source2.close()
     end try
   end readWithTwoPassFromFile
 
@@ -161,36 +160,37 @@ object CsvReadingStrategies:
 
   /** Two-pass approach using OS-level line counting (potentially faster) */
   def readWithTwoPassFromFileOsCount(
-    filepath: String,
-    delimiter: Char = ','
+      filepath: String,
+      delimiter: Char = ','
   ): (Seq[String], Array[Array[String]]) =
     import scala.io.Source
-    
+
     // First pass: Count total lines using OS command (includes header)
     val totalLines = countLinesOsLevel(filepath)
     val numRows = totalLines - 1 // Subtract header line
-    
+
     // Read header
-    val headers = 
+    val headers =
       val source = Source.fromFile(filepath)
       try
         val headerLine = source.getLines().next()
         parseLine(headerLine, delimiter)
-      finally
-        source.close()
+      finally source.close()
       end try
-    
+    end headers
+
     val numCols = headers.length
-    
+
     // Pre-allocate arrays of exact size
     val columns = Array.fill(numCols)(new Array[String](numRows))
-    
+
     // Second pass: Fill arrays
     val source2 = Source.fromFile(filepath)
     try
       val lines2 = source2.getLines()
       if lines2.hasNext then lines2.next() // Skip header
-      
+      end if
+
       var rowIdx = 0
       lines2.foreach { line =>
         val parsed = parseLine(line, delimiter)
@@ -201,10 +201,9 @@ object CsvReadingStrategies:
         end while
         rowIdx += 1
       }
-      
+
       (headers, columns)
-    finally
-      source2.close()
+    finally source2.close()
     end try
   end readWithTwoPassFromFileOsCount
 
@@ -212,12 +211,10 @@ object CsvReadingStrategies:
   def decodeColumns(buffers: Array[ArrayBuffer[String]]): Array[AnyRef] =
     buffers.map { buffer =>
       // Try to decode as Int, then Double, otherwise keep as String
-      try
-        buffer.map(_.toInt).toArray.asInstanceOf[AnyRef]
+      try buffer.map(_.toInt).toArray.asInstanceOf[AnyRef]
       catch
         case _: NumberFormatException =>
-          try
-            buffer.map(_.toDouble).toArray.asInstanceOf[AnyRef]
+          try buffer.map(_.toDouble).toArray.asInstanceOf[AnyRef]
           catch
             case _: NumberFormatException =>
               buffer.toArray.asInstanceOf[AnyRef]
@@ -228,12 +225,10 @@ object CsvReadingStrategies:
   def decodeColumnsFromArrays(columns: Array[Array[String]]): Array[AnyRef] =
     columns.map { column =>
       // Try to decode as Int, then Double, otherwise keep as String
-      try
-        column.map(_.toInt).asInstanceOf[AnyRef]
+      try column.map(_.toInt).asInstanceOf[AnyRef]
       catch
         case _: NumberFormatException =>
-          try
-            column.map(_.toDouble).asInstanceOf[AnyRef]
+          try column.map(_.toDouble).asInstanceOf[AnyRef]
           catch
             case _: NumberFormatException =>
               column.asInstanceOf[AnyRef]

@@ -18,7 +18,7 @@ class CsvArrayReadBenchmark:
   var csv1k: String = scala.compiletime.uninitialized
   var csv100k: String = scala.compiletime.uninitialized
   var csv1m: String = scala.compiletime.uninitialized
-  
+
   @Setup(Level.Trial)
   def setup(): Unit =
     // Load CSV files into memory for consistent benchmarking
@@ -27,25 +27,24 @@ class CsvArrayReadBenchmark:
     csv1k = Source.fromFile(s"$projectRoot/benchmark/resources/benchmark_1k.csv").mkString
     csv100k = Source.fromFile(s"$projectRoot/benchmark/resources/benchmark_100k.csv").mkString
     csv1m = Source.fromFile(s"$projectRoot/benchmark/resources/benchmark_1m.csv").mkString
-    
+
     println(s"Loaded benchmark data from: $projectRoot")
     println(s"  1K rows: ${csv1k.length} bytes")
     println(s"  100K rows: ${csv100k.length} bytes")
     println(s"  1M rows: ${csv1m.length} bytes")
   end setup
-  
+
   private def findProjectRoot(): String =
     var dir = new java.io.File(System.getProperty("user.dir"))
-    while dir != null && !new java.io.File(dir, "build.mill").exists() do
-      dir = dir.getParentFile
+    while dir != null && !new java.io.File(dir, "build.mill").exists() do dir = dir.getParentFile
     end while
-    if dir == null then
-      throw new RuntimeException("Could not find project root (build.mill)")
+    if dir == null then throw new RuntimeException("Could not find project root (build.mill)")
+    end if
     dir.getAbsolutePath
   end findProjectRoot
 
   // ========== Small file (1K rows) ==========
-  
+
   @Benchmark
   def arrayBuffer_1k_parseOnly(bh: Blackhole): Unit =
     val (headers, buffers) = readWithArrayBuffer(csv1k)
@@ -77,7 +76,7 @@ class CsvArrayReadBenchmark:
   end twoPass_1k_withDecoding
 
   // ========== Medium file (100K rows) ==========
-  
+
   @Benchmark
   def arrayBuffer_100k_parseOnly(bh: Blackhole): Unit =
     val (headers, buffers) = readWithArrayBuffer(csv100k)
@@ -109,7 +108,7 @@ class CsvArrayReadBenchmark:
   end twoPass_100k_withDecoding
 
   // ========== Large file (1M rows) ==========
-  
+
   @Benchmark
   def arrayBuffer_1m_parseOnly(bh: Blackhole): Unit =
     val (headers, buffers) = readWithArrayBuffer(csv1m)
@@ -142,7 +141,6 @@ class CsvArrayReadBenchmark:
 
 end CsvArrayReadBenchmark
 
-
 /** Additional benchmark measuring file I/O overhead for two-pass approach */
 @BenchmarkMode(Array(Mode.AverageTime))
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -154,16 +152,15 @@ class CsvFileReadBenchmark:
 
   private def findProjectRoot(): String =
     var dir = new java.io.File(System.getProperty("user.dir"))
-    while dir != null && !new java.io.File(dir, "build.mill").exists() do
-      dir = dir.getParentFile
+    while dir != null && !new java.io.File(dir, "build.mill").exists() do dir = dir.getParentFile
     end while
-    if dir == null then
-      throw new RuntimeException("Could not find project root (build.mill)")
+    if dir == null then throw new RuntimeException("Could not find project root (build.mill)")
+    end if
     dir.getAbsolutePath
   end findProjectRoot
 
   // Test two-pass approach with actual file I/O (reading file twice)
-  
+
   @Benchmark
   def twoPassFromFile_1k(bh: Blackhole): Unit =
     val projectRoot = findProjectRoot()
@@ -187,9 +184,9 @@ class CsvFileReadBenchmark:
     bh.consume(headers)
     bh.consume(columns)
   end twoPassFromFile_1m
-  
+
   // Compare with single file read (ArrayBuffer approach)
-  
+
   @Benchmark
   def arrayBufferFromFile_1k(bh: Blackhole): Unit =
     val projectRoot = findProjectRoot()
@@ -216,9 +213,9 @@ class CsvFileReadBenchmark:
     bh.consume(headers)
     bh.consume(buffers)
   end arrayBufferFromFile_1m
-  
+
   // Two-pass with OS-level line counting (using wc -l)
-  
+
   @Benchmark
   def twoPassOsCount_1k(bh: Blackhole): Unit =
     val projectRoot = findProjectRoot()

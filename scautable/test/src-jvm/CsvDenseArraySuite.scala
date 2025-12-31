@@ -32,7 +32,7 @@ class CsvDenseArraySuite extends munit.FunSuite:
     // Column 0: [1, 3, 5] (indices 0, 1, 2)
     // Column 1: [2, 4, 6] (indices 3, 4, 5)
     // Column 2: [7, 8, 9] (indices 6, 7, 8)
-    
+
     // Check column 0 (col1)
     assertEquals(data(0), 1)
     assertEquals(data(1), 3)
@@ -97,7 +97,7 @@ class CsvDenseArraySuite extends munit.FunSuite:
     // Row 0: [1, 2, 7] (indices 0, 1, 2)
     // Row 1: [3, 4, 8] (indices 3, 4, 5)
     // Row 2: [5, 6, 9] (indices 6, 7, 8)
-    
+
     // Check row 0
     assertEquals(data(0), 1)
     assertEquals(data(1), 2)

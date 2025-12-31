@@ -445,13 +445,16 @@ object CSV:
       case Apply(TypeApply(Select(Select(_, enumName), "apply"), targs), _) if enumName == caseName =>
         Some(targs.head.tpe)
       case _ => None
+    end match
   end extractDenseArrayType
 
   // Helper to build dense array expression from buffers - column-major layout
-  private[scautable] def buildDenseArrayColMajor[T: Type](using Quotes)(
-    buffersExpr: Expr[Array[scala.collection.mutable.ArrayBuffer[String]]],
-    decoderExpr: Expr[ColumnDecoder[T]],
-    ct: Expr[scala.reflect.ClassTag[T]]
+  private[scautable] def buildDenseArrayColMajor[T: Type](using
+      Quotes
+  )(
+      buffersExpr: Expr[Array[scala.collection.mutable.ArrayBuffer[String]]],
+      decoderExpr: Expr[ColumnDecoder[T]],
+      ct: Expr[scala.reflect.ClassTag[T]]
   ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
     '{
       val buffers = $buffersExpr
@@ -480,10 +483,12 @@ object CSV:
   end buildDenseArrayColMajor
 
   // Helper to build dense array expression from buffers - row-major layout
-  private[scautable] def buildDenseArrayRowMajor[T: Type](using Quotes)(
-    buffersExpr: Expr[Array[scala.collection.mutable.ArrayBuffer[String]]],
-    decoderExpr: Expr[ColumnDecoder[T]],
-    ct: Expr[scala.reflect.ClassTag[T]]
+  private[scautable] def buildDenseArrayRowMajor[T: Type](using
+      Quotes
+  )(
+      buffersExpr: Expr[Array[scala.collection.mutable.ArrayBuffer[String]]],
+      decoderExpr: Expr[ColumnDecoder[T]],
+      ct: Expr[scala.reflect.ClassTag[T]]
   ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
     '{
       val buffers = $buffersExpr
@@ -534,12 +539,12 @@ object CSV:
     // Determine which mode we're in and extract element type if needed
     val isColumnMode = readAsTerm match
       case Select(_, "Columns") => true
-      case _ =>
+      case _                    =>
         readAsExpr match
           case '{ ReadAs.Columns }                              => true
           case '{ io.github.quafadas.scautable.ReadAs.Columns } => true
           case _                                                => false
-    
+
     val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
     val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
 
@@ -587,7 +592,9 @@ object CSV:
       }
     end constructColumnArrays
 
-    def constructDenseArrayColMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+    def constructDenseArrayColMajor[T: Type](using
+        ct: Expr[scala.reflect.ClassTag[T]]
+    ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
       val filePathExpr = Expr(path)
       // Summon the decoder at compile-time
       val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
@@ -616,7 +623,9 @@ object CSV:
       CSV.buildDenseArrayColMajor[T](buffersExpr, decoderExpr, ct)
     end constructDenseArrayColMajor
 
-    def constructDenseArrayRowMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+    def constructDenseArrayRowMajor[T: Type](using
+        ct: Expr[scala.reflect.ClassTag[T]]
+    ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
       val filePathExpr = Expr(path)
       // Summon the decoder at compile-time
       val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
@@ -754,6 +763,7 @@ object CSV:
                   report.throwError("Could not infer literal header tuple.")
               end match
             end if
+    end match
 
   end readHeaderlineAsCsv
 
@@ -813,12 +823,12 @@ object CSV:
     // Determine which mode we're in and extract element type if needed
     val isColumnMode = readAsTerm match
       case Select(_, "Columns") => true
-      case _ =>
+      case _                    =>
         readAsExpr match
           case '{ ReadAs.Columns }                              => true
           case '{ io.github.quafadas.scautable.ReadAs.Columns } => true
           case _                                                => false
-    
+
     val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
     val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
 
@@ -866,7 +876,9 @@ object CSV:
         NamedTuple.build[Hdrs & Tuple]()(typedColumns)
       }
 
-    def constructDenseArrayColMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+    def constructDenseArrayColMajor[T: Type](using
+        ct: Expr[scala.reflect.ClassTag[T]]
+    ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
       // Summon the decoder at compile-time
       val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
         report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
@@ -893,7 +905,9 @@ object CSV:
       CSV.buildDenseArrayColMajor[T](buffersExpr, decoderExpr, ct)
     end constructDenseArrayColMajor
 
-    def constructDenseArrayRowMajor[T: Type](using ct: Expr[scala.reflect.ClassTag[T]]): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+    def constructDenseArrayRowMajor[T: Type](using
+        ct: Expr[scala.reflect.ClassTag[T]]
+    ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
       // Summon the decoder at compile-time
       val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
         report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
@@ -1029,6 +1043,7 @@ object CSV:
                   report.throwError("Could not infer literal header tuple.")
               end match
             end if
+    end match
   end readCsvFromString
 
   /** Creates a function that reads a CSV file from a runtime path and returns a [[io.github.quafadas.scautable.CsvIterator]].
