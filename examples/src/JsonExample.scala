@@ -33,7 +33,7 @@ object JsonExample:
     result2.foreach { row =>
       val name = row.name.getOrElse("N/A")
       val price = row.price.map(p => f"$$$p%.2f").getOrElse("N/A")
-      println(s"Product ${row.id.getOrElse("?")} : $name - $price")
+      println(s"Product ${row.id} : $name - $price")
     }
     println()
 
