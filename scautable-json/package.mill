@@ -2,39 +2,23 @@ package build.`scautable-json`
 
 import mill.*
 import mill.scalalib.*
-import mill.scalajslib.*
-import mill.scalajslib.api.*
 import build.Config
 
 object `package` extends Module:
 
-  trait SharedModule extends build.Common with PlatformScalaModule:
-    override def mvnDeps = super.mvnDeps() ++ Seq(
-      mvn"com.github.plokhotnyuk.jsoniter-scala::jsoniter-scala-core::2.32.0",
-      mvn"com.github.plokhotnyuk.jsoniter-scala::jsoniter-scala-macros::2.32.0"
-    )
-  end SharedModule
-
-  trait SharedTest extends SharedModule with TestModule.Munit with build.CommonTests
-
-  object jvm extends SharedModule with ScalaModule with build.PublishModule:
+  // JVM-only module using Java's native JSON streaming API
+  object jvm extends build.Common with ScalaModule with build.PublishModule:
     override def moduleDeps = Seq(build.scautable.jvm)
     override def artifactName = "scautable-json"
+    
+    // Use Java's JSON-P (JSR 374) API for streaming
+    override def mvnDeps = super.mvnDeps() ++ Seq(
+      mvn"org.glassfish:jakarta.json::2.0.1"
+    )
   end jvm
 
-  object js extends SharedModule with build.CommonJS with build.PublishModule:
-    override def moduleDeps = Seq(build.scautable.js)
-    override def artifactName = "scautable-json"
-    def enableBsp = false
-  end js
-
   object test extends Module:
-    object js extends SharedTest with build.CommonJS with TestScalaJSModule:
-      override def moduleDeps: Seq[JavaModule] = Seq(build.`scautable-json`.js)
-      def enableBsp = false
-    end js
-
-    object jvm extends SharedTest with build.ShareCompileResources:
+    object jvm extends build.Common with ScalaModule with TestModule.Munit with build.CommonTests with build.ShareCompileResources:
       override def moduleDeps = Seq(build.`scautable-json`.jvm)
     end jvm
   end test

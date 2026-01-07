@@ -99,13 +99,9 @@ object JSON:
     if content.trim.isEmpty then report.throwError("Empty JSON content provided.")
     end if
 
-    // For fromString, we parse the entire content since it's already in memory
-    val source = Source.fromString(content)
-    try
-      val objects = StreamingJsonParser.parseArrayFromSource(source)
-      processJsonArrayFromStream(objects, jsonContentExpr, typeInferrerExpr, isResource = false, isString = true)
-    finally source.close()
-    end try
+    // For fromString, parse using string-based parser
+    val objects = StreamingJsonParser.parseArrayFromString(content)
+    processJsonArrayFromStream(objects, jsonContentExpr, typeInferrerExpr, isResource = false, isString = true)
   end readJsonFromString
 
   private def readJsonResource(pathExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
@@ -183,8 +179,7 @@ object JSON:
     def constructIterator[Hdrs <: Tuple: Type, Data <: Tuple: Type]: Expr[JsonIterator[Hdrs, Data]] =
       '{
         val content = $jsonContentExpr
-        val source = scala.io.Source.fromString(content)
-        val objects = StreamingJsonParser.parseArrayFromSource(source)
+        val objects = StreamingJsonParser.parseArrayFromString(content)
         new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq)
       }
     end constructIterator
@@ -264,16 +259,15 @@ object JSON:
           val path = $pathExpr
           val resourceUrl = this.getClass.getClassLoader.getResource(path)
           if resourceUrl == null then throw new RuntimeException(s"Resource not found: $path")
-          end if
-          val source = scala.io.Source.fromURL(resourceUrl)
-          val objects = StreamingJsonParser.parseArrayFromSource(source)
+          val inputStream = resourceUrl.openStream()
+          val objects = StreamingJsonParser.parseArrayStream(inputStream)
           new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq)
         }
       else
         '{
           val path = $pathExpr
-          val source = scala.io.Source.fromFile(path)
-          val objects = StreamingJsonParser.parseArrayFromSource(source)
+          val inputStream = new java.io.FileInputStream(path)
+          val objects = StreamingJsonParser.parseArrayStream(inputStream)
           new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq)
         }
     end constructIterator
