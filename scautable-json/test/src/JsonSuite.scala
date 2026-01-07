@@ -141,4 +141,10 @@ class JsonSuite extends FunSuite:
     assertEquals(data(0).b, 2)
   }
 
+  test("larger file") {
+    val result = JSON.resource("mini-movies.json")
+    val data = result.toSeq
+    assert(data.length == 1214)
+
+  }
 end JsonSuite

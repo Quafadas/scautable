@@ -24,11 +24,13 @@ object `package` extends Module:
   object js extends SharedModule with build.CommonJS with build.PublishModule:
     override def moduleDeps = Seq(build.scautable.js)
     override def artifactName = "scautable-json"
+    def enableBsp = false
   end js
 
   object test extends Module:
     object js extends SharedTest with build.CommonJS with TestScalaJSModule:
       override def moduleDeps: Seq[JavaModule] = Seq(build.`scautable-json`.js)
+      def enableBsp = false
     end js
 
     object jvm extends SharedTest with build.ShareCompileResources:
