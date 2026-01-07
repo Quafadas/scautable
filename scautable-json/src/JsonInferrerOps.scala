@@ -1,7 +1,7 @@
 package io.github.quafadas.scautable.json
 
 import scala.quoted.*
-import ujson.*
+import StreamingJsonParser.*
 
 private[json] object JsonInferrerOps:
 
@@ -32,10 +32,10 @@ private[json] object JsonInferrerOps:
     end inferMostGeneralType
   end ColumnTypeInfo
 
-  def inferTypeReprForValue(current: ColumnTypeInfo, value: Value): ColumnTypeInfo =
+  def inferTypeReprForValue(current: ColumnTypeInfo, value: JsonValue): ColumnTypeInfo =
     value match
-      case Null   => current.copy(seenNull = true)
-      case Num(n) =>
+      case JsonNull      => current.copy(seenNull = true)
+      case JsonNumber(n) =>
         val isInt = n.isWhole && n >= Int.MinValue && n <= Int.MaxValue
         val isLong = n.isWhole && n >= Long.MinValue && n <= Long.MaxValue
         current.copy(
@@ -44,14 +44,14 @@ private[json] object JsonInferrerOps:
           couldBeDouble = current.couldBeDouble,
           couldBeBoolean = false
         )
-      case Bool(_) =>
+      case JsonBool(_) =>
         current.copy(
           couldBeInt = false,
           couldBeLong = false,
           couldBeDouble = false,
           couldBeBoolean = current.couldBeBoolean
         )
-      case Str(s) =>
+      case JsonString(s) =>
         current.copy(
           couldBeInt = current.couldBeInt && s.toIntOption.isDefined,
           couldBeLong = current.couldBeLong && s.toLongOption.isDefined,
@@ -59,7 +59,7 @@ private[json] object JsonInferrerOps:
           couldBeBoolean = current.couldBeBoolean && (s.toBooleanOption.isDefined || s == "0" || s == "1")
         )
       case _ =>
-        // For arrays, objects, or other complex types, fall back to String
+        // For complex types, fall back to String
         current.copy(
           couldBeInt = false,
           couldBeLong = false,
@@ -68,7 +68,7 @@ private[json] object JsonInferrerOps:
         )
   end inferTypeReprForValue
 
-  def inferMostGeneralType(using Quotes)(values: Seq[Value], preferIntToBoolean: Boolean): quotes.reflect.TypeRepr =
+  def inferMostGeneralType(using Quotes)(values: Seq[JsonValue], preferIntToBoolean: Boolean): quotes.reflect.TypeRepr =
     import quotes.reflect.*
 
     if values.isEmpty then TypeRepr.of[String]
@@ -79,30 +79,20 @@ private[json] object JsonInferrerOps:
     end if
   end inferMostGeneralType
 
-  def inferrer(using Quotes)(arr: Arr, preferIntToBoolean: Boolean, numRows: Int = Int.MaxValue): quotes.reflect.TypeRepr =
+  def inferrer(using Quotes)(objects: Iterator[JsonObject], preferIntToBoolean: Boolean, numRows: Int = Int.MaxValue): quotes.reflect.TypeRepr =
     import quotes.reflect.*
 
-    if arr.value.isEmpty then report.throwError("JSON array must contain at least one object for type inference.")
+    val sampleObjects = objects.take(numRows).toList
+
+    if sampleObjects.isEmpty then report.throwError("JSON array must contain at least one object for type inference.")
     end if
 
-    // Take the specified number of rows for inference
-    val sampleRows = arr.value.take(numRows)
-
-    // Validate all elements are objects
-    sampleRows.foreach {
-      case _: Obj => // OK
-      case other  =>
-        report.throwError(s"JSON array must contain only objects. Found: ${other.getClass.getSimpleName}")
-    }
-
-    val objects = sampleRows.collect { case obj: Obj => obj }
-
     // Extract all unique headers from all objects
-    val allHeaders: Set[String] = objects.flatMap(_.value.keys).toSet
+    val allHeaders: Set[String] = sampleObjects.flatMap(_.fields.keys).toSet
 
     // For each header, collect all values across all objects
-    val headerToValues: Map[String, Seq[Value]] = allHeaders.map { header =>
-      (header, objects.map(obj => obj.value.getOrElse(header, Null)).toSeq)
+    val headerToValues: Map[String, Seq[JsonValue]] = allHeaders.map { header =>
+      (header, sampleObjects.map(obj => obj.fields.getOrElse(header, JsonNull)))
     }.toMap
 
     // Infer type for each header
@@ -120,19 +110,15 @@ private[json] object JsonInferrerOps:
     tupleType
   end inferrer
 
-  def extractHeaders(using Quotes)(arr: Arr): Seq[String] =
+  def extractHeaders(using Quotes)(objects: Iterator[JsonObject]): Seq[String] =
     import quotes.reflect.*
 
-    if arr.value.isEmpty then report.throwError("JSON array must contain at least one object to extract headers.")
+    val firstObjects = objects.take(100).toList // Sample first 100 to get headers
+    if firstObjects.isEmpty then report.throwError("JSON array must contain at least one object to extract headers.")
     end if
 
-    // Collect all keys from all objects and merge them
-    val allHeaders: Set[String] = arr.value
-      .collect { case obj: Obj =>
-        obj.value.keys.toSet
-      }
-      .reduce(_ ++ _)
-
+    // Collect all keys from all sampled objects and merge them
+    val allHeaders: Set[String] = firstObjects.flatMap(_.fields.keys).toSet
     allHeaders.toSeq.sorted
   end extractHeaders
 

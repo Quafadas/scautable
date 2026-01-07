@@ -4,7 +4,7 @@ import scala.NamedTuple.*
 import scala.annotation.publicInBinary
 import scala.compiletime.*
 import io.github.quafadas.scautable.RowDecoder
-import ujson.*
+import StreamingJsonParser.*
 
 /** A NamedTuple representation of a JSON array.
   *
@@ -25,7 +25,7 @@ import ujson.*
   * etc
   */
 class JsonIterator[K <: Tuple, V <: Tuple] @publicInBinary private[json] (
-    private val objects: Iterator[Obj],
+    private val objects: Iterator[JsonObject],
     val headers: Seq[String]
 )(using decoder: RowDecoder[V])
     extends Iterator[NamedTuple[K, V]]:
@@ -38,12 +38,12 @@ class JsonIterator[K <: Tuple, V <: Tuple] @publicInBinary private[json] (
 
   inline override def next() =
     val obj = objects.next()
-    // Extract values in header order, converting ujson.Value to String
+    // Extract values in header order, converting JsonValue to String
     val values = headers.map { header =>
-      obj.value.get(header) match
-        case Some(Null)  => ""
-        case Some(value) => valueToString(value)
-        case None        => "" // Missing field
+      obj.fields.get(header) match
+        case Some(JsonNull) => ""
+        case Some(value)    => valueToString(value)
+        case None           => "" // Missing field
     }.toList
 
     val tuple = decoder
@@ -54,15 +54,14 @@ class JsonIterator[K <: Tuple, V <: Tuple] @publicInBinary private[json] (
     NamedTuple.build[K & Tuple]()(tuple)
   end next
 
-  private def valueToString(value: Value): String = value match
-    case Null    => ""
-    case Bool(b) => b.toString
-    case Num(n)  =>
+  private def valueToString(value: JsonValue): String = value match
+    case JsonNull      => ""
+    case JsonBool(b)   => b.toString
+    case JsonNumber(n) =>
       // If it's a whole number, format without decimals to avoid scientific notation
       if n.isWhole then n.toLong.toString else n.toString
-    case Str(s)     => s
-    case Arr(items) => items.mkString("[", ",", "]")
-    case obj: Obj   => obj.toString
+    case JsonString(s)      => s
+    case JsonObject(fields) => fields.toString
   end valueToString
 
   def schemaGen: String =

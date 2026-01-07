@@ -3,7 +3,7 @@ package io.github.quafadas.scautable.json
 import scala.io.Source
 import scala.NamedTuple.*
 import scala.quoted.*
-import ujson.*
+import StreamingJsonParser.*
 
 import io.github.quafadas.table.TypeInferrer
 import io.github.quafadas.scautable.RowDecoder
@@ -99,18 +99,13 @@ object JSON:
     if content.trim.isEmpty then report.throwError("Empty JSON content provided.")
     end if
 
-    val parsed =
-      try ujson.read(content)
-      catch
-        case e: Exception =>
-          report.throwError(s"Failed to parse JSON: ${e.getMessage}")
-
-    parsed match
-      case arr: Arr =>
-        processJsonArray(arr, jsonContentExpr, typeInferrerExpr)
-      case _ =>
-        report.throwError("JSON must be an array of objects")
-    end match
+    // For fromString, we parse the entire content since it's already in memory
+    val source = Source.fromString(content)
+    try
+      val objects = StreamingJsonParser.parseArrayFromSource(source)
+      processJsonArrayFromStream(objects, jsonContentExpr, typeInferrerExpr, isResource = false, isString = true)
+    finally source.close()
+    end try
   end readJsonFromString
 
   private def readJsonResource(pathExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
@@ -121,23 +116,30 @@ object JSON:
     if resourcePath == null then report.throwError(s"Resource not found: $path")
     end if
 
-    val content = Source.fromURL(resourcePath).mkString
-    val contentExpr = Expr(content)
-    readJsonFromString(contentExpr, typeInferrerExpr)
+    // Use streaming for compile-time type inference
+    val source = Source.fromURL(resourcePath)
+    try
+      val objects = StreamingJsonParser.parseArrayFromSource(source)
+      processJsonArrayFromFile(objects, pathExpr, typeInferrerExpr, isResource = true)
+    finally source.close()
+    end try
   end readJsonResource
 
   private def readJsonAbsolutePath(pathExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
     import quotes.reflect.*
 
     val path = pathExpr.valueOrAbort
-    val content =
-      try Source.fromFile(path).mkString
+    val source =
+      try Source.fromFile(path)
       catch
         case e: Exception =>
           report.throwError(s"Failed to read file at path $path: ${e.getMessage}")
 
-    val contentExpr = Expr(content)
-    readJsonFromString(contentExpr, typeInferrerExpr)
+    try
+      val objects = StreamingJsonParser.parseArrayFromSource(source)
+      processJsonArrayFromFile(objects, pathExpr, typeInferrerExpr, isResource = false)
+    finally source.close()
+    end try
   end readJsonAbsolutePath
 
   private def readJsonFromCurrentDir(pathExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
@@ -161,19 +163,28 @@ object JSON:
     readJsonAbsolutePath(pathExpr, typeInferrerExpr)
   end readJsonFromUrl
 
-  private def processJsonArray(arr: Arr, jsonContentExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
+  private def processJsonArrayFromStream(
+      objectsIter: Iterator[JsonObject],
+      jsonContentExpr: Expr[String],
+      typeInferrerExpr: Expr[TypeInferrer],
+      isResource: Boolean,
+      isString: Boolean
+  )(using Quotes) =
     import quotes.reflect.*
 
+    // For compile-time type inference, we need to consume the iterator
+    // We'll buffer it so we can use it twice (once for headers, once for inference)
+    val objects = objectsIter.toList
+
     // Extract headers
-    val headers = JsonInferrerOps.extractHeaders(arr)
+    val headers = JsonInferrerOps.extractHeaders(objects.iterator)
     val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
 
     def constructIterator[Hdrs <: Tuple: Type, Data <: Tuple: Type]: Expr[JsonIterator[Hdrs, Data]] =
       '{
         val content = $jsonContentExpr
-        val parsed = ujson.read(content)
-        val arr = parsed.arr
-        val objects = arr.iterator.collect { case obj: Obj => obj }
+        val source = scala.io.Source.fromString(content)
+        val objects = StreamingJsonParser.parseArrayFromSource(source)
         new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq)
       }
     end constructIterator
@@ -195,25 +206,25 @@ object JSON:
             end match
 
           case '{ TypeInferrer.FirstRow } =>
-            val inferredTypeRepr = JsonInferrerOps.inferrer(arr, preferIntToBoolean = true, numRows = 1)
+            val inferredTypeRepr = JsonInferrerOps.inferrer(objects.iterator, preferIntToBoolean = true, numRows = 1)
             inferredTypeRepr.asType match
               case '[v] => constructIterator[hdrs & Tuple, v & Tuple]
             end match
 
           case '{ TypeInferrer.FromAllRows } =>
-            val inferredTypeRepr = JsonInferrerOps.inferrer(arr, preferIntToBoolean = false, numRows = Int.MaxValue)
+            val inferredTypeRepr = JsonInferrerOps.inferrer(objects.iterator, preferIntToBoolean = false, numRows = Int.MaxValue)
             inferredTypeRepr.asType match
               case '[v] => constructIterator[hdrs & Tuple, v & Tuple]
             end match
 
           case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
-            val inferredTypeRepr = JsonInferrerOps.inferrer(arr, preferIntToBoolean = true, numRows = n)
+            val inferredTypeRepr = JsonInferrerOps.inferrer(objects.iterator, preferIntToBoolean = true, numRows = n)
             inferredTypeRepr.asType match
               case '[v] => constructIterator[hdrs & Tuple, v & Tuple]
             end match
 
           case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
-            val inferredTypeRepr = JsonInferrerOps.inferrer(arr, preferIntToBoolean, numRows = n)
+            val inferredTypeRepr = JsonInferrerOps.inferrer(objects.iterator, preferIntToBoolean, numRows = n)
             inferredTypeRepr.asType match
               case '[v] => constructIterator[hdrs & Tuple, v & Tuple]
             end match
@@ -221,6 +232,96 @@ object JSON:
       case _ =>
         report.throwError("Could not infer literal header tuple.")
     end match
-  end processJsonArray
+  end processJsonArrayFromStream
+
+  /** Process JSON array from a file path - generates code that reads file at runtime using streaming This avoids loading large JSON files entirely into memory at compile time
+    */
+  private def processJsonArrayFromFile(
+      objectsIter: Iterator[JsonObject],
+      pathExpr: Expr[String],
+      typeInferrerExpr: Expr[TypeInferrer],
+      isResource: Boolean
+  )(using Quotes) =
+    import quotes.reflect.*
+
+    // For compile-time type inference, determine how many rows to read based on TypeInferrer
+    val numRowsForInference = typeInferrerExpr match
+      case '{ TypeInferrer.FirstRow }                => 1
+      case '{ TypeInferrer.FirstN(${ Expr(n) }) }    => n
+      case '{ TypeInferrer.FirstN(${ Expr(n) }, _) } => n
+      case _                                         => 1000 // Default limit for FromAllRows at compile time
+
+    // Read limited number of objects for type inference at compile time
+    val objects = objectsIter.take(numRowsForInference).toList
+
+    // Extract headers at compile time
+    val headers = JsonInferrerOps.extractHeaders(objects.iterator)
+    val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+
+    def constructIterator[Hdrs <: Tuple: Type, Data <: Tuple: Type]: Expr[JsonIterator[Hdrs, Data]] =
+      if isResource then
+        '{
+          val path = $pathExpr
+          val resourceUrl = this.getClass.getClassLoader.getResource(path)
+          if resourceUrl == null then throw new RuntimeException(s"Resource not found: $path")
+          end if
+          val source = scala.io.Source.fromURL(resourceUrl)
+          val objects = StreamingJsonParser.parseArrayFromSource(source)
+          new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq)
+        }
+      else
+        '{
+          val path = $pathExpr
+          val source = scala.io.Source.fromFile(path)
+          val objects = StreamingJsonParser.parseArrayFromSource(source)
+          new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq)
+        }
+    end constructIterator
+
+    headerTupleExpr match
+      case '{ $tup: hdrs } =>
+        typeInferrerExpr match
+          case '{ TypeInferrer.FromTuple[t]() } =>
+            constructIterator[hdrs & Tuple, t & Tuple]
+
+          case '{ TypeInferrer.StringType } =>
+            // Build a tuple of all String types
+            val stringTypes = headers.map(_ => TypeRepr.of[String])
+            val stringTupleType = stringTypes.foldRight(TypeRepr.of[EmptyTuple]) { (tpe, acc) =>
+              TypeRepr.of[*:].appliedTo(List(tpe, acc))
+            }
+            stringTupleType.asType match
+              case '[v] => constructIterator[hdrs & Tuple, v & Tuple]
+            end match
+
+          case '{ TypeInferrer.FirstRow } =>
+            val inferredTypeRepr = JsonInferrerOps.inferrer(objects.iterator, preferIntToBoolean = true, numRows = 1)
+            inferredTypeRepr.asType match
+              case '[v] => constructIterator[hdrs & Tuple, v & Tuple]
+            end match
+
+          case '{ TypeInferrer.FromAllRows } =>
+            // Use the sampled objects for type inference
+            val inferredTypeRepr = JsonInferrerOps.inferrer(objects.iterator, preferIntToBoolean = false, numRows = Int.MaxValue)
+            inferredTypeRepr.asType match
+              case '[v] => constructIterator[hdrs & Tuple, v & Tuple]
+            end match
+
+          case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
+            val inferredTypeRepr = JsonInferrerOps.inferrer(objects.iterator, preferIntToBoolean = true, numRows = n)
+            inferredTypeRepr.asType match
+              case '[v] => constructIterator[hdrs & Tuple, v & Tuple]
+            end match
+
+          case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
+            val inferredTypeRepr = JsonInferrerOps.inferrer(objects.iterator, preferIntToBoolean, numRows = n)
+            inferredTypeRepr.asType match
+              case '[v] => constructIterator[hdrs & Tuple, v & Tuple]
+            end match
+
+      case _ =>
+        report.throwError("Could not infer literal header tuple.")
+    end match
+  end processJsonArrayFromFile
 
 end JSON
