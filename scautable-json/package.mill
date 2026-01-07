@@ -4,22 +4,17 @@ import mill.*
 import mill.scalalib.*
 import build.Config
 
-object `package` extends Module:
+object `package` extends build.Common with ScalaModule with build.PublishModule:
 
-  // JVM-only module using Java's native JSON streaming API
-  object jvm extends build.Common with ScalaModule with build.PublishModule:
-    override def moduleDeps = Seq(build.scautable.jvm)
-    override def artifactName = "scautable-json"
-    
-    // Use Java's JSON-P (JSR 374) API for streaming
-    override def mvnDeps = super.mvnDeps() ++ Seq(
-      mvn"org.glassfish:jakarta.json::2.0.1"
-    )
-  end jvm
+  override def moduleDeps = Seq(build.scautable.jvm)
+  override def artifactName = "scautable-json"
+  
+  // Use Java's JSON-P (JSR 374) API for streaming
+  override def mvnDeps = super.mvnDeps() ++ Seq(
+    mvn"org.glassfish:jakarta.json::2.0.1"
+  )
 
-  object test extends Module:
-    object jvm extends build.Common with ScalaModule with TestModule.Munit with build.CommonTests with build.ShareCompileResources:
-      override def moduleDeps = Seq(build.`scautable-json`.jvm)
-    end jvm
+  object test extends build.Common with ScalaModule with TestModule.Munit with build.CommonTests with build.ShareCompileResources:    
+      override def moduleDeps = Seq(build.`scautable-json`)    
   end test
 end `package`

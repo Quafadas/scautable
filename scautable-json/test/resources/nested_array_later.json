@@ -1,0 +1,4 @@
+[
+  {"a": 1, "items": "flat string"},
+  {"a": 2, "items": [1, 2, 3]}
+]

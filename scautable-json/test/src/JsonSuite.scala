@@ -17,6 +17,8 @@ class JsonSuite extends FunSuite:
     assertEquals(data(1).b, 3)
   }
 
+  
+
   test("JSON.fromString should infer types correctly") {
     inline val jsonContent = """[{"active":true,"age":30,"name":"Alice"},{"active":false,"age":25,"name":"Bob"}]"""
     val result = JSON.fromString(jsonContent)
@@ -146,5 +148,71 @@ class JsonSuite extends FunSuite:
     val data = result.toSeq
     assert(data.length == 1214)
 
+  }
+
+  test("JSON.fromString should throw error for nested objects") {
+    // Nested objects should cause an error during parsing
+    val error = compileErrors("""
+      inline val jsonContent = "[{\"a\":1,\"nested\":{\"x\":1,\"y\":2}}]"
+      JSON.fromString(jsonContent)
+    """)
+    assert(error.contains("Nested objects are not supported") || error.contains("not supported"))
+  }
+
+  test("JSON.fromString should throw error for nested arrays") {
+    // Nested arrays should cause an error during parsing
+    val error = compileErrors("""
+      inline val jsonContent = "[{\"a\":1,\"items\":[1,2,3]}]"
+      JSON.fromString(jsonContent)
+    """)
+    assert(error.contains("Nested arrays are not supported") || error.contains("not supported"))
+  }
+
+  test("JSON.fromString should throw error for deeply nested objects") {
+    // Deeply nested objects should cause an error
+    val error = compileErrors("""
+      inline val jsonContent = "[{\"a\":{\"b\":{\"c\":1}}}]"
+      JSON.fromString(jsonContent)
+    """)
+    assert(error.contains("Nested objects are not supported") || error.contains("not supported"))
+  }
+
+  test("JSON.fromString should throw error for array of arrays") {
+    // Array values should cause an error
+    val error = compileErrors("""
+      inline val jsonContent = "[{\"matrix\":[[1,2],[3,4]]}]"
+      JSON.fromString(jsonContent)
+    """)
+    assert(error.contains("Nested arrays are not supported") || error.contains("not supported"))
+  }
+
+  test("JSON.fromString should throw error for mixed nested content") {
+    // Mixed nested content with objects should cause an error
+    val error = compileErrors("""
+      inline val jsonContent = "[{\"a\":1,\"b\":\"hello\",\"nested\":{\"x\":1}}]"
+      JSON.fromString(jsonContent)
+    """)
+    assert(error.contains("Nested objects are not supported") || error.contains("not supported"))
+  }
+
+  test("JSON.resource should throw runtime error when nesting appears after type inference rows") {
+    // When using FirstRow or FirstN, nesting might only appear in later rows
+    // which would cause a runtime error when iterating
+    val result = JSON.resource("nested_later.json", TypeInferrer.FirstRow)
+
+    val error = intercept[UnsupportedOperationException] {
+      result.toSeq // Force iteration through all rows
+    }
+    assert(error.getMessage.contains("Nested") && error.getMessage.contains("not supported"))
+  }
+
+  test("JSON.resource should throw runtime error when nested array appears after type inference rows") {
+    // Similar test but for nested arrays instead of objects
+    val result = JSON.resource("nested_array_later.json", TypeInferrer.FirstRow)
+
+    val error = intercept[UnsupportedOperationException] {
+      result.toSeq // Force iteration through all rows
+    }
+    assert(error.getMessage.contains("Nested arrays are not supported"))
   }
 end JsonSuite
