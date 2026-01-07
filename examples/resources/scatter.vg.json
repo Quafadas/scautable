@@ -3,7 +3,7 @@
   "description": "A scatterplot showing horsepower and miles per gallons for various cars.",
   "width": "container",
   "height": "container",
-  "data": { "url": "data/cars.json" },
+  "data": { "values": [{"url": "data/cars.json"}] },
   "mark": { "type": "point", "tooltip": true },
   "encoding": {
     "x": { "field": "Horsepower", "type": "quantitative" },
