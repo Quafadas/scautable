@@ -17,7 +17,7 @@ class JsonSuite extends FunSuite:
     assertEquals(data(1).b, 3)
   }
 
-  
+
 
   test("JSON.fromString should infer types correctly") {
     inline val jsonContent = """[{"active":true,"age":30,"name":"Alice"},{"active":false,"age":25,"name":"Bob"}]"""
@@ -28,6 +28,25 @@ class JsonSuite extends FunSuite:
     assertEquals(data(0).name, "Alice")
     assertEquals(data(0).age, 30)
     assertEquals(data(0).active, true)
+  }
+
+  test("JSON.fromString should infer types correctly with arrays out of order") {
+    inline val jsonContent = """[{"age":30,"name":"Alice","active":true},{"age":25,"active":false,"name":"Bob"},{"active":true,"name":"S","age":24}]"""
+    val result = JSON.fromString(jsonContent)
+    val data = result.toSeq
+
+    assertEquals(data.length, 3)
+    assertEquals(data(0).name, "Alice")
+    assertEquals(data(0).age, 30)
+    assertEquals(data(0).active, true)
+
+    assertEquals(data(1).name, "Bob")
+    assertEquals(data(1).age, 25)
+    assertEquals(data(1).active, false)
+
+    assertEquals(data(2).name, "S")
+    assertEquals(data(2).age, 24)
+    assertEquals(data(2).active, true)
   }
 
   test("JSON.fromString should handle string type inference") {
