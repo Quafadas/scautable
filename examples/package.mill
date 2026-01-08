@@ -6,7 +6,7 @@ import build.Config
 
 object `package` extends ScalaModule with build.ShareCompileResources:
   def scalaVersion = Config.scalaVersion
-  override def moduleDeps = Seq(build.scautable.jvm, build.`scautable-json`)
+  override def moduleDeps = Seq(build.scautable.jvm)
 
   override def mvnDeps = super.mvnDeps() ++ Seq(
     mvn"io.github.quafadas::dedav4s::0.10.2"
