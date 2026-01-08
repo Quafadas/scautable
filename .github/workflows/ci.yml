@@ -1,4 +1,7 @@
 name: CI
+
+env:
+  FORCE_COLOR: '1'
 on:
   push:
     branches:
@@ -20,24 +23,37 @@ concurrency:
 
 jobs:
   test:
+    name: test on ${{ matrix.platform }}
+    strategy:
+      matrix:
+        platform: [ 'jvm', 'js' ]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: 'temurin'
       - uses: actions/checkout@main
         with:
           fetch-depth: 0
           fetch-tags: true
       - uses: coursier/cache-action@v6.4
-      - name: Compile JS
-        run: ./mill scautable.js.compile
-      - name: Compile JVM
-        run: ./mill scautable.jvm.compile
-      - name: Compile All
-        run: ./mill __.compile
-      - name: test All
-        run: ./mill scautable.test._
-      - name: Publish artifacts
-        run: ./mill -i __.publishArtifacts
-
+      - name: Compile ${{ matrix.platform }}
+        run: ./mill scautable.${{ matrix.platform }}.compile
+      - name: test ${{ matrix.platform }}
+        run: ./mill scautable.test.${{ matrix.platform }}
+      - name: Publish ${{ matrix.platform }} artifacts
+        run: ./mill -i scautable.${{ matrix.platform }}.publishArtifacts
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          fail_on_failure: false
+          include_passed: false
+          detailed_summary: true
+          annotate_only: true
+          require_tests: false
+          report_paths: 'out/**/test-report.xml'
 
   publish:
     if: github.repository == 'Quafadas/scautable' && contains(github.ref, 'refs/tags/')
@@ -75,6 +91,23 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - run: ./mill site.siteGen
+
+  # Check that we can _generate_ the docs, but don't run upload / pages actions to actually deploy them for pull requests.
+  examples_benchmarks_pr_check:
+    if: github.event_name == 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: 'temurin'
+      - uses: actions/checkout@main
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - run: ./mill examples.compile
+      - run: ./mill benchmark.compile
 
   site:
     if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
