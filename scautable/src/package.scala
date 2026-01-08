@@ -4,7 +4,7 @@ import scala.quoted.*
 
 object table:
   export io.github.quafadas.scautable.CSV
-  export io.github.quafadas.scautable.CSV.*
+
   export io.github.quafadas.scautable.HtmlRenderer
   export io.github.quafadas.scautable.CsvIterator
   export io.github.quafadas.scautable.Excel
@@ -19,6 +19,7 @@ object table:
   export io.github.quafadas.scautable.CSVWriterExtensions.*
   export io.github.quafadas.scautable.HeaderOptions.*
   export io.github.quafadas.scautable.Stats.*
+  export io.github.quafadas.scautable.json.JsonTable
 
   // Excel requires it's own decoders
   export io.github.quafadas.scautable.ExcelDecoders.given

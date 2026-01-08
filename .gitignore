@@ -1,6 +1,5 @@
 *.class
 *.log
-.vscode/settings.json
 .scala-build
 .metals
 .bsp
