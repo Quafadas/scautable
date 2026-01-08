@@ -37,6 +37,16 @@ jobs:
         run: ./mill scautable.test.${{ matrix.platform }}
       - name: Publish ${{ matrix.platform }} artifacts
         run: ./mill -i scautable.${{ matrix.platform }}.publishArtifacts
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          fail_on_failure: false
+          include_passed: false
+          detailed_summary: true
+          annotate_only: true
+          require_tests: false
+          report_paths: 'out/**/test-report.xml'
 
   publish:
     if: github.repository == 'Quafadas/scautable' && contains(github.ref, 'refs/tags/')
