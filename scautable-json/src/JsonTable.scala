@@ -23,7 +23,7 @@ import io.github.quafadas.scautable.RowDecoder
   * ]
   * ```
   */
-object JSON:
+object JsonTable:
 
   /** Reads JSON from a String and returns a [[JsonIterator]].
     *
@@ -318,4 +318,51 @@ object JSON:
     end match
   end processJsonArrayFromFile
 
-end JSON
+  /** Creates a function that reads a JSON file from a runtime path and returns a [[JsonIterator]].
+    *
+    * Unlike other JSON methods that require the file path at compile time, this method allows you to specify the column types at compile time but provide the file path at runtime. This is useful when
+    * you know the structure of a JSON file in advance but the actual file location is determined at runtime.
+    *
+    * Example:
+    * {{{
+    *   val jsonReader = JsonTable.fromTyped[("name", "age", "salary"), (String, Int, Double)]
+    *   val data = jsonReader(os.pwd / "employees.json")
+    *   // data is a JsonIterator[("name", "age", "salary"), (String, Int, Double)]
+    * }}}
+    *
+    * @tparam K
+    *   A tuple of string literal types representing the column names (JSON field keys)
+    * @tparam V
+    *   A tuple of types representing the column value types (must have RowDecoders available)
+    * @return
+    *   A function that takes an os.Path and returns a JsonIterator with the specified types
+    */
+  inline def fromTyped[K <: Tuple, V <: Tuple](using decoder: RowDecoder[V]): os.Path => JsonIterator[K, V] =
+    (path: os.Path) =>
+      val inputStream = new java.io.FileInputStream(path.toIO)
+      val objects = StreamingJsonParser.parseArrayStream(inputStream)
+
+      // Peek at first object to validate headers match expected
+      val bufferedObjects = objects.buffered
+      if !bufferedObjects.hasNext then throw new IllegalStateException(s"JSON file at ${path.toString} contains no objects")
+
+      val firstObj = bufferedObjects.head
+      val actualHeaders = firstObj.fields.keys.toSeq
+      val expectedHeaders = scala.compiletime.constValueTuple[K].toArray.toSeq.asInstanceOf[Seq[String]]
+
+      // Validate headers match (order doesn't need to match for JSON, but all expected fields must be present)
+      val missingHeaders = expectedHeaders.filterNot(actualHeaders.contains)
+      if missingHeaders.nonEmpty then
+        throw new IllegalStateException(
+          s"JSON object missing expected fields. Expected: $expectedHeaders, Got: $actualHeaders. Missing: $missingHeaders"
+        )
+      end if
+
+      val sizeOfV = scala.compiletime.constValue[Tuple.Size[V]]
+      if expectedHeaders.length != sizeOfV then
+        throw new IllegalStateException(s"Number of expected headers (${expectedHeaders.length}) does not match number (${sizeOfV}) of types provided for decoding.")
+      end if
+
+      new JsonIterator[K, V](bufferedObjects, expectedHeaders)
+
+end JsonTable

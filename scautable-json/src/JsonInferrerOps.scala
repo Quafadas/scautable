@@ -32,7 +32,7 @@ private[json] object JsonInferrerOps:
     end inferMostGeneralType
   end ColumnTypeInfo
 
-  def inferTypeReprForValue(current: ColumnTypeInfo, value: JsonValue): ColumnTypeInfo =
+  inline def inferTypeReprForValue(current: ColumnTypeInfo, value: JsonValue): ColumnTypeInfo =
     value match
       case JsonNull      => current.copy(seenNull = true)
       case JsonNumber(n) =>

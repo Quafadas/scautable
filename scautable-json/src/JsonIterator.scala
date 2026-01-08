@@ -54,7 +54,7 @@ class JsonIterator[K <: Tuple, V <: Tuple] @publicInBinary private[json] (
     NamedTuple.build[K & Tuple]()(tuple)
   end next
 
-  private def valueToString(value: JsonValue): String = value match
+  private inline def valueToString(value: JsonValue): String = value match
     case JsonNull      => ""
     case JsonBool(b)   => b.toString
     case JsonNumber(n) =>
@@ -63,15 +63,6 @@ class JsonIterator[K <: Tuple, V <: Tuple] @publicInBinary private[json] (
     case JsonString(s)      => s
     case JsonObject(fields) => fields.toString
   end valueToString
-
-  def schemaGen: String =
-    val headerTypes = headers.map(header => s"type ${header} = \"$header\"").mkString("\n  ")
-    s"""object JsonSchema:
-  $headerTypes
-
-import JsonSchema.*
-"""
-  end schemaGen
 
   inline def headerIndex(s: String) =
     headers.zipWithIndex.find(_._1 == s).get._2

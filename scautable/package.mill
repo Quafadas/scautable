@@ -20,9 +20,9 @@ object `package` extends Module:
     )
   end jvm
 
-  object js extends SharedModule with build.CommonJS with build.PublishModule{
+  object js extends SharedModule with build.CommonJS with build.PublishModule:
     def enableBsp = false
-  }
+  end js
 
   object test extends Module:
     object js extends SharedTest with build.CommonJS with TestScalaJSModule:

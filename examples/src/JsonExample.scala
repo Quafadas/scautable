@@ -13,7 +13,7 @@ import viz.PlotTargets.websocket
     {"name": "Charlie", "age": 35, "score": 92.3}
   ]"""
 
-  val result1 = JSON.fromString(simpleJson).toVector
+  val result1 = JsonTable.fromString(simpleJson).toVector
 
   val scatter = VegaPlot.fromResource("scatter.vg.json")
 
@@ -24,3 +24,4 @@ import viz.PlotTargets.websocket
   )
 
   Thread.sleep(1000)
+end jsonExample
