@@ -30,7 +30,7 @@ object JsonTable:
     * Example:
     * {{{
     * val jsonContent = """[{"a":1,"b":2},{"a":5,"b":3}]"""
-    * val json: JsonIterator[("a", "b"), (Int, Int)] = JSON.fromString(jsonContent)
+    * val json: JsonIterator[("a", "b"), (Int, Int)] = JsonTable.fromString(jsonContent)
     * }}}
     */
   transparent inline def fromString[T](inline jsonContent: String): Any =
@@ -43,7 +43,7 @@ object JsonTable:
     *
     * Example:
     * {{{
-    * val json: JsonIterator[("a", "b"), (Int, Int)] = JSON.resource("data.json")
+    * val json: JsonIterator[("a", "b"), (Int, Int)] = JsonTable.resource("data.json")
     * }}}
     */
   transparent inline def resource[T](inline jsonPath: String): Any =
@@ -56,7 +56,7 @@ object JsonTable:
     *
     * Example:
     * {{{
-    * val json: JsonIterator[("a", "b"), (Int, Int)] = JSON.absolutePath("/absolute/path/to/file.json")
+    * val json: JsonIterator[("a", "b"), (Int, Int)] = JsonTable.absolutePath("/absolute/path/to/file.json")
     * }}}
     */
   transparent inline def absolutePath[T](inline jsonPath: String): Any =
@@ -69,7 +69,7 @@ object JsonTable:
     *
     * Example:
     * {{{
-    * val json: JsonIterator[("a", "b"), (Int, Int)] = JSON.pwd("data.json")
+    * val json: JsonIterator[("a", "b"), (Int, Int)] = JsonTable.pwd("data.json")
     * }}}
     */
   transparent inline def pwd[T](inline jsonPath: String): Any =
@@ -82,7 +82,7 @@ object JsonTable:
     *
     * Example:
     * {{{
-    * val json: JsonIterator[("a", "b"), (Int, Int)] = JSON.url("https://somewhere.com/file.json")
+    * val json: JsonIterator[("a", "b"), (Int, Int)] = JsonTable.url("https://somewhere.com/file.json")
     * }}}
     */
   transparent inline def url[T](inline jsonUrl: String): Any =

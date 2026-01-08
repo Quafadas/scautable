@@ -16,7 +16,7 @@ private[scautable] object CSVWriter:
     *   The formatted field, quoted if necessary
     */
   inline def formatField(value: String, inline delimiter: Char = ',', inline quote: Char = '"'): String =
-    if needsQuoting(value, delimiter, quote) then quote + escapeQuotes(value, quote) + quote
+    if needsQuoting(value, delimiter, quote) then s"$quote${escapeQuotes(value, quote)}$quote"
     else value
   end formatField
 

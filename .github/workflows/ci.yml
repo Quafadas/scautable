@@ -29,6 +29,10 @@ jobs:
         platform: [ 'jvm', 'js' ]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: 'temurin'
       - uses: actions/checkout@main
         with:
           fetch-depth: 0

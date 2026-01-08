@@ -160,7 +160,7 @@ class JsonSuite extends FunSuite:
     assertEquals(data(0).b, 2)
   }
 
-  test("larger file") {
+  test("JSON should handle larger files than fit into a single string / memory. This test prevents a 'greedy' implementation ") {
     val result = JsonTable.resource("mini-movies.json")
     val data = result.toSeq
     assert(data.length == 1214)
