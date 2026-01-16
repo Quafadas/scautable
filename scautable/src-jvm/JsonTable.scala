@@ -260,6 +260,7 @@ object JsonTable:
           val path = $pathExpr
           val resourceUrl = this.getClass.getClassLoader.getResource(path)
           if resourceUrl == null then throw new RuntimeException(s"Resource not found: $path")
+          end if
           val inputStream = resourceUrl.openStream()
           val objects = StreamingJsonParser.parseArrayStream(inputStream)
           new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq)
@@ -321,8 +322,8 @@ object JsonTable:
 
   /** Creates a function that reads a JSON file from a runtime path and returns a [[JsonIterator]].
     *
-    * Unlike other JSON methods that require the file path at compile time, this method allows you to specify the column types at compile time but provide the file path at runtime. This is useful when
-    * you know the structure of a JSON file in advance but the actual file location is determined at runtime.
+    * Unlike other JSON methods that require the file path at compile time, this method allows you to specify the column types at compile time but provide the file path at runtime.
+    * This is useful when you know the structure of a JSON file in advance but the actual file location is determined at runtime.
     *
     * Example:
     * {{{
@@ -346,6 +347,7 @@ object JsonTable:
       // Peek at first object to validate headers match expected
       val bufferedObjects = objects.buffered
       if !bufferedObjects.hasNext then throw new IllegalStateException(s"JSON file at ${path.toString} contains no objects")
+      end if
 
       val firstObj = bufferedObjects.head
       val actualHeaders = firstObj.fields.keys.toSeq
