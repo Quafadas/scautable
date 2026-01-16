@@ -1065,7 +1065,10 @@ object CSV:
     * @tparam V
     *   A tuple of types representing the column value types (must have Decoders available)
     * @return
-  *   A function that takes a platform path (os.Path on JVM, String on JS) and returns a CsvIterator with the specified types
+    *   A function that takes an os.Path and returns a CsvIterator with the specified types
+    */
+  inline def fromTyped[K <: Tuple, V <: Tuple]: PlatformPath => CsvIterator[K, V] = fromTyped[K, V](HeaderOptions.Default)
+
   /** Creates a function that reads a CSV file from a runtime path and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
     * This overload allows you to specify custom header options. [SP note: I'm not sure if this should be possible ]
@@ -1084,7 +1087,7 @@ object CSV:
     * @param headers
     *   The header options to use when reading the CSV
     * @return
-    *   A function that takes a platform path (os.Path on JVM, String on JS) and returns a CsvIterator with the specified types
+    *   A function that takes an os.Path and returns a CsvIterator with the specified types
     */
   private inline def fromTyped[K <: Tuple, V <: Tuple](inline headers: HeaderOptions): PlatformPath => CsvIterator[K, V] =
     (path: PlatformPath) =>
