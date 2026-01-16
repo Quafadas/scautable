@@ -773,16 +773,18 @@ object CSV:
     report.warning(
       "This method saves the CSV to a local temp file and opens it. There may be performance implications - it is recommended to use one of the other methods where possible."
     )
+
     val source = Source.fromURL(pathExpr.valueOrAbort)
-    val tmpPath = os.temp(dir = os.pwd, prefix = "temp_csv_", suffix = ".csv")
-    os.write.over(tmpPath, source.toArray.mkString)
+    val tmpPath = java.nio.file.Files.createTempFile("temp_csv_", ".csv")
+    java.nio.file.Files.writeString(tmpPath, source.mkString)
     readHeaderlineAsCsv(tmpPath.toString, optsExpr)
 
   end readCsvFromUrl
 
   private def readCsvFromCurrentDir(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
-    val path = os.pwd / pathExpr.valueOrAbort
-    readHeaderlineAsCsv(path.toString, optsExpr)
+    val cwd = java.nio.file.Paths.get(".").toAbsolutePath.normalize()
+    val path = cwd.resolve(pathExpr.valueOrAbort).toString
+    readHeaderlineAsCsv(path, optsExpr)
   end readCsvFromCurrentDir
 
   def readCsvAbsolutePath(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
@@ -1063,10 +1065,7 @@ object CSV:
     * @tparam V
     *   A tuple of types representing the column value types (must have Decoders available)
     * @return
-    *   A function that takes an os.Path and returns a CsvIterator with the specified types
-    */
-  inline def fromTyped[K <: Tuple, V <: Tuple]: os.Path => CsvIterator[K, V] = fromTyped[K, V](HeaderOptions.Default)
-
+  *   A function that takes a platform path (os.Path on JVM, String on JS) and returns a CsvIterator with the specified types
   /** Creates a function that reads a CSV file from a runtime path and returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
     * This overload allows you to specify custom header options. [SP note: I'm not sure if this should be possible ]
@@ -1085,11 +1084,11 @@ object CSV:
     * @param headers
     *   The header options to use when reading the CSV
     * @return
-    *   A function that takes an os.Path and returns a CsvIterator with the specified types
+    *   A function that takes a platform path (os.Path on JVM, String on JS) and returns a CsvIterator with the specified types
     */
-  private inline def fromTyped[K <: Tuple, V <: Tuple](inline headers: HeaderOptions): os.Path => CsvIterator[K, V] =
-    (path: os.Path) =>
-      val lines = scala.io.Source.fromFile(path.toIO).getLines()
+  private inline def fromTyped[K <: Tuple, V <: Tuple](inline headers: HeaderOptions): PlatformPath => CsvIterator[K, V] =
+    (path: PlatformPath) =>
+      val lines = scala.io.Source.fromFile(path.platformPathString).getLines()
       val (hdrs, iterator) = lines.headers(headers)
       val expectedHeaders = scala.compiletime.constValueTuple[K].toArray.toSeq.asInstanceOf[Seq[String]]
       hdrs.zip(expectedHeaders).zipWithIndex.foreach { case ((a, b), idx) =>
@@ -1100,7 +1099,7 @@ object CSV:
       }
 
       if hdrs.length != expectedHeaders.length then
-        throw new IllegalStateException(s"You provided: ${expectedHeaders.size} but ${hdrs.size} headers were found in the file at ${path.toString}.")
+        throw new IllegalStateException(s"You provided: ${expectedHeaders.size} but ${hdrs.size} headers were found in the file at ${path.platformPathString}.")
       end if
 
       val sizeOfV = scala.compiletime.constValue[Tuple.Size[V]]

@@ -1,7 +1,7 @@
-//| mill-version: 1.1.0-RC3
+//| mill-version: 1.1.0-RC4
 //| mill-jvm-version: 21
 //| mvnDeps:
-//| - io.github.quafadas:millSite_mill1_3.7:0.0.53
+//| - io.github.quafadas:millSite_mill1_3.8:0.0.55-DIRTY2ea1aa2
 //| - com.goyeau::mill-scalafix::0.6.0
 //| - com.lihaoyi::mill-contrib-jmh:$MILL_VERSION
 
@@ -32,7 +32,6 @@ trait Common extends ScalaModule, ScalafixModule:
 
   override def mvnDeps = super.mvnDeps() ++ Seq(
     Config.scalatags,
-    Config.oslib,
     Config.fansi
   )
   override def scalacOptions = super.scalacOptions() ++ extraCompilerOpts
