@@ -16,7 +16,7 @@ Vector.fill(10)(gen1).ptbln
 
 val csv = Vector.fill(10)(gen1)
 // Warning: may overflow with large data
-println(csv.toCsvString())
+println(csv.toCsvString(true, ',', '"'))
 
 // Writes line by line
 val afile = csv.writeCsv()
