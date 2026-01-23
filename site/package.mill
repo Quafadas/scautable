@@ -7,6 +7,7 @@ import mill.util.VcsVersion
 
 object `package` extends SiteModule:
 
+  override def scalaVersion = build.scautable.jvm.scalaVersion()
   override def repoLink = Task(
     build.scautable.jvm.pomSettings().url
   )
