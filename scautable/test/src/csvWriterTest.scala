@@ -82,7 +82,7 @@ class CSVWriterSuite extends munit.FunSuite:
 
     val expected = Seq("""col1;col2""", """1;2""", """3;4""")
 
-    assertEquals(data.toCsv(delimiter = ';').toSeq, expected)
+    assertEquals(data.toCsv(delimiter = ';', includeHeaders = true, quote = '"').toSeq, expected)
   }
 
   test("Seq[NamedTuple].toCsv basic functionality") {
@@ -97,7 +97,7 @@ class CSVWriterSuite extends munit.FunSuite:
 3,4,8
 5,6,9"""
 
-    assertNoDiff(data.toCsv(true, ',', '"'), expected)
+    assertNoDiff(data.toCsvString(true, ',', '"'), expected)
   }
 
   test("List[NamedTuple].toCsv with empty values") {
@@ -112,7 +112,7 @@ class CSVWriterSuite extends munit.FunSuite:
 3,,8
 5,6,"""
 
-    assertNoDiff(data.toCsv(true, ',', '"'), expected)
+    assertNoDiff(data.toCsvString(true, ',', '"'), expected)
   }
 
   test("Vector[NamedTuple].toCsv with numeric types") {
@@ -125,7 +125,7 @@ class CSVWriterSuite extends munit.FunSuite:
 1,Alice,95.5
 2,Bob,87.1"""
 
-    assertNoDiff(data.toCsv(true, ',', '"'), expected)
+    assertNoDiff(data.toCsvString(true, ',', '"'), expected)
   }
 
   test("empty collection toCsv") {
@@ -133,12 +133,12 @@ class CSVWriterSuite extends munit.FunSuite:
     val data: List[(col1: String, col2: String)] = List.empty
     val expected = "col1,col2"
 
-    assertEquals(data.toCsv(true, ',', '"'), expected)
+    assertEquals(data.toCsvString(true, ',', '"'), expected)
   }
 
   test("empty collection toCsv without headers") {
     val data: List[(col1: String, col2: String)] = List.empty
-    assertEquals(data.toCsv(false, ',', '"'), "")
+    assertEquals(data.toCsvString(false, ',', '"'), "")
   }
 
 end CSVWriterSuite
