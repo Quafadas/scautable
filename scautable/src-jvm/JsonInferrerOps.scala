@@ -1,7 +1,8 @@
 package io.github.quafadas.scautable.json
 
 import scala.quoted.*
-import StreamingJsonParser.*
+
+import io.github.quafadas.scautable.json.StreamingJsonParser.*
 
 private[json] object JsonInferrerOps:
 

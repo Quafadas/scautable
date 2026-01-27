@@ -89,7 +89,7 @@ private[scautable] object InferrerOps:
     end if
   end validateInput
 
-  private def validateSampleRows(sampleRows: List[String])(using Quotes): Unit =
+  private def validateSampleRows(sampleRows: List[String]): Unit =
     if sampleRows.isEmpty then
       throw new IllegalArgumentException(
         "No rows available for type inference."

@@ -69,7 +69,6 @@ object ConsoleFormat:
       val sizes =
         for (row <- table)
           yield (for (cell <- row.productIterator.toSeq) yield if cell == null then 0 else cell.toString.length)
-      val headSizes = for (i <- headers) yield headers.toString()
       val colSizes =
         for ((col, header) <- sizes.transpose.zip(headers)) yield Seq(header.toString().length(), col.max).max
       val colSizesWithIndex = indexLen +: colSizes

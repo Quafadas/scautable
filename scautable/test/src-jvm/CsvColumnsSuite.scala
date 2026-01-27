@@ -83,16 +83,16 @@ Charlie,35,92.1""",
 
     // These should be Int arrays
     val calories: Array[Int] = cols.calories
-    val protein: Array[Int] = cols.protein
-    val sodium: Array[Int] = cols.sodium
-    val sugars: Array[Int] = cols.sugars
+    val _: Array[Int] = cols.protein
+    val _: Array[Int] = cols.sodium
+    val _: Array[Int] = cols.sugars
 
     // rating should be Double
     val rating: Array[Double] = cols.rating
 
     // fiber, carbo, weight, cups should be Double (they have decimal values)
-    val fiber: Array[Double] = cols.fiber
-    val carbo: Array[Double] = cols.carbo
+    val _: Array[Double] = cols.fiber
+    val _: Array[Double] = cols.carbo
 
     // Verify some values
     assertEquals(calories.sum, 8230) // sum of all calories

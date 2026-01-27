@@ -1,7 +1,8 @@
 package io.github.quafadas.scautable
 import scala.NamedTuple.*
 
-import io.github.quafadas.table.*
+import io.github.quafadas.table.{*, given}
+import scala.annotation.nowarn
 
 class TypeInferrerSuite extends munit.FunSuite:
 
@@ -73,7 +74,7 @@ class TypeInferrerSuite extends munit.FunSuite:
   }
 
   test("TypeInferrer.FirstRow should fail compilation if accessed with wrong type") {
-    val csv = CSV.resource(
+    @nowarn def csv = CSV.resource(
       "data_without_headers.csv",
       HeaderOptions.Manual("name", "age", "profession"),
       TypeInferrer.FirstRow
@@ -211,7 +212,7 @@ class TypeInferrerSuite extends munit.FunSuite:
 
   test("That boolean is preferred to Int where set") {
     // These two imports are equivalent
-    val csvAll: CsvIterator[("c1", "c2"), (Int, Boolean)] = CSV.fromString("c1,c2\n0,0\n1,1\n2,1", TypeInferrer.FromAllRows)
+    CSV.fromString("c1,c2\n0,0\n1,1\n2,1", TypeInferrer.FromAllRows)
     val csv: CsvIterator[("c1", "c2"), (Int, Boolean)] = CSV.fromString("c1,c2\n0,0\n1,1\n2,1", TypeInferrer.FirstN(Int.MaxValue, false))
     val row1 = csv.next()
     assertEquals(row1.c1, 0)

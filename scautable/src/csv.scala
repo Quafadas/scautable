@@ -1,7 +1,7 @@
 package io.github.quafadas.scautable
 
-import scala.io.Source
 import scala.NamedTuple.*
+import scala.io.Source
 import scala.quoted.*
 
 import io.github.quafadas.scautable.ColumnTyped.*
@@ -166,9 +166,6 @@ object CSV:
       // CsvOpts(headerOptions, typeInferrer, delimiter) or CsvOpts(headerOptions, typeInferrer) or CsvOpts(headerOptions)
       // First arg is always HeaderOptions if present, otherwise check if it's TypeInferrer (then use default)
       case Apply(_, args) if args.nonEmpty =>
-        val headerOptionsType = TypeRepr.of[HeaderOptions]
-        val typeInferrerType = TypeRepr.of[TypeInferrer]
-
         // Look for headerOptions by name or by position (first arg)
         args
           .collectFirst { case NamedArg("headerOptions", value) =>
@@ -310,7 +307,7 @@ object CSV:
 
     term match
       // Handle Block with variable bindings from default parameters
-      case Block(statements, Apply(_, args)) =>
+      case Block(_, Apply(_, args)) =>
         // Look for delimiter by name or as a literal Char
         args
           .collectFirst {
@@ -387,7 +384,7 @@ object CSV:
 
     term match
       // Handle Block with variable bindings from default parameters
-      case Block(statements, Apply(_, args)) =>
+      case Block(_, Apply(_, args)) =>
         args
           .collectFirst { case NamedArg("readAs", value) =>
             extractFromTerm(value)

@@ -64,12 +64,12 @@ object Stats:
 
           // Enhanced runtime type detection that handles Option types properly
           val typ = value match
-            case v: Double       => (typ = "Double")
-            case i: Int          => (typ = "Int")
-            case l: Long         => (typ = "Long")
-            case Some(v: Double) => (typ = "Double")
-            case Some(i: Int)    => (typ = "Int")
-            case Some(l: Long)   => (typ = "Long")
+            case _: Double       => (typ = "Double")
+            case _: Int          => (typ = "Int")
+            case _: Long         => (typ = "Long")
+            case Some(_: Double) => (typ = "Double")
+            case Some(_: Int)    => (typ = "Int")
+            case Some(_: Long)   => (typ = "Long")
             case None            => (typ = "Unknown")
             case _               => (typ = "Unknown")
 
@@ -106,8 +106,8 @@ object Stats:
 
                 val shouldIncludeValue = incA match
                   case v: Double       => !v.isNaN
-                  case v: Int          => true
-                  case v: Long         => true
+                  case _: Int          => true
+                  case _: Long         => true
                   case Some(v: Double) => !v.isNaN
                   case Some(_)         => true
                   case None            => false
@@ -123,12 +123,12 @@ object Stats:
                   val updatedTyp =
                     if typ == "Unknown" then
                       incA match
-                        case v: Double       => "Double"
-                        case i: Int          => "Int"
-                        case l: Long         => "Long"
-                        case Some(v: Double) => "Double"
-                        case Some(i: Int)    => "Int"
-                        case Some(l: Long)   => "Long"
+                        case _: Double       => "Double"
+                        case _: Int          => "Int"
+                        case _: Long         => "Long"
+                        case Some(_: Double) => "Double"
+                        case Some(_: Int)    => "Int"
+                        case Some(_: Long)   => "Long"
                         case _               => "Unknown"
                     else typ
 
@@ -266,12 +266,12 @@ object Stats:
 
       // Enhanced runtime type detection that handles Option types properly
       val typ = value match
-        case v: Double       => (typ = "Double")
-        case i: Int          => (typ = "Int")
-        case l: Long         => (typ = "Long")
-        case Some(v: Double) => (typ = "Double")
-        case Some(i: Int)    => (typ = "Int")
-        case Some(l: Long)   => (typ = "Long")
+        case _: Double       => (typ = "Double")
+        case _: Int          => (typ = "Int")
+        case _: Long         => (typ = "Long")
+        case Some(_: Double) => (typ = "Double")
+        case Some(_: Int)    => (typ = "Int")
+        case Some(_: Long)   => (typ = "Long")
         case None            =>
           // For None values, we need to look ahead in the data to infer type
           // This is a limitation - we'll mark as Unknown and fix during processing
@@ -418,8 +418,8 @@ object Stats:
 
               val shouldIncludeValue = incA match
                 case v: Double       => !v.isNaN
-                case v: Int          => true
-                case v: Long         => true
+                case _: Int          => true
+                case _: Long         => true
                 case Some(v: Double) => !v.isNaN
                 case Some(_)         => true
                 case None            => false
@@ -435,12 +435,12 @@ object Stats:
                 val updatedTyp =
                   if typ == "Unknown" then
                     incA match
-                      case v: Double       => "Double"
-                      case i: Int          => "Int"
-                      case l: Long         => "Long"
-                      case Some(v: Double) => "Double"
-                      case Some(i: Int)    => "Int"
-                      case Some(l: Long)   => "Long"
+                      case _: Double       => "Double"
+                      case _: Int          => "Int"
+                      case _: Long         => "Long"
+                      case Some(_: Double) => "Double"
+                      case Some(_: Int)    => "Int"
+                      case Some(_: Long)   => "Long"
                       case _               => "Unknown"
                   else typ
 

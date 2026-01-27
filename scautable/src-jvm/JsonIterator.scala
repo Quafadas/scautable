@@ -3,8 +3,9 @@ package io.github.quafadas.scautable.json
 import scala.NamedTuple.*
 import scala.annotation.publicInBinary
 import scala.compiletime.*
+
 import io.github.quafadas.scautable.RowDecoder
-import StreamingJsonParser.*
+import io.github.quafadas.scautable.json.StreamingJsonParser.*
 
 /** A NamedTuple representation of a JSON array.
   *

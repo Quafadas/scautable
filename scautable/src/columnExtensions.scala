@@ -19,9 +19,7 @@ object NamedTupleIteratorExtensions:
 
     inline def renameColumn[From <: String, To <: String](using
         @implicitNotFound("Column ${From} not found")
-        ev: IsColumn[From, K] =:= true,
-        FROM: ValueOf[From],
-        TO: ValueOf[To]
+        ev: IsColumn[From, K] =:= true
     ): Iterator[NamedTuple[ReplaceOneName[K, From, To], V]] =
       itr.map(_.withNames[ReplaceOneName[K, From, To]].asInstanceOf[NamedTuple[ReplaceOneName[K, From, To], V]])
 
@@ -135,7 +133,7 @@ object NamedTupleIteratorExtensions:
       itr.map { (x: NamedTuple[K, V]) =>
         val (head, tail) = x.toTuple.splitAt(idx)
         head match
-          case x: EmptyTuple => tail.tail.withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]]
+          case _: EmptyTuple => tail.tail.withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]]
           case _             => (head ++ tail.tail).withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]]
         end match
       }
@@ -305,7 +303,7 @@ object NamedTupleIteratorExtensions:
       bf.fromSpecific(nt)(nt.view.map { (x: NamedTuple[K, V]) =>
         val (head, tail) = x.toTuple.splitAt(idx)
         head match
-          case x: EmptyTuple => tail.tail.withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]]
+          case _: EmptyTuple => tail.tail.withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]]
           case _             => (head ++ tail.tail).withNames[DropOneName[K, S]].asInstanceOf[NamedTuple[DropOneName[K, S], DropOneTypeAtName[K, S, V]]]
         end match
       })

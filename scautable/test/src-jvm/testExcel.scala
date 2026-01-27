@@ -82,7 +82,7 @@ class ExcelSuite extends munit.FunSuite:
 
   test("ExcelIterator range") {
     def csv = Excel.resource("Offset.xlsx", "Sheet1", "E3:G6", TypeInferrer.StringType)
-    val csvSeq = csv.toSeq
+    csv.toSeq
     // csvSeq.ptbln
     assertEquals(csv.column["Column 2"].toList.head, "Row 1, Col 2")
     assertEquals(csv.column["Column 2"].toList.last, "Row 3, Col 2")
@@ -91,7 +91,7 @@ class ExcelSuite extends munit.FunSuite:
   test("ExcelIterator Missing and blank values") {
     // Checks that we've set the Missing cell policy correctly
     def csv = Excel.resource("Missing.xlsx", "Sheet1", "A1:C4", TypeInferrer.StringType)
-    val csvSeq = csv.toSeq
+    csv.toSeq
     // csvSeq.ptbln
     assertEquals(csv.column["Column 2"].toList.drop(1).head, "") // blank
     assertEquals(csv.column["Column 3"].toList.drop(2).head, "") // missing
@@ -156,11 +156,11 @@ class ExcelSuite extends munit.FunSuite:
 
   test("excel provider all TypeInferrer variants now supported") {
     // Just test compilation - no runtime assertions needed
-    def csvFirstRow = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FirstRow)
-    def csvFromAllRows = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FromAllRows)
-    def csvFirstN = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FirstN(2))
-    def csvString = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.StringType)
-    def csvFromTuple = Excel.resource("Numbers.xlsx", "Sheet1", "", TypeInferrer.FromTuple[(Double, Double, Double, String)]())
+    
+    
+    
+    
+    
 
   }
 
@@ -202,8 +202,8 @@ class ExcelSuite extends munit.FunSuite:
 
   test("Bands - sheet1") {
     // Deliberately compiles the same table in the same workbook multiple times to probe workbook caching
-    val data2 = Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)
-    val data1 = Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)
+    Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)
+    Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)
     val data = Excel.resource("Bands.xlsx", "Sheet1", "B6:G11", TypeInferrer.FromAllRows)
     val rows = data.toList
     assertEquals(rows.size, 5)

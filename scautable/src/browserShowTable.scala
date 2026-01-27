@@ -23,8 +23,7 @@ object HtmlRenderer extends PlatformSpecific:
           summonInline[HtmlTableRender[
             head
           ]] // summon was known as implicitly in scala 2
-        val tailTypeClasses =
-          getTypeclassInstances[tail] // recursive call to resolve also the tail
+        getTypeclassInstances[tail] // recursive call to resolve also the tail
         headTypeClass
           .asInstanceOf[HtmlTableRender[Any]] :: getTypeclassInstances[tail]
 
@@ -173,7 +172,6 @@ object HtmlRenderer extends PlatformSpecific:
     )
 
     override def tableRow(a: NamedTuple[K, N]): TypedTag[String] =
-      val h = a.toTuple.productElementNames.toList
       val elems = a.toTuple.productIterator.toList
       val cells = elems.map(e => td(e.toString))
       tr(cells)

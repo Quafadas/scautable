@@ -76,10 +76,7 @@ class NamedTupleTypeTest extends munit.FunSuite:
   }
 
   test("Drop After Name") {
-
     type Cols = "a" *: "b" *: "c" *: EmptyTuple
-    type Types = Int *: String *: Double *: EmptyTuple
-
     summon[ColumnTyped.DropAfterName[Cols, "a"] =:= EmptyTuple]
 
     summon[ColumnTyped.DropAfterName[Cols, "b"] =:= "a" *: EmptyTuple]
@@ -101,30 +98,19 @@ class NamedTupleTypeTest extends munit.FunSuite:
   }
 
   test("IsMatch") {
-
-    type Cols = "a" *: "b" *: "c" *: EmptyTuple
-
     summon[ColumnTyped.IsMatch["a", "a"] =:= true]
     summon[ColumnTyped.IsMatch["a", "b"] =:= false]
     summon[ColumnTyped.IsMatch["a", "c"] =:= false]
-
   }
 
   test("IsNumeric") {
-
-    type Cols = "a" *: "b" *: "c" *: EmptyTuple
-    type Types = Int *: String *: Double *: EmptyTuple
-
     summon[ColumnTyped.IsNumeric[Int] =:= true]
     summon[ColumnTyped.IsNumeric[String] =:= false]
     summon[ColumnTyped.IsNumeric[Double] =:= true]
     summon[ColumnTyped.IsNumeric[Option[Double]] =:= true]
-
   }
 
   test("Numeric Cols Index") {
-
-    type Cols = "a" *: "b" *: "c" *: EmptyTuple
     type Types = Int *: String *: Double *: EmptyTuple
     type Types2 = Option[Double] *: Int *: String *: Double *: EmptyTuple
     type Types3 = Option[String] *: Int *: String *: Double *: String *: EmptyTuple

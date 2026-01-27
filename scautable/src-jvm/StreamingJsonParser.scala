@@ -1,7 +1,11 @@
 package io.github.quafadas.scautable.json
 
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.io.StringReader
+
 import scala.io.Source
-import java.io.{StringReader, InputStream, InputStreamReader}
+
 import jakarta.json.Json
 import jakarta.json.stream.JsonParser as JParser
 import jakarta.json.stream.JsonParser.Event
@@ -81,7 +85,7 @@ private[json] object StreamingJsonParser:
         catch
           case e: UnsupportedOperationException =>
             throw e // Re-throw nesting errors
-          case e: Exception =>
+          case _: Exception =>
             arrayEnded = true
             None
         end try
@@ -129,7 +133,7 @@ private[json] object StreamingJsonParser:
             throw new UnsupportedOperationException(
               "Nested objects are not supported. JSON must be a flat array of objects with primitive values only."
             )
-          case other =>
+          case _ =>
             JsonNull
         end match
       end readValue

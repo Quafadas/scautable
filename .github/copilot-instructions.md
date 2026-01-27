@@ -60,7 +60,7 @@ build.mill         -- Root build configuration
 ## Key Dependencies
 - Scala 3.7.2+
 - Mill 1+ (requires Java 21)
-- ScalaJS 1.19.0+
+- ScalaJS 1.20.2+
 - Munit for testing
 - scalatags for HTML generation
 - OS-lib for file operations

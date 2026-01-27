@@ -1,12 +1,11 @@
 package io.github.quafadas.scautable.json
 
 import scala.io.Source
-import scala.NamedTuple.*
 import scala.quoted.*
-import StreamingJsonParser.*
 
-import io.github.quafadas.table.TypeInferrer
 import io.github.quafadas.scautable.RowDecoder
+import io.github.quafadas.scautable.json.StreamingJsonParser.*
+import io.github.quafadas.table.TypeInferrer
 
 /** JSON parsing utilities for creating typed iterators from JSON arrays of flat objects.
   *
@@ -101,7 +100,7 @@ object JsonTable:
 
     // For fromString, parse using string-based parser
     val objects = StreamingJsonParser.parseArrayFromString(content)
-    processJsonArrayFromStream(objects, jsonContentExpr, typeInferrerExpr, isResource = false, isString = true)
+    processJsonArrayFromStream(objects, jsonContentExpr, typeInferrerExpr)
   end readJsonFromString
 
   private def readJsonResource(pathExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
@@ -162,9 +161,7 @@ object JsonTable:
   private def processJsonArrayFromStream(
       objectsIter: Iterator[JsonObject],
       jsonContentExpr: Expr[String],
-      typeInferrerExpr: Expr[TypeInferrer],
-      isResource: Boolean,
-      isString: Boolean
+      typeInferrerExpr: Expr[TypeInferrer]
   )(using Quotes) =
     import quotes.reflect.*
 
@@ -243,7 +240,7 @@ object JsonTable:
     val numRowsForInference = typeInferrerExpr match
       case '{ TypeInferrer.FirstRow }                => 1
       case '{ TypeInferrer.FirstN(${ Expr(n) }) }    => n
-      case '{ TypeInferrer.FirstN(${ Expr(n) }, _) } => n
+      case '{ TypeInferrer.FirstN(${ Expr(n) }, $_) } => n
       case _                                         => 1000 // Default limit for FromAllRows at compile time
 
     // Read limited number of objects for type inference at compile time

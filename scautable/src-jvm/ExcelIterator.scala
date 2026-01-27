@@ -85,9 +85,6 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
         extractHeadersFromRange(range)
       case _ =>
         extractHeadersFromFirstRow()
-
-  private lazy val numCellsPerRow = headers.size
-
   // Validate headers are unique at initialization
   validateUniqueHeaders(headers)
 
