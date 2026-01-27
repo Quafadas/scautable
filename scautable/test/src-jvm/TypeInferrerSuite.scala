@@ -1,8 +1,8 @@
 package io.github.quafadas.scautable
 import scala.NamedTuple.*
+import scala.annotation.nowarn
 
 import io.github.quafadas.table.{*, given}
-import scala.annotation.nowarn
 
 class TypeInferrerSuite extends munit.FunSuite:
 
