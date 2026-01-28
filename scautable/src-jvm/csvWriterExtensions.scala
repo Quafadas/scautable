@@ -9,7 +9,7 @@ object CSVWriterExtensions:
 
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 
-    /** Converts the iterator to CSV format as a string.
+    /** Converts the iterator to CSV format as an iterator of lines.
       *
       * @param includeHeaders
       *   Whether to include column headers as the first line
@@ -18,7 +18,7 @@ object CSVWriterExtensions:
       * @param quote
       *   The quote character (default: double quote)
       * @return
-      *   CSV formatted string
+      *   Iterator of CSV formatted lines
       */
     inline def toCsv(
         includeHeaders: Boolean,
@@ -28,12 +28,12 @@ object CSVWriterExtensions:
       val headers = constValueTuple[K].toList.map(_.toString())
       val headerLine = CSVWriter.formatLine(headers, delimiter, quote)
 
-      val striterator = itr.map { namedTuple =>
+      val strIterator = itr.map { namedTuple =>
         val values = namedTuple.toList.map(_.toString)
         CSVWriter.formatLine(values, delimiter, quote)
       }
-      if includeHeaders then Iterator(headerLine) ++ striterator
-      else striterator
+      if includeHeaders then Iterator(headerLine) ++ strIterator
+      else strIterator
       end if
     end toCsv
 
