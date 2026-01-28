@@ -156,11 +156,6 @@ class ExcelSuite extends munit.FunSuite:
 
   test("excel provider all TypeInferrer variants now supported") {
     // Just test compilation - no runtime assertions needed
-    
-    
-    
-    
-    
 
   }
 

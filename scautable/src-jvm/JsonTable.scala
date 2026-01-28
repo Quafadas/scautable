@@ -238,10 +238,10 @@ object JsonTable:
 
     // For compile-time type inference, determine how many rows to read based on TypeInferrer
     val numRowsForInference = typeInferrerExpr match
-      case '{ TypeInferrer.FirstRow }                => 1
-      case '{ TypeInferrer.FirstN(${ Expr(n) }) }    => n
+      case '{ TypeInferrer.FirstRow }                 => 1
+      case '{ TypeInferrer.FirstN(${ Expr(n) }) }     => n
       case '{ TypeInferrer.FirstN(${ Expr(n) }, $_) } => n
-      case _                                         => 1000 // Default limit for FromAllRows at compile time
+      case _                                          => 1000 // Default limit for FromAllRows at compile time
 
     // Read limited number of objects for type inference at compile time
     val objects = objectsIter.take(numRowsForInference).toList
