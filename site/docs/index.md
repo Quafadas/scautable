@@ -24,7 +24,7 @@ This command includes the necessary compiler options for scautable's metaprogram
 
 ### Example Usage
 
-Here's a screencap of a tiny, self contained example.
+Here's a screencap of a tiny, self-contained example.
 
 ![Example](../assets/getting_started.png)
 

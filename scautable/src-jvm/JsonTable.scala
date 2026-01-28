@@ -139,8 +139,9 @@ object JsonTable:
   end readJsonAbsolutePath
 
   private def readJsonFromCurrentDir(pathExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
-    val path = os.pwd / pathExpr.valueOrAbort
-    val pathStringExpr = Expr(path.toString)
+    val cwd = java.nio.file.Paths.get(".").toAbsolutePath.normalize()
+    val path = cwd.resolve(pathExpr.valueOrAbort).toString
+    val pathStringExpr = Expr(path)
     readJsonAbsolutePath(pathStringExpr, typeInferrerExpr)
   end readJsonFromCurrentDir
 
@@ -152,8 +153,8 @@ object JsonTable:
     )
 
     val source = Source.fromURL(urlExpr.valueOrAbort)
-    val tmpPath = os.temp(dir = os.pwd, prefix = "temp_json_", suffix = ".json")
-    os.write.over(tmpPath, source.mkString)
+    val tmpPath = java.nio.file.Files.createTempFile("temp_json_", ".json")
+    java.nio.file.Files.writeString(tmpPath, source.mkString)
 
     val pathExpr = Expr(tmpPath.toString)
     readJsonAbsolutePath(pathExpr, typeInferrerExpr)
