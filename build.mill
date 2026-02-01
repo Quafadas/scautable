@@ -4,6 +4,7 @@
 //| - io.github.quafadas:millSite_mill1_3.8:0.0.56
 //| - com.goyeau::mill-scalafix::0.6.0
 //| - com.lihaoyi::mill-contrib-jmh:$MILL_VERSION
+//| - com.lihaoyi::mill-contrib-scoverage:$MILL_VERSION
 
 package build
 
@@ -11,6 +12,7 @@ import mill.*, mill.scalalib.*, mill.scalajslib.*
 import mill.*, scalalib.*, publish.*
 import com.goyeau.mill.scalafix.ScalafixModule
 import mill.util.VcsVersion
+import mill.contrib.scoverage.ScoverageModule
 
 // mill mill.scalalib.scalafmt/
 object Config:
@@ -77,3 +79,7 @@ end CommonTests
 trait ShareCompileResources extends ScalaModule:
   override def compileResources = super.compileResources() ++ resources()
 end ShareCompileResources
+
+trait Scoverage extends ScoverageModule:
+  def scoverageVersion = "2.3.0"
+end Scoverage
