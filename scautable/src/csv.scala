@@ -1,7 +1,7 @@
 package io.github.quafadas.scautable
 
-import scala.io.Source
 import scala.NamedTuple.*
+import scala.io.Source
 import scala.quoted.*
 
 import io.github.quafadas.scautable.ColumnTyped.*

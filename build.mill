@@ -1,4 +1,4 @@
-//| mill-version: 1.1.0-RC4
+//| mill-version: 1.1.0
 //| mill-jvm-version: 21
 //| mvnDeps:
 //| - io.github.quafadas:millSite_mill1_3.8:0.0.56
@@ -20,8 +20,8 @@ object Config:
 
   val laminar = mvn"com.raquo::laminar::17.2.1"
   val munit = mvn"org.scalameta::munit::1.1.1"
-  val scalaVersion = "3.7.2"
-  val scalaJSVersion = "1.19.0"
+  val scalaVersion = "3.7.4"
+  val scalaJSVersion = "1.20.2"
 end Config
 
 val extraCompilerOpts = Seq("-Xmax-inlines", "256", "-Wunused:imports")
