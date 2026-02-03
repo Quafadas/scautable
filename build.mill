@@ -21,11 +21,11 @@ object Config:
   val laminar = mvn"com.raquo::laminar::17.2.1"
   val munit = mvn"org.scalameta::munit::1.2.2"
   val scalaVersion = "3.7.4"
-  val scalaJSVersion = "1.20.0"
+  val scalaJSVersion = "1.20.2"
   val apachePoi = "5.5.1"
 end Config
 
-val extraCompilerOpts = Seq("-Xmax-inlines", "256", "-Wunused:imports")
+val extraCompilerOpts = Seq("-Xmax-inlines", "2048", "-Wunused:imports")
 
 // mill __.compiledClassesAndSemanticDbFiles
 trait Common extends ScalaModule, ScalafixModule:
