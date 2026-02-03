@@ -1,7 +1,11 @@
 package io.github.quafadas.scautable.json
 
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.io.StringReader
+
 import scala.io.Source
-import java.io.{StringReader, InputStream, InputStreamReader}
+
 import jakarta.json.Json
 import jakarta.json.stream.JsonParser as JParser
 import jakarta.json.stream.JsonParser.Event
