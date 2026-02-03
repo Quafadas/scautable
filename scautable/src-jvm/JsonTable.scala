@@ -1,12 +1,11 @@
 package io.github.quafadas.scautable.json
 
 import scala.io.Source
-import scala.NamedTuple.*
 import scala.quoted.*
-import StreamingJsonParser.*
 
-import io.github.quafadas.table.TypeInferrer
 import io.github.quafadas.scautable.RowDecoder
+import io.github.quafadas.scautable.json.StreamingJsonParser.*
+import io.github.quafadas.table.TypeInferrer
 
 /** JSON parsing utilities for creating typed iterators from JSON arrays of flat objects.
   *

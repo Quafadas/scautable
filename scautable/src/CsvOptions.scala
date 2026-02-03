@@ -1,7 +1,8 @@
 package io.github.quafadas.scautable
 
-import io.github.quafadas.table.TypeInferrer
 import scala.quoted.*
+
+import io.github.quafadas.table.TypeInferrer
 
 /** Specifies how to read CSV data.
   *
