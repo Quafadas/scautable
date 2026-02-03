@@ -36,3 +36,14 @@ trait ShareCompileResources extends ScalaModule {
   override def compileResources = super.compileResources() ++ resources()
 }
 ```
+
+## Memory
+
+Scautable makes the compiler do some heavy lifting. For large CSV files you may need to increase the memory available to the compiler.
+
+In mill you can do this by adding JVM options to your `build.mill` file like so:
+
+```scala
+//| mill-jvm-opts: ["-Xmx1g", "-Xms256m", "-Xss2m"]
+```
+In other tools, such as scala-cli, you may be able do this by setting the `JAVA_OPTS` environment variable - we need to make sure, that _the compiler_ is getting the extra memory, not just the execution of the program - be sure to check your tools documentation for how to do this.
