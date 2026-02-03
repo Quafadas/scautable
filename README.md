@@ -39,3 +39,17 @@ So unclear. One of it's purposes is to push the boundary of metaprogramming know
 ### How does it work
 
 A combination of match types and a macro which infers the types / headers _at compile time_.
+
+## Development
+
+### Code Coverage
+
+This project uses Scoverage for code coverage analysis. To generate coverage reports:
+
+```bash
+./mill scautable.test.jvm.testLocal           # Run tests
+./mill scautable.jvm.scoverage.htmlReport     # Generate HTML report
+./mill scautable.jvm.scoverage.consoleReport  # Generate console report
+```
+
+See [COVERAGE.md](COVERAGE.md) for detailed coverage information and recommendations.
