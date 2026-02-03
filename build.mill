@@ -1,4 +1,4 @@
-//| mill-version: 1.1.0-RC4
+//| mill-version: 1.1.0
 //| mill-jvm-version: 21
 //| mvnDeps:
 //| - io.github.quafadas:millSite_mill1_3.8:0.0.56
@@ -14,17 +14,18 @@ import mill.util.VcsVersion
 
 // mill mill.scalalib.scalafmt/
 object Config:
-  val oslib = mvn"com.lihaoyi::os-lib:0.11.5"
+  val oslib = mvn"com.lihaoyi::os-lib:0.11.8"
   val scalatags = mvn"com.lihaoyi::scalatags::0.13.1"
   val fansi = mvn"com.lihaoyi::fansi::0.5.1"
 
   val laminar = mvn"com.raquo::laminar::17.2.1"
-  val munit = mvn"org.scalameta::munit::1.1.1"
-  val scalaVersion = "3.7.2"
-  val scalaJSVersion = "1.19.0"
+  val munit = mvn"org.scalameta::munit::1.2.2"
+  val scalaVersion = "3.7.4"
+  val scalaJSVersion = "1.20.2"
+  val apachePoi = "5.5.1"
 end Config
 
-val extraCompilerOpts = Seq("-Xmax-inlines", "256", "-Wunused:imports")
+val extraCompilerOpts = Seq("-Xmax-inlines", "2048", "-Wunused:imports")
 
 // mill __.compiledClassesAndSemanticDbFiles
 trait Common extends ScalaModule, ScalafixModule:
@@ -38,7 +39,7 @@ trait Common extends ScalaModule, ScalafixModule:
 end Common
 
 trait CommonJS extends Common with ScalaJSModule:
-  def scalaJSVersion = "1.19.0"
+  def scalaJSVersion = Config.scalaJSVersion
   override def mvnDeps = super.mvnDeps() ++ Seq(
     mvn"org.scala-js::scalajs-dom::2.8.1",
     mvn"org.scala-js::scalajs-java-securerandom::1.0.0".withDottyCompat(scalaVersion()),
