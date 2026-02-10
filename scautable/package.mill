@@ -12,7 +12,7 @@ object `package` extends Module:
 
   trait SharedTest extends SharedModule with TestModule.Munit with build.CommonTests
 
-  object jvm extends SharedModule with ScalaModule with build.PublishModule:
+  object jvm extends SharedModule with ScalaModule with build.PublishModule with build.Scoverage:
     override def mvnDeps = super.mvnDeps() ++ Seq(
       mvn"org.apache.poi:poi:${build.Config.apachePoi}",
       mvn"org.apache.poi:poi-ooxml:${build.Config.apachePoi}",
@@ -33,7 +33,7 @@ object `package` extends Module:
     end js
 
     object jvm extends SharedTest with build.ShareCompileResources:
-      override def moduleDeps = Seq(build.scautable.jvm)
+      override def moduleDeps = Seq(build.scautable.jvm.scoverage)
     end jvm
   end test
 end `package`
