@@ -48,10 +48,10 @@ object ExcelWorkbookCache:
             case _: Exception =>
               // Workbook is no longer valid, remove from cache and create new one
               cache.remove(normalizedPath)
-              WorkbookFactory.create(new File(normalizedPath))
+              WorkbookFactory.create(new File(normalizedPath), null, true)
         case None =>
           // No cached workbook or it was garbage collected
-          val workbook = WorkbookFactory.create(new File(normalizedPath))
+          val workbook = WorkbookFactory.create(new File(normalizedPath), null, true)
           cache.put(normalizedPath, new WeakReference(workbook))
           workbook
       end match
