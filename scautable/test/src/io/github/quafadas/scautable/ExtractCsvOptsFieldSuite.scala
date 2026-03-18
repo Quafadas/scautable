@@ -4,9 +4,8 @@ import io.github.quafadas.table.*
 
 /** Tests that each CsvOpts construction pattern is correctly decomposed by extractCsvOptsField.
   *
-  * Each test exercises a different branch of the quoted/term-level pattern matching
-  * in CSV.extractCsvOptsField. We verify the extracted values indirectly by checking
-  * that the correct type inference strategy and header handling are applied.
+  * Each test exercises a different branch of the quoted/term-level pattern matching in CSV.extractCsvOptsField. We verify the extracted values indirectly by checking that the
+  * correct type inference strategy and header handling are applied.
   */
 class ExtractCsvOptsFieldSuite extends munit.FunSuite:
 
@@ -21,8 +20,7 @@ class ExtractCsvOptsFieldSuite extends munit.FunSuite:
     assertEquals(row.col1, "1")
   }
 
-  /**
-    * It is known, that this cannot work.
+  /** It is known, that this cannot work.
     */
   test("full 4-arg constructor") {
     val iter = CSV.fromString(csv3x3, opts)

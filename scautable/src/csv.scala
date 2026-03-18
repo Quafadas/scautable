@@ -104,18 +104,20 @@ object CSV:
     readCsvFromString('csvContent, 'opts)
   }
 
-
-
   /** Extract a field expression from a CsvOpts expression using quoted pattern matching.
     *
     * Handles three families of construction:
     *   1. The full 4-argument case class constructor (matched by quoted patterns)
     *   2. Companion `apply` overloads with 1-2 args (matched by quoted patterns)
-    *   3. Case class constructor with named/default args, e.g. `CsvOpts(readAs = ReadAs.Columns)`.
-    *      The compiler wraps these in a `Block` of default-value `ValDef`s followed by a 4-arg
-    *      `Apply`. We handle this with a term-level fallback.
+    *   3. Case class constructor with named/default args, e.g. `CsvOpts(readAs = ReadAs.Columns)`. The compiler wraps these in a `Block` of default-value `ValDef`s followed by a
+    *      4-arg `Apply`. We handle this with a term-level fallback.
     */
-  private[scautable] def extractCsvOptsField[A: Type](optsExpr: Expr[CsvOpts], fieldName: String, default: Expr[A], pick: (Expr[HeaderOptions], Expr[TypeInferrer], Expr[Char], Expr[ReadAs]) => Expr[A])(using q: Quotes): Expr[A] =
+  private[scautable] def extractCsvOptsField[A: Type](
+      optsExpr: Expr[CsvOpts],
+      fieldName: String,
+      default: Expr[A],
+      pick: (Expr[HeaderOptions], Expr[TypeInferrer], Expr[Char], Expr[ReadAs]) => Expr[A]
+  )(using q: Quotes): Expr[A] =
     import q.reflect.*
 
     val defaultH = '{ HeaderOptions.Default }
@@ -126,16 +128,16 @@ object CSV:
     optsExpr match
       // Full 4-arg case class constructor
       case '{ CsvOpts($h, $t, $d, $r) }     => pick(h, t, d, r)
-      case '{ new CsvOpts($h, $t, $d, $r) }  => pick(h, t, d, r)
+      case '{ new CsvOpts($h, $t, $d, $r) } => pick(h, t, d, r)
       // CsvOpts.default
-      case '{ CsvOpts.default }               => default
+      case '{ CsvOpts.default } => default
       // Companion apply overloads
-      case '{ CsvOpts.apply($h: HeaderOptions) }                         => pick(h, defaultT, defaultD, defaultR)
-      case '{ CsvOpts.apply($t: TypeInferrer) }                          => pick(defaultH, t, defaultD, defaultR)
-      case '{ CsvOpts.apply($h: HeaderOptions, $t: TypeInferrer) }       => pick(h, t, defaultD, defaultR)
-      case '{ CsvOpts.apply($r: ReadAs) }                                => pick(defaultH, defaultT, defaultD, r)
-      case '{ CsvOpts.apply($t: TypeInferrer, $r: ReadAs) }              => pick(defaultH, t, defaultD, r)
-      case _ =>
+      case '{ CsvOpts.apply($h: HeaderOptions) }                   => pick(h, defaultT, defaultD, defaultR)
+      case '{ CsvOpts.apply($t: TypeInferrer) }                    => pick(defaultH, t, defaultD, defaultR)
+      case '{ CsvOpts.apply($h: HeaderOptions, $t: TypeInferrer) } => pick(h, t, defaultD, defaultR)
+      case '{ CsvOpts.apply($r: ReadAs) }                          => pick(defaultH, defaultT, defaultD, r)
+      case '{ CsvOpts.apply($t: TypeInferrer, $r: ReadAs) }        => pick(defaultH, t, defaultD, r)
+      case _                                                       =>
         // Fallback: handle any CsvOpts constructor or companion apply call at the term level.
         // Covers two cases:
         //   1. Case class constructor with named/default args, e.g. CsvOpts(readAs = ReadAs.Columns).
@@ -164,11 +166,13 @@ object CSV:
             case Ident(name) if bindings.contains(name) =>
               bindings(name).map(rhs => resolveDefault(unwrapInlined(rhs))).getOrElse(unwrapped)
             case other => other
+          end match
+        end resolveDefault
 
         // Check if a resolved term represents a default parameter call
         def isDefaultRef(t: Term): Boolean = unwrapInlined(t) match
           case Select(_, name) if name.contains("$default$") => true
-          case _                                              => false
+          case _                                             => false
 
         innerTerm match
           case Apply(_, args) =>
@@ -191,18 +195,21 @@ object CSV:
                   case Some("typeInferrer")  => tExpr = resolved.asExprOf[TypeInferrer]
                   case Some("delimiter")     => dExpr = resolved.asExprOf[Char]
                   case Some("readAs")        => rExpr = resolved.asExprOf[ReadAs]
-                  case _ =>
+                  case _                     =>
                     // Identify field by type
                     if resolved.tpe <:< TypeRepr.of[HeaderOptions] then hExpr = resolved.asExprOf[HeaderOptions]
                     else if resolved.tpe <:< TypeRepr.of[ReadAs] then rExpr = resolved.asExprOf[ReadAs]
                     else if resolved.tpe <:< TypeRepr.of[TypeInferrer] then tExpr = resolved.asExprOf[TypeInferrer]
                     else if resolved.tpe <:< TypeRepr.of[Char] then dExpr = resolved.asExprOf[Char]
+              end if
             end for
 
             pick(hExpr, tExpr, dExpr, rExpr)
           case _ =>
             report.info(s"Could not extract $fieldName from CsvOpts (using default): ${optsExpr.show}")
             default
+        end match
+    end match
   end extractCsvOptsField
 
   // Helper to extract HeaderOptions from CsvOpts expression
