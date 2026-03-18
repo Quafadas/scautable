@@ -104,323 +104,125 @@ object CSV:
     readCsvFromString('csvContent, 'opts)
   }
 
+
+
+  /** Extract a field expression from a CsvOpts expression using quoted pattern matching.
+    *
+    * Handles three families of construction:
+    *   1. The full 4-argument case class constructor (matched by quoted patterns)
+    *   2. Companion `apply` overloads with 1-2 args (matched by quoted patterns)
+    *   3. Case class constructor with named/default args, e.g. `CsvOpts(readAs = ReadAs.Columns)`.
+    *      The compiler wraps these in a `Block` of default-value `ValDef`s followed by a 4-arg
+    *      `Apply`. We handle this with a term-level fallback.
+    */
+  private[scautable] def extractCsvOptsField[A: Type](optsExpr: Expr[CsvOpts], fieldName: String, default: Expr[A], pick: (Expr[HeaderOptions], Expr[TypeInferrer], Expr[Char], Expr[ReadAs]) => Expr[A])(using q: Quotes): Expr[A] =
+    import q.reflect.*
+
+    val defaultH = '{ HeaderOptions.Default }
+    val defaultT = '{ TypeInferrer.FromAllRows }
+    val defaultD = '{ ',' }
+    val defaultR = '{ ReadAs.Rows }
+
+    optsExpr match
+      // Full 4-arg case class constructor
+      case '{ CsvOpts($h, $t, $d, $r) }     => pick(h, t, d, r)
+      case '{ new CsvOpts($h, $t, $d, $r) }  => pick(h, t, d, r)
+      // CsvOpts.default
+      case '{ CsvOpts.default }               => default
+      // Companion apply overloads
+      case '{ CsvOpts.apply($h: HeaderOptions) }                         => pick(h, defaultT, defaultD, defaultR)
+      case '{ CsvOpts.apply($t: TypeInferrer) }                          => pick(defaultH, t, defaultD, defaultR)
+      case '{ CsvOpts.apply($h: HeaderOptions, $t: TypeInferrer) }       => pick(h, t, defaultD, defaultR)
+      case '{ CsvOpts.apply($r: ReadAs) }                                => pick(defaultH, defaultT, defaultD, r)
+      case '{ CsvOpts.apply($t: TypeInferrer, $r: ReadAs) }              => pick(defaultH, t, defaultD, r)
+      case _ =>
+        // Fallback: handle any CsvOpts constructor or companion apply call at the term level.
+        // Covers two cases:
+        //   1. Case class constructor with named/default args, e.g. CsvOpts(readAs = ReadAs.Columns).
+        //      The compiler generates Block(ValDefs for defaults, Apply(_, 4 args)).
+        //   2. Companion apply calls via export aliases (io.github.quafadas.table.CsvOpts)
+        //      that quoted patterns can't match.
+        // We identify each argument by named-arg name or by type.
+        def unwrapInlined(term: Term): Term = term match
+          case Inlined(_, _, body) => unwrapInlined(body)
+          case other               => other
+
+        val rawTerm = unwrapInlined(optsExpr.asTerm)
+
+        val (bindings, innerTerm) = rawTerm match
+          case Block(stats, expr) =>
+            val vds = stats.collect { case vd: ValDef => (vd.name, vd.rhs) }.toMap
+            (vds, unwrapInlined(expr))
+          case other => (Map.empty[String, Option[Term]], other)
+
+        // Resolve an arg that may be an Ident referring to a default-value ValDef
+        def resolveDefault(arg: Term): Term =
+          val unwrapped = arg match
+            case NamedArg(_, value) => value
+            case other              => other
+          unwrapInlined(unwrapped) match
+            case Ident(name) if bindings.contains(name) =>
+              bindings(name).map(rhs => resolveDefault(unwrapInlined(rhs))).getOrElse(unwrapped)
+            case other => other
+
+        // Check if a resolved term represents a default parameter call
+        def isDefaultRef(t: Term): Boolean = unwrapInlined(t) match
+          case Select(_, name) if name.contains("$default$") => true
+          case _                                              => false
+
+        innerTerm match
+          case Apply(_, args) =>
+            var hExpr = defaultH
+            var tExpr = defaultT
+            var dExpr = defaultD
+            var rExpr = defaultR
+
+            for arg <- args do
+              val (name, rawValue) = arg match
+                case NamedArg(n, v) => (Some(n), v)
+                case v              => (None, v)
+
+              val resolved = resolveDefault(rawValue)
+
+              if isDefaultRef(resolved) then () // skip — keep the default
+              else
+                name match
+                  case Some("headerOptions") => hExpr = resolved.asExprOf[HeaderOptions]
+                  case Some("typeInferrer")  => tExpr = resolved.asExprOf[TypeInferrer]
+                  case Some("delimiter")     => dExpr = resolved.asExprOf[Char]
+                  case Some("readAs")        => rExpr = resolved.asExprOf[ReadAs]
+                  case _ =>
+                    // Identify field by type
+                    if resolved.tpe <:< TypeRepr.of[HeaderOptions] then hExpr = resolved.asExprOf[HeaderOptions]
+                    else if resolved.tpe <:< TypeRepr.of[ReadAs] then rExpr = resolved.asExprOf[ReadAs]
+                    else if resolved.tpe <:< TypeRepr.of[TypeInferrer] then tExpr = resolved.asExprOf[TypeInferrer]
+                    else if resolved.tpe <:< TypeRepr.of[Char] then dExpr = resolved.asExprOf[Char]
+            end for
+
+            pick(hExpr, tExpr, dExpr, rExpr)
+          case _ =>
+            report.info(s"Could not extract $fieldName from CsvOpts (using default): ${optsExpr.show}")
+            default
+  end extractCsvOptsField
+
   // Helper to extract HeaderOptions from CsvOpts expression
   private[scautable] def extractHeaderOptions(optsExpr: Expr[CsvOpts])(using Quotes): Expr[HeaderOptions] =
-    import quotes.reflect.*
-    // Unwrap Inlined nodes to get to the actual term
-    def unwrapInlined(term: Term): Term = term match
-      case Inlined(_, _, body) => unwrapInlined(body)
-      case other               => other
-
-    // Helper to unwrap NamedArg nodes
-    def unwrapNamedArg(term: Term): Term = term match
-      case NamedArg(_, value) => value
-      case other              => other
-
-    // Helper to resolve a term that might be an Ident or a default value call
-    def resolveTerm(term: Term): Option[Expr[HeaderOptions]] =
-      term match
-        case Ident(name) if name.contains("headerOptions") =>
-          // This is a reference to a variable, it's likely using a default
-          None
-        case Select(_, name) if name.contains("$default$") =>
-          // This is a default parameter call - use the actual default
-          // For CsvOpts, the first parameter (headerOptions) default is HeaderOptions.Default
-          Some('{ HeaderOptions.Default })
-        case t if t.tpe <:< TypeRepr.of[HeaderOptions] => Some(t.asExprOf[HeaderOptions])
-        case _                                         => None
-
-    val term = unwrapInlined(optsExpr.asTerm)
-
-    term match
-      // Handle Block with variable bindings from default parameters
-      case Block(statements, Apply(_, args)) =>
-        // Look for headerOptions named argument
-        val fromNamedArg = args.collectFirst { case NamedArg("headerOptions", value) =>
-          resolveTerm(unwrapNamedArg(value))
-        }.flatten
-
-        // If not found as named arg, try positional args
-        val fromPositionalArg =
-          if fromNamedArg.isEmpty then
-            args
-              .map(unwrapNamedArg)
-              .collectFirst {
-                case i: Ident if i.symbol.name.contains("headerOptions") => resolveTerm(i)
-                case term if term.tpe <:< TypeRepr.of[HeaderOptions]     => resolveTerm(term)
-              }
-              .flatten
-          else None
-
-        // If not found in args, check statements for variable binding
-        val fromStatements =
-          if fromNamedArg.isEmpty && fromPositionalArg.isEmpty then
-            statements.collectFirst {
-              case ValDef(name, tpt, Some(rhs)) if name.contains("headerOptions") && tpt.tpe <:< TypeRepr.of[HeaderOptions] =>
-                resolveTerm(rhs).getOrElse('{ HeaderOptions.Default })
-            }
-          else None
-
-        fromNamedArg.orElse(fromPositionalArg).orElse(fromStatements).getOrElse('{ HeaderOptions.Default })
-
-      // CsvOpts(headerOptions, typeInferrer, delimiter) or CsvOpts(headerOptions, typeInferrer) or CsvOpts(headerOptions)
-      // First arg is always HeaderOptions if present, otherwise check if it's TypeInferrer (then use default)
-      case Apply(_, args) if args.nonEmpty =>
-        val headerOptionsType = TypeRepr.of[HeaderOptions]
-        val typeInferrerType = TypeRepr.of[TypeInferrer]
-
-        // Look for headerOptions by name or by position (first arg)
-        args
-          .collectFirst { case NamedArg("headerOptions", value) =>
-            val unwrapped = unwrapNamedArg(value)
-            resolveTerm(unwrapped)
-          }
-          .flatten
-          .orElse {
-            // Check if first arg (unwrapped) is HeaderOptions
-            val firstArg = unwrapNamedArg(args.head)
-            resolveTerm(firstArg)
-          }
-          .getOrElse('{ HeaderOptions.Default })
-
-      case Apply(_, Nil) =>
-        // No arguments - shouldn't happen but use default
-        '{ HeaderOptions.Default }
-
-      case _ =>
-        // Check if it's CsvOpts.default
-        if optsExpr.matches('{ CsvOpts.default }) then '{ HeaderOptions.Default }
-        else
-          report.info(s"Could not extract HeaderOptions from CsvOpts (using default): ${optsExpr.show}")
-          '{ HeaderOptions.Default }
-    end match
+    extractCsvOptsField[HeaderOptions](optsExpr, "HeaderOptions", '{ HeaderOptions.Default }, (h, _, _, _) => h)
   end extractHeaderOptions
 
   // Helper to extract TypeInferrer expression from CsvOpts
   private[scautable] def extractTypeInferrer(optsExpr: Expr[CsvOpts])(using Quotes): Expr[TypeInferrer] =
-    import quotes.reflect.*
-    // Unwrap Inlined nodes
-    def unwrapInlined(term: Term): Term = term match
-      case Inlined(_, _, body) => unwrapInlined(body)
-      case other               => other
-
-    // Helper to unwrap NamedArg nodes
-    def unwrapNamedArg(term: Term): Term = term match
-      case NamedArg(_, value) => value
-      case other              => other
-
-    val term = unwrapInlined(optsExpr.asTerm)
-
-    term match
-      // Handle Block with variable bindings from default parameters
-      case Block(statements, Apply(_, args)) =>
-        val typeInferrerType = TypeRepr.of[TypeInferrer]
-
-        // Helper to resolve a term that might be an Ident or a default value call
-        def resolveTerm(term: Term): Option[Expr[TypeInferrer]] =
-          term match
-            case Select(_, name) if name.contains("$default$") =>
-              // This is a default parameter call - use the actual default
-              // For CsvOpts, the second parameter (typeInferrer) default is FromAllRows
-              Some('{ TypeInferrer.FromAllRows })
-            case Ident(name) if name.contains("typeInferrer") =>
-              // This is a reference to a variable, find it in statements
-              statements.collectFirst {
-                case ValDef(varName, _, Some(rhs)) if varName == name =>
-                  resolveTerm(rhs).getOrElse(rhs.asExprOf[TypeInferrer])
-              }
-            case t if t.tpe <:< typeInferrerType => Some(t.asExprOf[TypeInferrer])
-            case _                               => None
-
-        // Look for typeInferrer named argument first
-        val fromNamedArg = args.collectFirst { case NamedArg("typeInferrer", value) =>
-          resolveTerm(unwrapNamedArg(value))
-        }.flatten
-
-        // If not found as named arg, try positional args
-        val fromPositionalArg =
-          if fromNamedArg.isEmpty then
-            args
-              .map(unwrapNamedArg)
-              .collectFirst {
-                case i: Ident                              => resolveTerm(i)
-                case term if term.tpe <:< typeInferrerType => resolveTerm(term)
-              }
-              .flatten
-          else None
-
-        // If not found in args at all, check if there's a variable in statements (default value)
-        val fromStatements =
-          if fromNamedArg.isEmpty && fromPositionalArg.isEmpty then
-            statements.collectFirst {
-              case ValDef(name, tpt, Some(rhs)) if name.contains("typeInferrer") && tpt.tpe <:< typeInferrerType =>
-                resolveTerm(rhs).getOrElse(rhs.asExprOf[TypeInferrer])
-            }
-          else None
-
-        fromNamedArg.orElse(fromPositionalArg).orElse(fromStatements).getOrElse('{ TypeInferrer.FromAllRows })
-
-      // CsvOpts can have TypeInferrer as first arg (when HeaderOptions is default) or second arg
-      case Apply(_, args) =>
-        val typeInferrerType = TypeRepr.of[TypeInferrer]
-
-        // Look for typeInferrer by name first, then by type in any position
-        args
-          .collectFirst { case NamedArg("typeInferrer", value) =>
-            val unwrapped = unwrapNamedArg(value)
-            unwrapped match
-              case Select(_, name) if name.contains("$default$") => Some('{ TypeInferrer.FromAllRows })
-              case t if t.tpe <:< typeInferrerType               => Some(t.asExprOf[TypeInferrer])
-              case _                                             => None
-            end match
-          }
-          .flatten
-          .orElse {
-            // Find TypeInferrer in the arguments (unwrap NamedArgs)
-            args.map(unwrapNamedArg).collectFirst {
-              case Select(_, name) if name.contains("$default$") => '{ TypeInferrer.FromAllRows }
-              case term if term.tpe <:< typeInferrerType         => term.asExprOf[TypeInferrer]
-            }
-          }
-          .getOrElse('{ TypeInferrer.FromAllRows }) // Default to FromAllRows when not specified
-
-      case _ =>
-        // Check if it's CsvOpts.default
-        if optsExpr.matches('{ CsvOpts.default }) then '{ TypeInferrer.FromAllRows }
-        else
-          report.info(s"Could not extract TypeInferrer from CsvOpts (using FromAllRows): ${optsExpr.show}")
-          '{ TypeInferrer.FromAllRows }
-    end match
+    extractCsvOptsField[TypeInferrer](optsExpr, "TypeInferrer", '{ TypeInferrer.FromAllRows }, (_, t, _, _) => t)
   end extractTypeInferrer
 
   // Helper to extract delimiter expression from CsvOpts
   private[scautable] def extractDelimiter(optsExpr: Expr[CsvOpts])(using Quotes): Expr[Char] =
-    import quotes.reflect.*
-    // Unwrap Inlined nodes
-    def unwrapInlined(term: Term): Term = term match
-      case Inlined(_, _, body) => unwrapInlined(body)
-      case other               => other
-
-    // Helper to unwrap NamedArg nodes
-    def unwrapNamedArg(term: Term): Term = term match
-      case NamedArg(_, value) => value
-      case other              => other
-
-    val term = unwrapInlined(optsExpr.asTerm)
-
-    term match
-      // Handle Block with variable bindings from default parameters
-      case Block(statements, Apply(_, args)) =>
-        // Look for delimiter by name or as a literal Char
-        args
-          .collectFirst {
-            case NamedArg("delimiter", value) if unwrapNamedArg(value).tpe <:< TypeRepr.of[Char] =>
-              unwrapNamedArg(value).asExprOf[Char]
-          }
-          .orElse {
-            // Look for a Char argument (should be delimiter, unwrap NamedArgs)
-            args.map(unwrapNamedArg).find(_.tpe <:< TypeRepr.of[Char]).map(_.asExprOf[Char])
-          }
-          .getOrElse('{ ',' })
-
-      // Try to extract arguments from Apply node
-      case Apply(_, args) =>
-        // Look for delimiter by name first, then by Char type in any position
-        args
-          .collectFirst {
-            case NamedArg("delimiter", value) if unwrapNamedArg(value).tpe <:< TypeRepr.of[Char] =>
-              unwrapNamedArg(value).asExprOf[Char]
-          }
-          .orElse {
-            // Look for a Char argument (should be delimiter, unwrap NamedArgs)
-            args.map(unwrapNamedArg).find(_.tpe <:< TypeRepr.of[Char]).map(_.asExprOf[Char])
-          }
-          .getOrElse('{ ',' })
-
-      case _ =>
-        // Check if it's CsvOpts.default
-        if optsExpr.matches('{ CsvOpts.default }) then '{ ',' }
-        else
-          report.info(s"Could not extract delimiter from CsvOpts (using comma): ${optsExpr.show}")
-          '{ ',' }
-    end match
+    extractCsvOptsField[Char](optsExpr, "delimiter", '{ ',' }, (_, _, d, _) => d)
   end extractDelimiter
 
   // Helper to extract ReadAs expression from CsvOpts
   private[scautable] def extractReadAs(optsExpr: Expr[CsvOpts])(using Quotes): Expr[ReadAs] =
-    import quotes.reflect.*
-    // Unwrap Inlined nodes
-    def unwrapInlined(term: Term): Term = term match
-      case Inlined(_, _, body) => unwrapInlined(body)
-      case other               => other
-
-    // Helper to unwrap NamedArg nodes
-    def unwrapNamedArg(term: Term): Term = term match
-      case NamedArg(_, value) => value
-      case other              => other
-
-    val readAsType = TypeRepr.of[ReadAs]
-    val term = unwrapInlined(optsExpr.asTerm)
-
-    // Helper to check if a term is ReadAs.Columns
-    def isColumns(t: Term): Boolean =
-      unwrapInlined(t) match
-        case Select(_, "Columns") => true
-        case _                    => false
-
-    // Helper to check if a term is a default parameter call
-    def isDefaultParam(t: Term): Boolean =
-      unwrapInlined(t) match
-        case Select(_, name) if name.contains("$default$") => true
-        case Ident(name) if name.startsWith("readAs$")     => true // Variable binding for default
-        case _                                             => false
-
-    // Helper to extract ReadAs from a term, returning proper expression
-    def extractFromTerm(t: Term): Expr[ReadAs] =
-      val unwrapped = unwrapInlined(t)
-      if isColumns(unwrapped) then '{ ReadAs.Columns }
-      else if isDefaultParam(unwrapped) then '{ ReadAs.Rows }
-      else if unwrapped.tpe <:< readAsType then unwrapped.asExprOf[ReadAs]
-      else '{ ReadAs.Rows }
-      end if
-    end extractFromTerm
-
-    term match
-      // Handle Block with variable bindings from default parameters
-      case Block(statements, Apply(_, args)) =>
-        args
-          .collectFirst { case NamedArg("readAs", value) =>
-            extractFromTerm(value)
-          }
-          .orElse {
-            // Look for a ReadAs argument by type
-            args.map(unwrapNamedArg).collectFirst {
-              case t if t.tpe <:< readAsType => extractFromTerm(t)
-            }
-          }
-          .getOrElse('{ ReadAs.Rows })
-
-      // Try to extract arguments from Apply node
-      case Apply(_, args) =>
-        args
-          .collectFirst { case NamedArg("readAs", value) =>
-            extractFromTerm(value)
-          }
-          .orElse {
-            // Look for a ReadAs argument by type
-            args.map(unwrapNamedArg).collectFirst {
-              case t if t.tpe <:< readAsType => extractFromTerm(t)
-            }
-          }
-          .getOrElse('{ ReadAs.Rows })
-
-      case _ =>
-        // Check if it's CsvOpts.default
-        if optsExpr.matches('{ CsvOpts.default }) then '{ ReadAs.Rows }
-        else
-          report.info(s"Could not extract ReadAs from CsvOpts (using Rows): ${optsExpr.show}")
-          '{ ReadAs.Rows }
-    end match
+    extractCsvOptsField[ReadAs](optsExpr, "ReadAs", '{ ReadAs.Rows }, (_, _, _, r) => r)
   end extractReadAs
 
   // Convert a value type tuple (Int, String, Double) to array type tuple (Array[Int], Array[String], Array[Double])
