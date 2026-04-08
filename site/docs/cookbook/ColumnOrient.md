@@ -1,8 +1,8 @@
 # Column Orient
 
-"Vector" style computation is beyond the scope of scautable itself. However, it's clear that a row oriented representation of the data, is not always the right construct - particularly for analysis type tasks. 
+"Vector" style computation is beyond the scope of scautable itself. However, it's clear that a row oriented representation of the data, is not always the right construct - particularly for analysis type tasks.
 
-To note again: **statistics is beyond the scope of scautable**. 
+To note again: **statistics is beyond the scope of scautable**.
 
 It is encouraged to wheel in some other alternative mathematics / stats library (entirely at your own discretion / risk).
 
@@ -13,7 +13,7 @@ Scautable can read CSV data directly into a columnar format using the `ReadAs.Co
 This will fire up a repl with necssary imports;
 
 ```sh
-scala-cli repl --dep io.github.quafadas::scautable::@VERSION@ --dep io.github.quafadas::vecxt:0.0.35 --java-opt "--add-modules=jdk.incubator.vector" --scalac-option -Xmax-inlines --scalac-option 2048 --java-opt -Xss4m --repl-init-script 'import io.github.quafadas.table.{*, given}; import vecxt.all.{*, given}'
+scala-cli repl --dep io.github.quafadas::scautable::@VERSION@ --dep io.github.quafadas::vecxt:@VERSION@ --java-opt "--add-modules=jdk.incubator.vector" --scalac-option -Xmax-inlines --scalac-option 2048 --java-opt -Xss4m --repl-init-script 'import io.github.quafadas.table.{*, given}; import vecxt.all.{*, given}'
 ```
 
 ```scala mdoc
@@ -40,35 +40,6 @@ val survived: Array[Boolean] = titanicCols.Survived
 
 ```
 
-
-## Converting row-oriented data to columns
-
-Alternatively, you can read data as rows (the default) and then convert to columnar format:
-
-```scala mdoc
-
-//> using dep io.github.quafadas::vecxt:0.0.31
-
-import io.github.quafadas.table.*
-import vecxt.all.cumsum
-import vecxt.BoundsCheck.DoBoundsCheck.yes
-
-type ColSubset = ("Name", "Sex", "Age")
-
-val data = CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
-            .take(3)
-            .columns[ColSubset]
-
-val colData = LazyList.from(data).toColumnOrientedAs[Array]
-
-colData.Age
-
-colData.Age.map(_.get).cumsum
-
-```
-
-The direct columnar reading (first approach) is recommended when you know upfront that you need columnar access, as it's more efficient.
-
 ## Reading CSV as Dense Arrays
 
 For interoperability with numerical libraries (e.g., BLAS, LAPACK) or when you need a single contiguous memory layout, scautable provides dense array reading modes. These modes read all CSV data into a single flat array with stride information for accessing rows and columns.
@@ -92,7 +63,7 @@ val cmRows: Int = colMajor.rows               // Number of rows
 val cmCols: Int = colMajor.cols               // Number of columns
 
 // Access element at row i, col j
-def getElementColMajor(i: Int, j: Int): Int = 
+def getElementColMajor(i: Int, j: Int): Int =
   cmData(j * cmRowStride + i * cmColStride)
 
 // Example: get element at row 1, col 1
@@ -104,6 +75,13 @@ In column-major layout:
 - `colStride = 1` (next element in the same column)
 - `rowStride = numRows` (jump to the next row)
 - Data is stored: `[col0_row0, col0_row1, ..., col1_row0, col1_row1, ...]`
+
+If you have a CSV as a matrix, i.e. without headers, use the `HeaderOptions.Auto` option along with the dense array reading mode, which will read the entire Matrix, including the first row as data.
+
+```scala mdoc
+val matrixData = CSV.resource("matrix.csv", CsvOpts(headerOptions = HeaderOptions.Auto, readAs = ReadAs.ArrayDenseColMajor[Double]()))
+
+```
 
 ### Row-Major Dense Arrays
 
@@ -124,7 +102,7 @@ val rmRows: Int = rowMajor.rows               // Number of rows
 val rmCols: Int = rowMajor.cols               // Number of columns
 
 // Access element at row i, col j
-def getElementRowMajor(i: Int, j: Int): Double = 
+def getElementRowMajor(i: Int, j: Int): Double =
   rmData(i * rmColStride + j * rmRowStride)
 
 // Example: get element at row 0, col 2
@@ -162,3 +140,32 @@ Dense arrays are particularly useful for:
 - **Machine learning**: Preparing data for algorithms that expect contiguous arrays
 - **Performance**: Single memory allocation and cache-friendly access patterns
 - **Interop**: Integration with libraries expecting specific memory layouts (column-major for Fortran/R, row-major for C/Python)
+
+
+## Converting row-oriented data to columns
+
+Alternatively, you can read data as rows (the default) and then convert to columnar format:
+
+```scala mdoc
+
+//> using dep io.github.quafadas::vecxt:0.0.31
+
+import io.github.quafadas.table.*
+import vecxt.all.cumsum
+import vecxt.BoundsCheck.DoBoundsCheck.yes
+
+type ColSubset = ("Name", "Sex", "Age")
+
+val data = CSV.resource("titanic.csv", TypeInferrer.FromAllRows)
+            .take(3)
+            .columns[ColSubset]
+
+val colData = LazyList.from(data).toColumnOrientedAs[Array]
+
+colData.Age
+
+colData.Age.map(_.get).cumsum
+
+```
+
+The direct columnar reading (first approach) is recommended when you know upfront that you need columnar access, as it's more efficient.

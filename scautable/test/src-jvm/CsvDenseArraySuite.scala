@@ -24,6 +24,16 @@ class CsvDenseArraySuite extends munit.FunSuite:
     assertEquals(rowStride, 3)
   }
 
+  test("one number".only) {
+    val result = CSV.resource("ref_X.csv", CsvOpts(headerOptions = HeaderOptions.Auto, readAs = ReadAs.ArrayDenseColMajor[Double]()))
+
+    assertEquals(result.data.toSeq, Seq(2.253925458630661))
+    assertEquals(result.rows, 1)
+    assertEquals(result.cols, 1)
+    assertEquals(result.colStride, 1)
+    assertEquals(result.rowStride, 1)
+  }
+
   test("simple.csv - ArrayDenseColMajor[Int] data layout") {
     val result = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.ArrayDenseColMajor[Int]()))
     val data = result.data
