@@ -352,9 +352,9 @@ object CSV:
       case Select(_, "Columns") => true
       case _                    =>
         readAsExpr match
-          case '{ ReadAs.Columns }                           => true
+          case '{ ReadAs.Columns }                          => true
           case '{ io.github.quafadas.table.ReadAs.Columns } => true
-          case _                                             => false
+          case _                                            => false
 
     val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
     val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
@@ -638,9 +638,9 @@ object CSV:
       case Select(_, "Columns") => true
       case _                    =>
         readAsExpr match
-          case '{ ReadAs.Columns }                           => true
+          case '{ ReadAs.Columns }                          => true
           case '{ io.github.quafadas.table.ReadAs.Columns } => true
-          case _                                             => false
+          case _                                            => false
 
     val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
     val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
