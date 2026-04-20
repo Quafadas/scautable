@@ -79,6 +79,7 @@ In column-major layout:
 If you have a CSV as a matrix, i.e. without headers, use the `HeaderOptions.Auto` option along with the dense array reading mode, which will read the entire Matrix, including the first row as data.
 
 ```scala mdoc
+import io.github.quafadas.table.{*, given}
 val matrixData = CSV.resource("matrix.csv", CsvOpts(headerOptions = HeaderOptions.Auto, readAs = ReadAs.ArrayDenseColMajor[Double]()))
 
 ```

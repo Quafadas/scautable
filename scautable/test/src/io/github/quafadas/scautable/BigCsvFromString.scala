@@ -4,8 +4,7 @@ import java.math.BigInteger
 
 import scala.compiletime.testing.*
 
-import io.github.quafadas.scautable.HeaderOptions.*
-import io.github.quafadas.table.TypeInferrer
+import io.github.quafadas.table.*
 import munit.FunSuite
 
 class CsvFromBigStringSuite extends FunSuite:

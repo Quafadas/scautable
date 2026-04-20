@@ -1,49 +1,8 @@
 package io.github.quafadas.scautable
 
-import scala.quoted.*
-
 import io.github.quafadas.table.TypeInferrer
-
-/** Specifies how to read CSV data.
-  *
-  *   - `Rows`: Returns `CsvIterator[K, V]` - lazy row-by-row iteration
-  *   - `Columns`: Returns `NamedTuple[K, (Array[T1], Array[T2], ...)]` - eager column arrays
-  *   - `ArrayDenseColMajor[T]`: Returns `NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]` - single dense array in column-major order
-  *   - `ArrayDenseRowMajor[T]`: Returns `NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]` - single dense array in row-major order
-  */
-enum ReadAs:
-  case Rows
-  case Columns
-  case ArrayDenseColMajor[T]()
-  case ArrayDenseRowMajor[T]()
-end ReadAs
-
-object ReadAs:
-  given FromExpr[ReadAs] with
-    def unapply(x: Expr[ReadAs])(using Quotes): Option[ReadAs] =
-      import quotes.reflect.*
-
-      // Try direct pattern matching first
-      x match
-        case '{ ReadAs.Rows }                                 => Some(ReadAs.Rows)
-        case '{ ReadAs.Columns }                              => Some(ReadAs.Columns)
-        case '{ io.github.quafadas.scautable.ReadAs.Rows }    => Some(ReadAs.Rows)
-        case '{ io.github.quafadas.scautable.ReadAs.Columns } => Some(ReadAs.Columns)
-        case _                                                =>
-          // Fallback: check the term structure for Select pattern
-          def unwrapInlined(term: Term): Term = term match
-            case Inlined(_, _, body) => unwrapInlined(body)
-            case other               => other
-
-          unwrapInlined(x.asTerm) match
-            case Select(_, "Rows")    => Some(ReadAs.Rows)
-            case Select(_, "Columns") => Some(ReadAs.Columns)
-            case _                    => None
-          end match
-      end match
-    end unapply
-  end given
-end ReadAs
+import io.github.quafadas.table.HeaderOptions
+import io.github.quafadas.table.ReadAs
 
 /** Configuration options for reading CSV files.
   *
