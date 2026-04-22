@@ -1,6 +1,6 @@
 package io.github.quafadas.scautable.json
 
-import io.github.quafadas.table.TypeInferrer
+import io.github.quafadas.table.*
 import munit.FunSuite
 
 class JsonSuite extends FunSuite:

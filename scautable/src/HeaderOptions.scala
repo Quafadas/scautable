@@ -1,54 +1,11 @@
 package io.github.quafadas.scautable
 
-import scala.quoted.*
+import io.github.quafadas.table.HeaderOptions
+import io.github.quafadas.table.HeaderOptions.*
 
-/** Options for handling headers in tabular data.
-  *
-  * This enum provides different strategies for obtaining column headers when reading data from sources like CSV files or Excel spreadsheets.
-  */
-enum HeaderOptions:
-  /** Automatically generate column headers in the format "col_0", "col_1", etc.
-    *
-    * This is useful when the source data doesn't contain headers or when you want to ignore existing headers.
-    */
-  case Auto
-
-  /** Use manually specified headers.
-    *
-    * @param headers
-    *   The column names to use as headers
-    */
-  case Manual(headers: String*)
-
-  /** Extract headers from the data rows.
-    *
-    * @param merge
-    *   Number of rows to merge to form the headers
-    * @param dropFirst
-    *   Number of rows to skip before reading header rows
-    */
-  case FromRows(merge: Int, dropFirst: Int = 0)
-end HeaderOptions
-
-/** Companion object for HeaderOptions.
-  */
-object HeaderOptions:
-  /** Default header option that reads headers from the first row.
-    *
-    * Equivalent to `HeaderOptions.FromRows(merge = 1, dropFirst = 0)`.
-    */
-  inline def Default: HeaderOptions = HeaderOptions.FromRows(merge = 1, dropFirst = 0)
-
+/** Internal extension methods for processing raw CSV rows according to HeaderOptions. */
+private[scautable] object HeaderOptionsProcessing:
   extension (rows: Iterator[String])
-    /** Process data rows according to the specified header option.
-      *
-      * @param headers
-      *   The header option to apply
-      * @param delimiter
-      *   The delimiter character to use for parsing (default: comma)
-      * @return
-      *   A tuple containing (the extracted headers, the remaining rows)
-      */
     def headers(headers: HeaderOptions, delimiter: Char = ','): (Seq[String], Iterator[String]) =
       headers match
         case Manual(seq*) =>
@@ -81,43 +38,4 @@ object HeaderOptions:
           val headers = firstLine.indices.map(i => s"col_$i")
           (headers, buffered)
   end extension
-
-  given FromExpr[HeaderOptions] with
-    def unapply(x: Expr[HeaderOptions])(using Quotes): Option[HeaderOptions] =
-      import quotes.reflect.*
-
-      x match
-        case '{ HeaderOptions.Auto } =>
-          Some(HeaderOptions.Auto)
-
-        case '{ HeaderOptions.Manual(${ Varargs(headers) }*) } =>
-          val strings = headers.map(_.valueOrAbort)
-          Some(HeaderOptions.Manual(strings*))
-
-        case '{ HeaderOptions.FromRows(${ Expr(merge) }, ${ Expr(dropFirst) }) } =>
-          Some(HeaderOptions.FromRows(merge, dropFirst))
-
-        case '{ HeaderOptions.FromRows(${ Expr(merge) }) } =>
-          Some(HeaderOptions.FromRows(merge))
-
-        case '{ HeaderOptions.Default } => Some(HeaderOptions.Default)
-
-        case x =>
-          report.info(s"${x.show} from report.info")
-          None
-      end match
-    end unapply
-  end given
-
-  given ToExpr[HeaderOptions] with
-    def apply(opts: HeaderOptions)(using Quotes): Expr[HeaderOptions] =
-      opts match
-        case HeaderOptions.Auto =>
-          '{ HeaderOptions.Auto }
-        case HeaderOptions.Manual(headers*) =>
-          val headersExprs = headers.map(h => Expr(h))
-          '{ HeaderOptions.Manual(${ Varargs(headersExprs) }*) }
-        case HeaderOptions.FromRows(merge, dropFirst) =>
-          '{ HeaderOptions.FromRows(${ Expr(merge) }, ${ Expr(dropFirst) }) }
-  end given
-end HeaderOptions
+end HeaderOptionsProcessing

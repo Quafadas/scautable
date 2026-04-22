@@ -5,8 +5,10 @@ import scala.io.Source
 import scala.quoted.*
 
 import io.github.quafadas.scautable.ColumnTyped.*
-import io.github.quafadas.scautable.HeaderOptions.headers
+import io.github.quafadas.table.HeaderOptions
+import io.github.quafadas.scautable.HeaderOptionsProcessing.headers
 import io.github.quafadas.table.TypeInferrer
+import io.github.quafadas.table.ReadAs
 
 object CSV:
 
@@ -327,7 +329,7 @@ object CSV:
 
   private transparent inline def readHeaderlineAsCsv(path: String, optsExpr: Expr[CsvOpts])(using q: Quotes) =
     import q.reflect.*
-    import io.github.quafadas.scautable.HeaderOptions.*
+    import io.github.quafadas.table.HeaderOptions.*
 
     val csvHeadersExpr = extractHeaderOptions(optsExpr)
     val typeInferrerExpr = extractTypeInferrer(optsExpr)
@@ -350,9 +352,9 @@ object CSV:
       case Select(_, "Columns") => true
       case _                    =>
         readAsExpr match
-          case '{ ReadAs.Columns }                              => true
-          case '{ io.github.quafadas.scautable.ReadAs.Columns } => true
-          case _                                                => false
+          case '{ ReadAs.Columns }                          => true
+          case '{ io.github.quafadas.table.ReadAs.Columns } => true
+          case _                                            => false
 
     val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
     val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
@@ -636,9 +638,9 @@ object CSV:
       case Select(_, "Columns") => true
       case _                    =>
         readAsExpr match
-          case '{ ReadAs.Columns }                              => true
-          case '{ io.github.quafadas.scautable.ReadAs.Columns } => true
-          case _                                                => false
+          case '{ ReadAs.Columns }                          => true
+          case '{ io.github.quafadas.table.ReadAs.Columns } => true
+          case _                                            => false
 
     val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
     val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
