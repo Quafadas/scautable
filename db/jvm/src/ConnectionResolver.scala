@@ -42,15 +42,13 @@ object ConnectionResolver:
     * Called from the generated code inside [[DbIterator]] construction.
     */
   def openConnection(): Connection =
-    val url  = sys.env.getOrElse(urlEnvVar, throw new IllegalStateException(
+    val url = sys.env.getOrElse(urlEnvVar, throw new IllegalStateException(
       s"Environment variable '$urlEnvVar' is not set. " +
         s"Set it to a JDBC URL such as 'jdbc:h2:mem:test;DB_CLOSE_DELAY=-1'."
     ))
-    val user = sys.env.get(userEnvVar).orNull
-    val pass = sys.env.get(passwordEnvVar).orNull
-
-    if user == null then DriverManager.getConnection(url)
-    else DriverManager.getConnection(url, user, pass)
+    sys.env.get(userEnvVar) match
+      case Some(user) => DriverManager.getConnection(url, user, sys.env.getOrElse(passwordEnvVar, ""))
+      case None       => DriverManager.getConnection(url)
   end openConnection
 
 end ConnectionResolver

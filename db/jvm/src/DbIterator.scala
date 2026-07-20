@@ -64,6 +64,8 @@ class DbIterator[K <: Tuple, V <: Tuple] @publicInBinary private[db] (
     if !hasNext then throw new NoSuchElementException("DbIterator exhausted")
     _nextCached = false // consume the cached next()
     val tuple = decoder.decodeRow(_rs.get)
+    // NamedTuple.build wraps the decoded tuple on every row. For large result sets,
+    // call .toSeq early and use standard collection operations on the resulting Seq.
     NamedTuple.build[K & Tuple]()(tuple)
   end next
 

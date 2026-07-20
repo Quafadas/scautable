@@ -164,8 +164,9 @@ object DB:
           s"""Cannot map column '${col.name}' (JDBC type $other / DB type '${col.dbTypeName}') to a Scala type.
              |
              |Escape hatches:
-             |  • Treat as String: use DB.table[H2]("...") with a string-fallback override (coming soon).
              |  • Use DB.query with an explicit CAST in your SQL to convert to a supported type.
+             |    Example: SELECT CAST(my_col AS VARCHAR) AS my_col FROM ...
+             |  • Override the column type via a SQL alias to a supported JDBC type.
              |""".stripMargin
         )
 

@@ -261,11 +261,12 @@ class DbMacroSnapshotSuite extends munit.FunSuite:
     // This test body runs at test time but the type check happens at compile time.
     // The DbIterator connection is lazy — construction does NOT open the DB.
     val countryTable = DB.table[H2]("country")
-    val _: DbIterator[
+    val typed: DbIterator[
       ("iso3", "name", "population", "area_km2", "is_island"),
       (String, String, Option[Long], Double, Boolean)
     ] = countryTable
-    assert(true, "compile-time type check passed")
+    // Verify the iterator was constructed (factory is set; no DB connection opened yet)
+    assertNotEquals(typed, null)
     // Do NOT call hasNext or next — we have no DB at test time (snapshot-only mode).
   }
 
