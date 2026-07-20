@@ -253,7 +253,7 @@ end SchemaSnapshotSuite
 class DbMacroSnapshotSuite extends munit.FunSuite:
 
   /** True if we have a live DB connection available at runtime. */
-  private val haveDb: Boolean = sys.env.contains(ConnectionResolver.urlEnvVar)
+  private val haveDb: Boolean = ConnectionResolver.lookup(ConnectionResolver.urlEnvVar).isDefined
 
   test("DB.table infers correct compile-time types from snapshot schema") {
     // The macro reads the schema from the classpath snapshot at compile time.
@@ -275,7 +275,7 @@ class DbMacroSnapshotSuite extends munit.FunSuite:
 
     // Runtime: create table in H2, insert rows, read back via DbIterator.
     // Use try-finally to ensure the setup connection is always closed.
-    val setupConn = java.sql.DriverManager.getConnection(sys.env(ConnectionResolver.urlEnvVar))
+    val setupConn = java.sql.DriverManager.getConnection(ConnectionResolver.lookup(ConnectionResolver.urlEnvVar).get)
     try
       setupConn.createStatement().execute("DROP TABLE IF EXISTS country")
       setupConn.createStatement().execute(

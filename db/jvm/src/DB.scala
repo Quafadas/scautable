@@ -22,13 +22,14 @@ import java.sql.Connection
   * == Connection resolution (macro expansion time) ==
   *
   * The macro reads `SCAUTABLE_DB_URL`, `SCAUTABLE_DB_USER`, `SCAUTABLE_DB_PASSWORD` from the
-  * compiler's environment variables.  If the live DB is unavailable it falls back to a JSON
-  * snapshot file (path controlled by `SCAUTABLE_DB_SNAPSHOT` or defaulting to
-  * `scautable-db-schema.json`).
+  * compiler's JVM system properties (`-DSCAUTABLE_DB_URL=...`) or, failing that, its environment
+  * variables.  If the live DB is unavailable it falls back to a JSON snapshot file (path
+  * controlled by `SCAUTABLE_DB_SNAPSHOT` or defaulting to `scautable-db-schema.json`).
   *
   * == Runtime connection ==
   *
-  * Generated code reads the same env vars at runtime — credentials are never baked into source.
+  * Generated code consults the same system properties / env vars at runtime — credentials are
+  * never baked into source.
   */
 object DB:
 
@@ -108,7 +109,8 @@ object DB:
                   s"""Cannot infer DB schema for '$key': no live connection and no snapshot found.
                      |
                      |To fix, choose one of:
-                     |  A) Set environment variable ${ConnectionResolver.urlEnvVar} to a JDBC URL.
+                     |  A) Set system property or environment variable ${ConnectionResolver.urlEnvVar} to a JDBC URL
+                     |     (e.g. -D${ConnectionResolver.urlEnvVar}=... on the compiler's JVM).
                      |     Optionally set ${ConnectionResolver.userEnvVar} and ${ConnectionResolver.passwordEnvVar}.
                      |  B) Generate a snapshot file:
                      |       SchemaSnapshot.write(conn, Map("$key" -> SchemaSnapshot.fromTable(conn, None, "...")))

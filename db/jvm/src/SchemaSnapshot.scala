@@ -4,8 +4,8 @@ package io.github.quafadas.scautable.db
   *
   * Snapshots are stored as JSON (one file per project, keyed by `key`) so that compiled code and
   * CI can build without a live database connection.  The snapshot path is controlled by the
-  * `SCAUTABLE_DB_SNAPSHOT` environment variable (defaults to `scautable-db-schema.json` in the
-  * working directory).
+  * `SCAUTABLE_DB_SNAPSHOT` system property or environment variable (defaults to
+  * `scautable-db-schema.json` in the working directory).
   *
   * Produce a snapshot with:
   * {{{
