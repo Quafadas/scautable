@@ -230,20 +230,21 @@ class DbSqlTableSuite extends H2FixtureScalasql:
   // (it's defined in DBExtension.scala in this same package)
 
   test("DB.sqlTable compile-time types match expected schema") {
-    // macro expands at compile time using the snapshot
-    val countries = DB.sqlTable[DbH2]("country")
+    // macro expands at compile time using the snapshot; constructing the pair never connects
+    val (liveDb, countries) = DB.sqlTable[DbH2]("country")
     // Verify compile-time type ascription
     val typed: NamedTupleTable[
       ("iso3", "name", "population", "area_km2", "is_island"),
       (String, String, Option[Long], Double, Boolean)
     ] = countries
     assertNotEquals(typed, null)
+    assertNotEquals(liveDb, null)
   }
 
   test("DB.sqlTable runtime execution (requires SCAUTABLE_DB_URL)") {
     assume(sys.env.contains("SCAUTABLE_DB_URL"), "SCAUTABLE_DB_URL not set — skipping")
-    val countries = DB.sqlTable[DbH2]("country")
-    val rows = db.run(countries.select)
+    val (liveDb, countries) = DB.sqlTable[DbH2]("country")
+    val rows = liveDb.run(countries.select)
     assert(rows.nonEmpty, "Expected rows from runtime DB")
   }
 

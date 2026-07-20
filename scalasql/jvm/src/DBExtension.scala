@@ -22,9 +22,10 @@ import scalasql.core.{Queryable, DialectTypeMappers, Expr as SExpr}
   * {{{
   * import io.github.quafadas.scautable.db.*
   * import io.github.quafadas.scautable.scalasql.*
-  * import scalasql.H2Dialect.*
   *
-  * val countries = DB.sqlTable[H2]("country")
+  * // Schema inferred at compile time; `db` is a live DbApi built from the same
+  * // SCAUTABLE_DB_URL / _USER / _PASSWORD env vars, connected lazily on first use.
+  * val (db, countries) = DB.sqlTable[H2]("country")
   * // countries: NamedTupleTable[("iso3","name","population","area_km2","is_island"),
   * //                             (String,String,Option[Long],Double,Boolean)]
   *
@@ -33,20 +34,30 @@ import scalasql.core.{Queryable, DialectTypeMappers, Expr as SExpr}
   */
 extension (db: io.github.quafadas.scautable.db.DB.type)
   /** Infer the schema of `tableName` from the live database at compile time and return a
-    * `NamedTupleTable` that enables the full scalasql push-down query DSL.
+    * `(DbApi, NamedTupleTable)` pair: a lazily-connecting `DbApi` wired from the same
+    * connection env vars as the schema inference, and a `NamedTupleTable` that enables the
+    * full scalasql push-down query DSL.
     *
     * `tableName` may include a schema qualifier: `"schema.table"` or just `"table"`.
     *
     * == Connection resolution ==
-    * Same priority order as `DB.table`: live env vars → filesystem snapshot → classpath snapshot.
+    * Schema (compile time): live env vars → filesystem snapshot → classpath snapshot, same
+    * priority order as `DB.table`.
+    * Runtime `DbApi`: opened lazily from `SCAUTABLE_DB_URL` / `_USER` / `_PASSWORD` on first use
+    * — constructing the pair never touches the network.
     */
-  transparent inline def sqlTable[F <: DbFlavour](inline tableName: String): Any =
-    ${ SqlTableMacro.sqlTableImpl[F]('tableName) }
+  transparent inline def sqlTable[F <: DbFlavour](inline tableName: String)(using
+      fd: FlavourDialect[F]
+  ): Any =
+    ${ SqlTableMacro.sqlTableImpl[F]('tableName, 'fd) }
 
 /** Internal macro implementation for `DB.sqlTable`. */
 private object SqlTableMacro:
 
-  def sqlTableImpl[F <: DbFlavour: Type](tableNameExpr: Expr[String])(using q: Quotes): Expr[Any] =
+  def sqlTableImpl[F <: DbFlavour: Type](
+      tableNameExpr: Expr[String],
+      fdExpr: Expr[FlavourDialect[F]]
+  )(using q: Quotes): Expr[Any] =
     import q.reflect.*
 
     val tableName = tableNameExpr.valueOrAbort
@@ -61,7 +72,7 @@ private object SqlTableMacro:
       withConnection { conn => SchemaReader.forTable(conn, schema, table) }
     )
 
-    buildSqlTableExpr(cols, table, schema)
+    buildSqlTableExpr(cols, table, schema, fdExpr)
   end sqlTableImpl
 
   // ---------------------------------------------------------------------------
@@ -147,10 +158,11 @@ private object SqlTableMacro:
     if col.nullable then TypeRepr.of[Option].appliedTo(base) else base
   end jdbcTypeToTypeRepr
 
-  private def buildSqlTableExpr(
+  private def buildSqlTableExpr[F <: DbFlavour: Type](
       cols: Seq[ColumnMeta],
       table: String,
-      schema: Option[String]
+      schema: Option[String],
+      fdExpr: Expr[FlavourDialect[F]]
   )(using q: Quotes): Expr[Any] =
     import q.reflect.*
 
@@ -219,10 +231,18 @@ private object SqlTableMacro:
                   IArray.from($rowFnsExpr),
                   IArray.from($colMakersExpr)
                 )
-              new NamedTupleTable[n & Tuple, v & Tuple]($tableNameExpr, $schemaNameExpr)(
+              val table = new NamedTupleTable[n & Tuple, v & Tuple]($tableNameExpr, $schemaNameExpr)(
                 using summon[sourcecode.Name],
                 _meta
               )
+              val liveDb: scalasql.core.DbApi = new LazyDbApi(() =>
+                scalasql.DbClient
+                  .Connection(ConnectionResolver.openConnection(), new scalasql.Config {})(
+                    using $fdExpr.dialect
+                  )
+                  .getAutoCommitClientConnection
+              )
+              (liveDb, table)
             }
   end buildSqlTableExpr
 
