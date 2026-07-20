@@ -15,6 +15,11 @@ end JdbcDecoder
 
 object JdbcDecoder:
 
+  /** Returns the column name for diagnostic messages, falling back to the 1-based index string on error. */
+  private def columnLabel(rs: ResultSet, index: Int): String =
+    try rs.getMetaData.getColumnLabel(index)
+    catch case _: Exception => index.toString
+
   given JdbcDecoder[Int] with
     def decode(rs: ResultSet, index: Int): Int = rs.getInt(index)
   end given
@@ -42,7 +47,7 @@ object JdbcDecoder:
       // that means the schema is inconsistent. Throw rather than silently returning "".
       // For nullable columns, use Option[String] (which uses the JdbcDecoder[Option[T]] instance).
       if rs.wasNull() then throw new java.sql.SQLDataException(
-        s"Column $index is NULL but was mapped to a non-nullable String. Use Option[String] for nullable columns."
+        s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable String. Use Option[String] for nullable columns."
       )
       v
   end given
@@ -51,7 +56,7 @@ object JdbcDecoder:
     def decode(rs: ResultSet, index: Int): BigDecimal =
       val v = rs.getBigDecimal(index)
       if rs.wasNull() then throw new java.sql.SQLDataException(
-        s"Column $index is NULL but was mapped to a non-nullable BigDecimal. Use Option[BigDecimal] for nullable columns."
+        s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable BigDecimal. Use Option[BigDecimal] for nullable columns."
       )
       BigDecimal(v)
   end given
@@ -60,7 +65,7 @@ object JdbcDecoder:
     def decode(rs: ResultSet, index: Int): Array[Byte] =
       val v = rs.getBytes(index)
       if rs.wasNull() then throw new java.sql.SQLDataException(
-        s"Column $index is NULL but was mapped to a non-nullable Array[Byte]. Use Option[Array[Byte]] for nullable columns."
+        s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable Array[Byte]. Use Option[Array[Byte]] for nullable columns."
       )
       v
   end given
@@ -79,7 +84,7 @@ object JdbcDecoder:
     def decode(rs: ResultSet, index: Int): Instant =
       val ts = rs.getTimestamp(index)
       if rs.wasNull() then throw new java.sql.SQLDataException(
-        s"Column $index is NULL but was mapped to a non-nullable Instant. Use Option[Instant] for nullable columns."
+        s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable Instant. Use Option[Instant] for nullable columns."
       )
       ts.toInstant
   end given

@@ -160,7 +160,7 @@ end JdbcDecoderSuite
 
 class JdbcRowDecoderSuite extends H2Fixture:
 
-  test("decodeRow produces correct tuple") {
+  test("decodeRow returns typed tuple with correct values from ResultSet") {
     withConn { conn =>
       val stmt = conn.createStatement()
       val rs   = stmt.executeQuery("SELECT iso3, name, population FROM COUNTRY WHERE iso3='GBR'")
@@ -178,7 +178,7 @@ end JdbcRowDecoderSuite
 
 class DbIteratorSuite extends H2Fixture:
 
-  test("DbIterator reads all rows") {
+  test("DbIterator reads all rows in order from ResultSet") {
     withConn { conn =>
       val stmt = conn.createStatement()
       val rs   = stmt.executeQuery("SELECT iso3, name FROM COUNTRY ORDER BY iso3")
@@ -255,7 +255,7 @@ class DbMacroSnapshotSuite extends munit.FunSuite:
   /** True if we have a live DB connection available at runtime. */
   private val haveDb: Boolean = sys.env.contains(ConnectionResolver.urlEnvVar)
 
-  test("DB.table snapshot: compile-time type is correct") {
+  test("DB.table infers correct compile-time types from snapshot schema") {
     // The macro reads the schema from the classpath snapshot at compile time.
     // The following type ascription verifies the inferred schema matches.
     // This test body runs at test time but the type check happens at compile time.
@@ -270,25 +270,27 @@ class DbMacroSnapshotSuite extends munit.FunSuite:
     // Do NOT call hasNext or next — we have no DB at test time (snapshot-only mode).
   }
 
-  test("DB.table snapshot: runtime execution (requires SCAUTABLE_DB_URL)") {
+  test("DB.table runtime execution reads rows from live database (requires SCAUTABLE_DB_URL)") {
     assume(haveDb, "SCAUTABLE_DB_URL not set — skipping runtime DB test")
 
-    // Runtime: create table in H2, insert rows, read back via DbIterator
-    val conn = java.sql.DriverManager.getConnection(sys.env(ConnectionResolver.urlEnvVar))
-    conn.createStatement().execute("DROP TABLE IF EXISTS country")
-    conn.createStatement().execute(
-      """CREATE TABLE country (
-        |  iso3       CHAR(3)      NOT NULL PRIMARY KEY,
-        |  name       VARCHAR(100) NOT NULL,
-        |  population BIGINT,
-        |  area_km2   DOUBLE       NOT NULL,
-        |  is_island  BOOLEAN      NOT NULL
-        |)""".stripMargin
-    )
-    conn.createStatement().execute(
-      "INSERT INTO country VALUES ('GBR', 'United Kingdom', 67000000, 242495.0, false)"
-    )
-    conn.close()
+    // Runtime: create table in H2, insert rows, read back via DbIterator.
+    // Use try-finally to ensure the setup connection is always closed.
+    val setupConn = java.sql.DriverManager.getConnection(sys.env(ConnectionResolver.urlEnvVar))
+    try
+      setupConn.createStatement().execute("DROP TABLE IF EXISTS country")
+      setupConn.createStatement().execute(
+        """CREATE TABLE country (
+          |  iso3       CHAR(3)      NOT NULL PRIMARY KEY,
+          |  name       VARCHAR(100) NOT NULL,
+          |  population BIGINT,
+          |  area_km2   DOUBLE       NOT NULL,
+          |  is_island  BOOLEAN      NOT NULL
+          |)""".stripMargin
+      )
+      setupConn.createStatement().execute(
+        "INSERT INTO country VALUES ('GBR', 'United Kingdom', 67000000, 242495.0, false)"
+      )
+    finally setupConn.close()
 
     val table2 = DB.table[H2]("country")
     val rows   = table2.toSeq

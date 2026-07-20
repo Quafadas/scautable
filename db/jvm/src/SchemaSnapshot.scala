@@ -62,12 +62,17 @@ object SchemaSnapshot:
   private def colJson(c: ColumnMeta): String =
     s"""{\"name\":${jsonStr(c.name)},\"jdbcType\":${c.jdbcType},\"dbTypeName\":${jsonStr(c.dbTypeName)},\"nullable\":${c.nullable},\"position\":${c.position}}"""
 
-  private def jsonStr(s: String): String = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+  /** Wrap a string in JSON double-quotes, escaping backslashes and double-quotes. */
+  private def jsonStr(s: String): String = "\"" + escapeJsonString(s) + "\""
+
+  /** Escape special characters for use inside a JSON string value. */
+  private def escapeJsonString(s: String): String = s.replace("\\", "\\\\").replace("\"", "\\\"")
 
   private[db] def parseSnapshotJson(content: String, key: String): Option[Seq[ColumnMeta]] =
     // Very simple hand-rolled parser: look for the key and extract the column array.
     // This avoids any JSON library dependency in the core db module.
-    val keyPat = s""""${key.replace("\\", "\\\\").replace("\"", "\\\"")}\"\\s*:\\s*\\[""".r
+    // The key is JSON-escaped using the same escapeJsonString helper.
+    val keyPat = s""""${escapeJsonString(key)}\"\\s*:\\s*\\[""".r
     keyPat.findFirstMatchIn(content).map { m =>
       // Start scanning from the '[' (at m.end - 1) to properly track bracket depth,
       // but extract content starting at m.end (first character after '[').

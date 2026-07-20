@@ -55,8 +55,8 @@ object DB:
 
     val tableName = tableNameExpr.valueOrAbort
 
-    // Parse optional "schema.table" notation
-    val (schema, table) = tableName.split("\\.") match
+    // Parse optional "schema.table" notation (split on literal dot using char overload)
+    val (schema, table) = tableName.split('.') match
       case Array(s, t) => (Some(s), t)
       case Array(t)    => (None, t)
       case other       => report.throwError(s"Invalid table name: '$tableName'. Use 'table' or 'schema.table'.")
@@ -167,6 +167,7 @@ object DB:
              |  • Use DB.query with an explicit CAST in your SQL to convert to a supported type.
              |    Example: SELECT CAST(my_col AS VARCHAR) AS my_col FROM ...
              |  • Override the column type via a SQL alias to a supported JDBC type.
+             |  • Provide a custom given JdbcDecoder[YourType] for the unsupported column type.
              |""".stripMargin
         )
 

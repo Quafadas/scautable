@@ -16,6 +16,12 @@ import scala.annotation.publicInBinary
   * `hasNext` or `next()`). This means that constructing a `DbIterator` has no side effects;
   * errors from the connection or query appear on first use.
   *
+  * === Performance note ===
+  * Each call to `next()` allocates a `NamedTuple` wrapper around the decoded row tuple.  This is
+  * the same cost as any `Iterator[NamedTuple]` in scautable and is acceptable for typical
+  * analytical workloads.  For very large result sets, materialise early with `.toSeq` and then use
+  * standard Scala collection operations rather than streaming row-by-row from the database.
+  *
   * The simplest REPL-friendly usage:
   * {{{
   *   val rows = DB.table[H2]("country").toSeq  // exhausts + closes
@@ -64,8 +70,6 @@ class DbIterator[K <: Tuple, V <: Tuple] @publicInBinary private[db] (
     if !hasNext then throw new NoSuchElementException("DbIterator exhausted")
     _nextCached = false // consume the cached next()
     val tuple = decoder.decodeRow(_rs.get)
-    // NamedTuple.build wraps the decoded tuple on every row. For large result sets,
-    // call .toSeq early and use standard collection operations on the resulting Seq.
     NamedTuple.build[K & Tuple]()(tuple)
   end next
 
