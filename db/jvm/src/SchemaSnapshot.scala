@@ -69,11 +69,13 @@ object SchemaSnapshot:
     // This avoids any JSON library dependency in the core db module.
     val keyPat = s""""${key.replace("\\", "\\\\").replace("\"", "\\\"")}\"\\s*:\\s*\\[""".r
     keyPat.findFirstMatchIn(content).map { m =>
-      // Find the matching closing bracket
+      // m.end points to the first character AFTER the '['. We start scanning from m.end - 1
+      // (i.e., the '[' itself) to balance bracket depth correctly, while content extraction
+      // starts at m.end (inside the array, after '[').
       var depth = 0
-      var i = m.end - 1 // position of '['
-      var start = m.end
-      var end = start
+      var i     = m.end - 1 // index of the opening '[' in content
+      val start = m.end     // first character inside the array (after '[')
+      var end   = start
       var found = false
       while i < content.length && !found do
         content(i) match
@@ -81,7 +83,7 @@ object SchemaSnapshot:
           case ']' =>
             depth -= 1
             if depth == 0 then
-              end = i
+              end   = i
               found = true
           case _ => ()
         i += 1

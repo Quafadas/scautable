@@ -53,14 +53,17 @@ class SchemaReaderSuite extends H2Fixture:
       val cols = SchemaReader.forTable(conn, None, "COUNTRY")
       assertEquals(cols.length, 5)
 
-      val iso3 = cols.find(_.name.equalsIgnoreCase("iso3")).get
+      val iso3 = cols.find(_.name.equalsIgnoreCase("iso3"))
+        .getOrElse(fail("iso3 column not found in schema"))
       assertEquals(iso3.nullable, false)
 
-      val pop = cols.find(_.name.equalsIgnoreCase("population")).get
+      val pop = cols.find(_.name.equalsIgnoreCase("population"))
+        .getOrElse(fail("population column not found in schema"))
       assertEquals(pop.nullable, true) // BIGINT without NOT NULL -> nullable
 
       // Columns are ordered by position
-      assert(cols.map(_.position) == cols.map(_.position).sorted, "positions should be sorted")
+      val positions = cols.map(_.position)
+      assert(positions == positions.sorted, "positions should be sorted")
     }
   }
 

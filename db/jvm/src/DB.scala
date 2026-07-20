@@ -174,10 +174,15 @@ object DB:
 
   /** Build the SQL `SELECT col1, col2 FROM [schema.]table` used at runtime. */
   private def buildTableSql(schema: Option[String], table: String, cols: Seq[ColumnMeta]): String =
-    val quotedCols = cols.map(c => s""""${c.name.replace("\"", "\"\"")}"""").mkString(", ")
-    val qualifiedTable = schema.fold(s""""$table"""")(s => s""""$s"."$table"""")
+    val quotedCols = cols.map(c => quoteIdentifier(c.name)).mkString(", ")
+    val qualifiedTable = schema.fold(quoteIdentifier(table))(s => s"${quoteIdentifier(s)}.${quoteIdentifier(table)}")
     s"SELECT $quotedCols FROM $qualifiedTable"
   end buildTableSql
+
+  /** Wrap an identifier in double-quotes, escaping embedded double-quotes as per SQL standard. */
+  private def quoteIdentifier(name: String): String =
+    "\"" + name.replace("\"", "\"\"") + "\""
+  end quoteIdentifier
 
   /** Splice the `Expr[DbIterator[K, V]]` from the inferred column metadata and SQL. */
   private def buildIteratorExpr(cols: Seq[ColumnMeta], sql: String)(using q: Quotes): Expr[Any] =

@@ -34,18 +34,18 @@ class DbIterator[K <: Tuple, V <: Tuple] @publicInBinary private[db] (
 
   private var _closed       = false
   private var _initialised  = false
-  private var _conn: Connection = null
-  private var _stmt: Statement  = null
-  private var _rs: ResultSet    = null
+  private var _conn: Option[Connection] = None
+  private var _stmt: Option[Statement]  = None
+  private var _rs: Option[ResultSet]    = None
   private var _hasNextCached: Boolean = false
   private var _nextCached: Boolean    = false
 
   private def ensureOpen(): Unit =
     if !_initialised && !_closed then
       val (c, s, r) = factory()
-      _conn        = c
-      _stmt        = s
-      _rs          = r
+      _conn        = Some(c)
+      _stmt        = Some(s)
+      _rs          = Some(r)
       _initialised = true
   end ensureOpen
 
@@ -53,7 +53,7 @@ class DbIterator[K <: Tuple, V <: Tuple] @publicInBinary private[db] (
     if _closed then return false
     ensureOpen()
     if !_nextCached then
-      _hasNextCached = _rs.next()
+      _hasNextCached = _rs.get.next()
       _nextCached    = true
       if !_hasNextCached then closeResources()
     end if
@@ -63,7 +63,7 @@ class DbIterator[K <: Tuple, V <: Tuple] @publicInBinary private[db] (
   override def next(): NamedTuple[K, V] =
     if !hasNext then throw new NoSuchElementException("DbIterator exhausted")
     _nextCached = false // consume the cached next()
-    val tuple = decoder.decodeRow(_rs)
+    val tuple = decoder.decodeRow(_rs.get)
     NamedTuple.build[K & Tuple]()(tuple)
   end next
 
@@ -77,9 +77,9 @@ class DbIterator[K <: Tuple, V <: Tuple] @publicInBinary private[db] (
   private def closeResources(): Unit =
     _closed = true
     _hasNextCached = false
-    if _rs != null then try _rs.close() catch case _: Exception => ()
-    if _stmt != null then try _stmt.close() catch case _: Exception => ()
-    if _conn != null then try _conn.close() catch case _: Exception => ()
+    _rs.foreach(r => try r.close() catch case _: Exception => ())
+    _stmt.foreach(s => try s.close() catch case _: Exception => ())
+    _conn.foreach(c => try c.close() catch case _: Exception => ())
   end closeResources
 
 end DbIterator

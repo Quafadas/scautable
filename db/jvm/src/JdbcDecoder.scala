@@ -38,19 +38,31 @@ object JdbcDecoder:
   given JdbcDecoder[String] with
     def decode(rs: ResultSet, index: Int): String =
       val v = rs.getString(index)
-      if v == null then "" else v
+      // If the DB returns NULL for a column typed as String (not Option[String]),
+      // that means the schema is inconsistent. Throw rather than silently returning "".
+      // For nullable columns, use Option[String] (which uses the JdbcDecoder[Option[T]] instance).
+      if rs.wasNull() then throw new java.sql.SQLDataException(
+        s"Column $index is NULL but was mapped to a non-nullable String. Use Option[String] for nullable columns."
+      )
+      v
   end given
 
   given JdbcDecoder[BigDecimal] with
     def decode(rs: ResultSet, index: Int): BigDecimal =
       val v = rs.getBigDecimal(index)
-      if v == null then BigDecimal(0) else BigDecimal(v)
+      if rs.wasNull() then throw new java.sql.SQLDataException(
+        s"Column $index is NULL but was mapped to a non-nullable BigDecimal. Use Option[BigDecimal] for nullable columns."
+      )
+      BigDecimal(v)
   end given
 
   given JdbcDecoder[Array[Byte]] with
     def decode(rs: ResultSet, index: Int): Array[Byte] =
       val v = rs.getBytes(index)
-      if v == null then Array.emptyByteArray else v
+      if rs.wasNull() then throw new java.sql.SQLDataException(
+        s"Column $index is NULL but was mapped to a non-nullable Array[Byte]. Use Option[Array[Byte]] for nullable columns."
+      )
+      v
   end given
 
   given JdbcDecoder[LocalDate] with
@@ -66,7 +78,10 @@ object JdbcDecoder:
   given JdbcDecoder[Instant] with
     def decode(rs: ResultSet, index: Int): Instant =
       val ts = rs.getTimestamp(index)
-      if ts == null then Instant.EPOCH else ts.toInstant
+      if rs.wasNull() then throw new java.sql.SQLDataException(
+        s"Column $index is NULL but was mapped to a non-nullable Instant. Use Option[Instant] for nullable columns."
+      )
+      ts.toInstant
   end given
 
   given JdbcDecoder[UUID] with
