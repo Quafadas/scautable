@@ -68,7 +68,7 @@ object SchemaSnapshot:
   /** Escape special characters for use inside a JSON string value. */
   private def escapeJsonString(s: String): String = s.replace("\\", "\\\\").replace("\"", "\\\"")
 
-  private[db] def parseSnapshotJson(content: String, key: String): Option[Seq[ColumnMeta]] =
+  def parseSnapshotJson(content: String, key: String): Option[Seq[ColumnMeta]] =
     // Very simple hand-rolled parser: look for the key and extract the column array.
     // This avoids any JSON library dependency in the core db module.
     // The key is JSON-escaped using the same escapeJsonString helper.
