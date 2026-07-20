@@ -1,7 +1,7 @@
 package io.github.quafadas.scautable.db
 
 import scala.quoted.*
-import java.sql.{Connection, DriverManager}
+import java.sql.Connection
 
 /** Entry point for compile-time database schema inference.
   *
@@ -131,9 +131,11 @@ object DB:
   /** Open a compile-time JDBC connection using env vars. */
   private def withConnection[A](f: Connection => A): A =
     val (url, user, pass) = ConnectionResolver.resolveAtCompileTime().get
-    val conn =
-      if user.isDefined then DriverManager.getConnection(url, user.get, pass.getOrElse(""))
-      else DriverManager.getConnection(url)
+    // Use openConnectionWith rather than DriverManager directly: during macro
+    // expansion the compiler JVM uses a child classloader for project deps, which
+    // DriverManager cannot see. openConnectionWith consults the thread context
+    // classloader (set by Mill/sbt to the project classpath) instead.
+    val conn = ConnectionResolver.openConnectionWith(url, user, pass)
     try f(conn)
     finally conn.close()
   end withConnection
