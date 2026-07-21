@@ -31,9 +31,9 @@ extension (db: io.github.quafadas.scautable.db.DB.type)
     * obtain a matching `DbApi`.
     */
   transparent inline def sqlTable[F <: DbFlavour](inline tableName: String)(using
-        fd: FlavourDialect[F]
-    ): Any =
-      ${ SqlTableMacro.tableOnlyImpl[F]('tableName, 'fd) }
+      fd: FlavourDialect[F]
+  ): Any =
+    ${ SqlTableMacro.tableOnlyImpl[F]('tableName, 'fd) }
 
   /** A lazily-connecting `DbApi` wired from `SCAUTABLE_DB_URL` / `_USER` / `_PASSWORD`, matching the schema-inference connection used by `DB.sqlTable`. Constructing it never
     * touches the network.
