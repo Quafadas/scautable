@@ -1,24 +1,17 @@
 package io.github.quafadas.scautable.scalasql
 
 import scala.quoted.*
-import io.github.quafadas.scautable.db.{
-  DbFlavour,
-  ColumnMeta,
-  SchemaReader,
-  SchemaSnapshot,
-  ConnectionResolver
-}
+import io.github.quafadas.scautable.db.{DbFlavour, ColumnMeta, SchemaReader, SchemaSnapshot, ConnectionResolver}
 import java.sql.DriverManager
 import scalasql.query.{Table, TableRef, Column}
 import scalasql.core.{Queryable, DialectTypeMappers, Expr as SExpr}
 
 /** Extension point on the `DB` object that adds the `sqlTable` macro.
   *
-  * Because this macro needs to reference `NamedTupleTable` (from `scautable-scalasql`) at splice
-  * time, it lives in the `scalasql` module rather than `db`.  Import both modules and then call
-  * `DB.sqlTable[F]("tableName")`.
+  * Because this macro needs to reference `NamedTupleTable` (from `scautable-scalasql`) at splice time, it lives in the `scalasql` module rather than `db`. Import both modules and
+  * then call `DB.sqlTable[F]("tableName")`.
   *
-  * == Usage ==
+  * ==Usage==
   * {{{
   * import io.github.quafadas.scautable.db.*
   * import io.github.quafadas.scautable.scalasql.*
@@ -33,23 +26,20 @@ import scalasql.core.{Queryable, DialectTypeMappers, Expr as SExpr}
   * }}}
   */
 extension (db: io.github.quafadas.scautable.db.DB.type)
-  /** Infer the schema of `tableName` from the live database at compile time and return a
-    * `(DbApi, NamedTupleTable)` pair: a lazily-connecting `DbApi` wired from the same
-    * connection env vars as the schema inference, and a `NamedTupleTable` that enables the
-    * full scalasql push-down query DSL.
+  /** Infer the schema of `tableName` from the live database at compile time and return a `(DbApi, NamedTupleTable)` pair: a lazily-connecting `DbApi` wired from the same
+    * connection env vars as the schema inference, and a `NamedTupleTable` that enables the full scalasql push-down query DSL.
     *
     * `tableName` may include a schema qualifier: `"schema.table"` or just `"table"`.
     *
-    * == Connection resolution ==
-    * Schema (compile time): live env vars → filesystem snapshot → classpath snapshot, same
-    * priority order as `DB.table`.
-    * Runtime `DbApi`: opened lazily from `SCAUTABLE_DB_URL` / `_USER` / `_PASSWORD` on first use
-    * — constructing the pair never touches the network.
+    * ==Connection resolution==
+    * Schema (compile time): live env vars → filesystem snapshot → classpath snapshot, same priority order as `DB.table`. Runtime `DbApi`: opened lazily from `SCAUTABLE_DB_URL` /
+    * `_USER` / `_PASSWORD` on first use — constructing the pair never touches the network.
     */
   transparent inline def sqlTable[F <: DbFlavour](inline tableName: String)(using
       fd: FlavourDialect[F]
   ): Any =
     ${ SqlTableMacro.sqlTableImpl[F]('tableName, 'fd) }
+end extension
 
 /** Internal macro implementation for `DB.sqlTable`. */
 private object SqlTableMacro:
@@ -65,12 +55,10 @@ private object SqlTableMacro:
     val (schema, table) = tableName.split('.') match
       case Array(s, t) => (Some(s), t)
       case Array(t)    => (None, t)
-      case other =>
+      case other       =>
         report.throwError(s"Invalid table name: '$tableName'. Use 'table' or 'schema.table'.")
 
-    val cols = readSchema(s"table:$tableName", () =>
-      withConnection { conn => SchemaReader.forTable(conn, schema, table) }
-    )
+    val cols = readSchema(s"table:$tableName", () => withConnection(conn => SchemaReader.forTable(conn, schema, table)))
 
     buildSqlTableExpr(cols, table, schema, fdExpr)
   end sqlTableImpl
@@ -104,6 +92,8 @@ private object SqlTableMacro:
                      |  B) Commit a snapshot file produced by SchemaSnapshot.write().
                      |""".stripMargin
                 )
+        end match
+    end match
   end readSchema
 
   private def loadFromClasspath(key: String, resourceName: String): Option[Seq[ColumnMeta]] =
@@ -113,6 +103,7 @@ private object SqlTableMacro:
       else
         val content = scala.io.Source.fromURL(url).mkString
         SchemaSnapshot.parseSnapshotJson(content, key)
+      end if
     catch case _: Exception => None
   end loadFromClasspath
 
@@ -123,6 +114,7 @@ private object SqlTableMacro:
       else DriverManager.getConnection(url)
     try f(conn)
     finally conn.close()
+    end try
   end withConnection
 
   private def jdbcTypeToTypeRepr(col: ColumnMeta)(using q: Quotes): q.reflect.TypeRepr =
@@ -130,22 +122,22 @@ private object SqlTableMacro:
     import java.sql.Types.*
 
     val base: TypeRepr = col.jdbcType match
-      case TINYINT | SMALLINT | INTEGER => TypeRepr.of[Int]
-      case BIGINT                        => TypeRepr.of[Long]
-      case REAL | FLOAT                  => TypeRepr.of[Float]
-      case DOUBLE                        => TypeRepr.of[Double]
-      case NUMERIC | DECIMAL             => TypeRepr.of[BigDecimal]
-      case BOOLEAN | BIT                 => TypeRepr.of[Boolean]
+      case TINYINT | SMALLINT | INTEGER                                                  => TypeRepr.of[Int]
+      case BIGINT                                                                        => TypeRepr.of[Long]
+      case REAL | FLOAT                                                                  => TypeRepr.of[Float]
+      case DOUBLE                                                                        => TypeRepr.of[Double]
+      case NUMERIC | DECIMAL                                                             => TypeRepr.of[BigDecimal]
+      case BOOLEAN | BIT                                                                 => TypeRepr.of[Boolean]
       case CHAR | VARCHAR | LONGVARCHAR | NCHAR | NVARCHAR | LONGNVARCHAR | CLOB | NCLOB =>
         TypeRepr.of[String]
-      case DATE                    => TypeRepr.of[java.time.LocalDate]
-      case TIMESTAMP               => TypeRepr.of[java.time.LocalDateTime]
-      case TIMESTAMP_WITH_TIMEZONE => TypeRepr.of[java.time.Instant]
+      case DATE                                      => TypeRepr.of[java.time.LocalDate]
+      case TIMESTAMP                                 => TypeRepr.of[java.time.LocalDateTime]
+      case TIMESTAMP_WITH_TIMEZONE                   => TypeRepr.of[java.time.Instant]
       case BINARY | VARBINARY | LONGVARBINARY | BLOB => TypeRepr.of[Array[Byte]]
-      case OTHER if col.dbTypeName == "uuid"  => TypeRepr.of[java.util.UUID]
-      case OTHER if col.dbTypeName == "json"  => TypeRepr.of[String]
-      case OTHER if col.dbTypeName == "jsonb" => TypeRepr.of[String]
-      case other =>
+      case OTHER if col.dbTypeName == "uuid"         => TypeRepr.of[java.util.UUID]
+      case OTHER if col.dbTypeName == "json"         => TypeRepr.of[String]
+      case OTHER if col.dbTypeName == "jsonb"        => TypeRepr.of[String]
+      case other                                     =>
         report.throwError(
           s"""Cannot map column '${col.name}' (JDBC type $other / DB type '${col.dbTypeName}') to a Scala type.
              |
@@ -156,6 +148,7 @@ private object SqlTableMacro:
         )
 
     if col.nullable then TypeRepr.of[Option].appliedTo(base) else base
+    end if
   end jdbcTypeToTypeRepr
 
   private def buildSqlTableExpr[F <: DbFlavour: Type](
@@ -187,14 +180,17 @@ private object SqlTableMacro:
       valueTypesRepr.map { tpeRepr =>
         tpeRepr.asType match
           case '[t] =>
-            val tmExpr = scala.quoted.Expr.summon[scalasql.core.TypeMapper[t]].getOrElse(
-              report.throwError(
-                s"No TypeMapper[${tpeRepr.show}] found. " +
-                  "Import your scalasql dialect (e.g. `import scalasql.H2Dialect.given`) at the call site."
+            val tmExpr = scala.quoted.Expr
+              .summon[scalasql.core.TypeMapper[t]]
+              .getOrElse(
+                report.throwError(
+                  s"No TypeMapper[${tpeRepr.show}] found. " +
+                    "Import your scalasql dialect (e.g. `import scalasql.H2Dialect.given`) at the call site."
+                )
               )
-            )
             '{ (_: DialectTypeMappers) =>
-              (scalasql.core.Expr.ExprQueryable[scalasql.core.Expr, t](using $tmExpr)
+              (scalasql.core.Expr
+                .ExprQueryable[scalasql.core.Expr, t](using $tmExpr)
                 .asInstanceOf[Queryable.Row[SExpr[?], ?]])
             }
       }
@@ -204,18 +200,20 @@ private object SqlTableMacro:
       valueTypesRepr.map { tpeRepr =>
         tpeRepr.asType match
           case '[t] =>
-            val tmExpr = scala.quoted.Expr.summon[scalasql.core.TypeMapper[t]].getOrElse(
-              report.throwError(s"No TypeMapper[${tpeRepr.show}] found.")
-            )
+            val tmExpr = scala.quoted.Expr
+              .summon[scalasql.core.TypeMapper[t]]
+              .getOrElse(
+                report.throwError(s"No TypeMapper[${tpeRepr.show}] found.")
+              )
             '{ (_: DialectTypeMappers, ref: TableRef, name: String) =>
               (new Column[t](ref, name)(using $tmExpr): Column[?])
             }
       }
 
-    val colNamesExpr   = scala.quoted.Expr(headers)
-    val rowFnsExpr     = scala.quoted.Expr.ofList(rowFnExprs)
-    val colMakersExpr  = scala.quoted.Expr.ofList(colMakerExprs)
-    val tableNameExpr  = scala.quoted.Expr(table)
+    val colNamesExpr = scala.quoted.Expr(headers)
+    val rowFnsExpr = scala.quoted.Expr.ofList(rowFnExprs)
+    val colMakersExpr = scala.quoted.Expr.ofList(colMakerExprs)
+    val tableNameExpr = scala.quoted.Expr(table)
     val schemaNameExpr = scala.quoted.Expr(schema.getOrElse(""))
 
     nTypeRepr.asType match
@@ -231,19 +229,20 @@ private object SqlTableMacro:
                   IArray.from($rowFnsExpr),
                   IArray.from($colMakersExpr)
                 )
-              val table = new NamedTupleTable[n & Tuple, v & Tuple]($tableNameExpr, $schemaNameExpr)(
-                using summon[sourcecode.Name],
+              val table = new NamedTupleTable[n & Tuple, v & Tuple]($tableNameExpr, $schemaNameExpr)(using
+                summon[sourcecode.Name],
                 _meta
               )
               val liveDb: scalasql.core.DbApi = new LazyDbApi(() =>
                 scalasql.DbClient
-                  .Connection(ConnectionResolver.openConnection(), new scalasql.Config {})(
-                    using $fdExpr.dialect
+                  .Connection(ConnectionResolver.openConnection(), new scalasql.Config {})(using
+                    $fdExpr.dialect
                   )
                   .getAutoCommitClientConnection
               )
               (liveDb, table)
             }
+    end match
   end buildSqlTableExpr
 
 end SqlTableMacro

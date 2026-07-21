@@ -1,21 +1,18 @@
 package io.github.quafadas.scautable.db
 
-/** Marker traits used as type parameters to `DB.table[F]` and `DB.query[F]` to select the
-  * database flavour (dialect + connection-resolution strategy).
+/** Marker traits used as type parameters to `DB.table[F]` and `DB.query[F]` to select the database flavour (dialect + connection-resolution strategy).
   *
   * Built-in flavours:
   *   - [[Postgres]] — PostgreSQL via any JDBC driver
   *   - [[H2]] — H2 in-memory / file database (useful for tests and local dev)
   *
-  * Connection parameters are read from JVM system properties or environment variables (system
-  * properties take precedence) at macro-expansion time:
+  * Connection parameters are read from JVM system properties or environment variables (system properties take precedence) at macro-expansion time:
   *   - `SCAUTABLE_DB_URL` — JDBC URL (required)
   *   - `SCAUTABLE_DB_USER` — username (optional)
   *   - `SCAUTABLE_DB_PASSWORD` — password (optional)
   *
-  * At runtime the same names are consulted (e.g. `-DSCAUTABLE_DB_URL=...` or `SCAUTABLE_DB_URL`
-  * in the environment) to open the connection, so credentials are never baked into generated
-  * code.
+  * At runtime the same names are consulted (e.g. `-DSCAUTABLE_DB_URL=...` or `SCAUTABLE_DB_URL` in the environment) to open the connection, so credentials are never baked into
+  * generated code.
   */
 sealed trait DbFlavour
 

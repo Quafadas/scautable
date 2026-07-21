@@ -7,8 +7,7 @@ import scala.compiletime.summonInline
 
 /** Typeclass for decoding an entire row from a [[java.sql.ResultSet]] into a typed [[Tuple]].
   *
-  * Instances are derived automatically via `summonInline` for any tuple whose element types all
-  * have [[JdbcDecoder]] instances.
+  * Instances are derived automatically via `summonInline` for any tuple whose element types all have [[JdbcDecoder]] instances.
   */
 trait JdbcRowDecoder[T <: Tuple]:
   def decodeRow(rs: ResultSet): T
@@ -29,7 +28,7 @@ object JdbcRowDecoder:
 
     private def decodeElems(rs: ResultSet, decs: List[JdbcDecoder[?]], colIdx: Int): Tuple =
       decs match
-        case Nil      => EmptyTuple
+        case Nil       => EmptyTuple
         case d :: rest =>
           val value = d.asInstanceOf[JdbcDecoder[Any]].decode(rs, colIdx)
           value *: decodeElems(rs, rest, colIdx + 1)

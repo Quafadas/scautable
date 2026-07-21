@@ -8,8 +8,7 @@ import java.util.UUID
 
 /** Typeclass for reading a single column from a [[java.sql.ResultSet]] by 1-based index.
   *
-  * Instances are provided for all types supported by the [[Flavour]] type mapping. Custom types can
-  * be supported by providing a given instance.
+  * Instances are provided for all types supported by the [[Flavour]] type mapping. Custom types can be supported by providing a given instance.
   */
 trait JdbcDecoder[T]:
   def decode(rs: ResultSet, index: Int): T
@@ -48,28 +47,37 @@ object JdbcDecoder:
       // If the DB returns NULL for a column typed as String (not Option[String]),
       // that means the schema is inconsistent. Throw rather than silently returning "".
       // For nullable columns, use Option[String] (which uses the JdbcDecoder[Option[T]] instance).
-      if rs.wasNull() then throw new java.sql.SQLDataException(
-        s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable String. Use Option[String] for nullable columns."
-      )
+      if rs.wasNull() then
+        throw new java.sql.SQLDataException(
+          s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable String. Use Option[String] for nullable columns."
+        )
+      end if
       v
+    end decode
   end given
 
   given JdbcDecoder[BigDecimal] with
     def decode(rs: ResultSet, index: Int): BigDecimal =
       val v = rs.getBigDecimal(index)
-      if rs.wasNull() then throw new java.sql.SQLDataException(
-        s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable BigDecimal. Use Option[BigDecimal] for nullable columns."
-      )
+      if rs.wasNull() then
+        throw new java.sql.SQLDataException(
+          s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable BigDecimal. Use Option[BigDecimal] for nullable columns."
+        )
+      end if
       BigDecimal(v)
+    end decode
   end given
 
   given JdbcDecoder[Array[Byte]] with
     def decode(rs: ResultSet, index: Int): Array[Byte] =
       val v = rs.getBytes(index)
-      if rs.wasNull() then throw new java.sql.SQLDataException(
-        s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable Array[Byte]. Use Option[Array[Byte]] for nullable columns."
-      )
+      if rs.wasNull() then
+        throw new java.sql.SQLDataException(
+          s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable Array[Byte]. Use Option[Array[Byte]] for nullable columns."
+        )
+      end if
       v
+    end decode
   end given
 
   given JdbcDecoder[LocalDate] with
@@ -85,10 +93,13 @@ object JdbcDecoder:
   given JdbcDecoder[Instant] with
     def decode(rs: ResultSet, index: Int): Instant =
       val ts = rs.getTimestamp(index)
-      if rs.wasNull() then throw new java.sql.SQLDataException(
-        s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable Instant. Use Option[Instant] for nullable columns."
-      )
+      if rs.wasNull() then
+        throw new java.sql.SQLDataException(
+          s"Column \"${columnLabel(rs, index)}\" (index $index) is NULL but was mapped to a non-nullable Instant. Use Option[Instant] for nullable columns."
+        )
+      end if
       ts.toInstant
+    end decode
   end given
 
   given JdbcDecoder[UUID] with
@@ -101,6 +112,8 @@ object JdbcDecoder:
     def decode(rs: ResultSet, index: Int): Option[T] =
       val v = inner.decode(rs, index)
       if rs.wasNull() then None else Some(v)
+      end if
+    end decode
   end given
 
 end JdbcDecoder
