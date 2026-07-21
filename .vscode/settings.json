@@ -2,7 +2,7 @@
   "files.watcherExclude": {
     "**/out": true,
     ".bsp": true,
-    "**/target": true,
-    "**/*.xlsx": true
+    "**/*.xlsx": true,
+    "**/target/**": true
   }
 }

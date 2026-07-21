@@ -1,0 +1,9 @@
+{
+  "table:country": [
+      {"name":"iso3","jdbcType":1,"dbTypeName":"char","nullable":false,"position":1},
+      {"name":"name","jdbcType":12,"dbTypeName":"varchar","nullable":false,"position":2},
+      {"name":"population","jdbcType":-5,"dbTypeName":"bigint","nullable":true,"position":3},
+      {"name":"area_km2","jdbcType":8,"dbTypeName":"double","nullable":false,"position":4},
+      {"name":"is_island","jdbcType":16,"dbTypeName":"boolean","nullable":false,"position":5}
+  ]
+}

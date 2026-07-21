@@ -1,0 +1,28 @@
+package build.db
+
+import mill.*
+import mill.scalalib.*
+import build.Config
+
+object `package` extends Module:
+
+  object jvm extends ScalaModule with build.Common with build.PublishModule:
+    override def artifactName = "scautable-db"
+    override def moduleDeps = Seq(build.scautable.jvm)
+
+    // No runtime JDBC dependencies — users supply their own driver.
+    // BigDecimal, LocalDate, etc. come from the Scala / JVM standard library.
+  end jvm
+
+  object test extends Module:
+    object jvm extends ScalaModule with TestModule.Munit with build.CommonTests with build.ShareCompileResources:
+      override def scalaVersion = build.Config.scalaVersion
+      override def moduleDeps = Seq(build.db.jvm, build.scautable.jvm)
+      override def mvnDeps = super.mvnDeps() ++ Seq(
+        // H2 is test-scope only — users supply their own driver at runtime.
+        mvn"com.h2database:h2:2.3.232"
+      )
+    end jvm
+  end test
+
+end `package`
