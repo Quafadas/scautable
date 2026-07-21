@@ -11,11 +11,9 @@ import io.github.quafadas.scautable.scalasql.*
 
 ## Connection configuration
 
-Schema inference (compile time) and the runtime `DbApi` are both configured from the same three names, resolved in priority order:
+Schema inference (compile time) and the runtime `DbApi` are both configured from the same three environment variables:
 
-1. Live env vars / JVM system properties: `SCAUTABLE_DB_URL`, `SCAUTABLE_DB_USER`, `SCAUTABLE_DB_PASSWORD`.
-2. A filesystem schema snapshot (for CI / offline compilation).
-3. A classpath schema snapshot committed alongside your source.
+`SCAUTABLE_DB_URL`, `SCAUTABLE_DB_USER`, `SCAUTABLE_DB_PASSWORD`.
 
 You select a dialect via a `DbFlavour` marker type (`H2`, `Postgres`, ...) — this determines both the scalasql dialect used to build queries and which `TypeMapper`s are summoned for each column.
 
@@ -27,9 +25,23 @@ You select a dialect via a `DbFlavour` marker type (`H2`, `Postgres`, ...) — t
 import io.github.quafadas.scautable.db.*
 import io.github.quafadas.scautable.scalasql.*
 
-val countries = DB.sqlTable[H2]("country")
-// countries: NamedTupleTable[("iso3", "name", "population", "area_km2", "is_island"),
+@main def run(): Unit = {
+  val db = DB.connection[Postgres]("boo")
+  val country  = DB.sqlTable[Postgres]("country")
+  // country: NamedTupleTable[("iso3", "name", "population", "area_km2", "is_island"),
 //                            (String, String, Option[Long], Double, Boolean)]
+  val city  = DB.sqlTable[Postgres]("city")
+  val countrylanguage  = DB.sqlTable[Postgres]("countrylanguage")
+
+  db.run(country.select.take(10)).ptbln
+
+  db.run(city.select.take(10)).ptbln
+  db.run(countrylanguage.select.take(10)).ptbln
+
+  db.run(city.select.sumBy(_.population))
+}
+
+
 ```
 
 Constructing `countries` never opens a network connection — it only runs at compile time against the schema-inference connection (or a snapshot).
