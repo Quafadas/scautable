@@ -220,3 +220,31 @@ end NamedTupleTable
   */
 inline given initNTMetadata[N <: Tuple, Vals <: Tuple]: Table.Metadata[NTRow[N, Vals]] =
   NamedTupleTable.buildMetadata[N, Vals]
+
+/** Derives `Queryable.Row[NTRow[N, Vals][Expr], NTRow[N, Vals][Sc]]` for any `NamedTupleTable[N, Vals]` row.
+  *
+  * scalasql's aggregate operations (`sumBy`, `avgBy`, `minBy`, `maxBy`, `countBy`, ...) are reached via an
+  * implicit conversion from `Aggregatable[Q]` to `AggOps[Q]` (e.g. `PostgresDialect.AggOpsConv`), which needs
+  * a *fresh*, ambient `Queryable.Row[Q, ?]` for the row type `Q` — separate from the one already embedded in
+  * the table's `Table.Metadata`, which is only used internally to build the `Select`. Without this given,
+  * implicit search falls back to scalasql's single-column `Expr.ExprQueryable`, which cannot unify with a
+  * multi-column `NamedTuple` row and fails with "extension method could not be fully constructed".
+  *
+  * Reuses the already-resolved `Table.Metadata` (rather than re-deriving from scratch) so it works equally for
+  * hand-coded and macro-generated (`DB.sqlTable`) tables.
+  *
+  * Brought into scope automatically by:
+  * {{{
+  * import io.github.quafadas.scautable.scalasql.given
+  * // or
+  * import io.github.quafadas.scautable.scalasql.*
+  * }}}
+  */
+given initNTQueryableRow[N <: Tuple, Vals <: Tuple](using
+    meta: Table.Metadata[NTRow[N, Vals]],
+    dialect: DialectTypeMappers
+): Queryable.Row[NTRow[N, Vals][Expr], NTRow[N, Vals][Sc]] =
+  val proxy = new Table.Metadata.QueryableProxy(i => meta.queryables(dialect, i))
+  meta
+    .queryable(meta.walkLabels0, dialect, proxy)
+    .asInstanceOf[Queryable.Row[NTRow[N, Vals][Expr], NTRow[N, Vals][Sc]]]

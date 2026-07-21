@@ -58,7 +58,10 @@ private object SqlTableMacro:
       case other       =>
         report.throwError(s"Invalid table name: '$tableName'. Use 'table' or 'schema.table'.")
 
-    val cols = readSchema(s"table:$tableName", () => withConnection(conn => SchemaReader.forTable(conn, schema, table)))
+    val cols = readSchema(s"table:$tableName", (url, user, pass) =>
+      val conn = ConnectionResolver.openConnectionWith(url, user, pass)
+      SchemaReader.forTable(conn, schema, table)
+    )
 
     buildSqlTableExpr(cols, table, schema, fdExpr)
   end sqlTableImpl
@@ -67,11 +70,11 @@ private object SqlTableMacro:
   // Helpers (mirror the private helpers in DB)
   // ---------------------------------------------------------------------------
 
-  private def readSchema(key: String, live: () => Seq[ColumnMeta])(using q: Quotes): Seq[ColumnMeta] =
+  private def readSchema(key: String, live: (String, Option[String], Option[String]) => Seq[ColumnMeta])(using q: Quotes): Seq[ColumnMeta] =
     import q.reflect.*
     ConnectionResolver.resolveAtCompileTime() match
-      case Some(_) =>
-        try live()
+      case Some((url, user, pass)) =>
+        try live(url, user, pass)
         catch
           case ex: Exception =>
             report.throwError(s"Schema read failed: ${ex.getMessage}")

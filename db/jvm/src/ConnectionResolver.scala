@@ -72,7 +72,7 @@ object ConnectionResolver:
     *
     * We walk candidate classloaders in priority order, find the first that can see a driver for `url`, and connect directly — bypassing `DriverManager` entirely.
     */
-  private[db] def openConnectionWith(
+  def openConnectionWith(
       url: String,
       user: Option[String],
       pass: Option[String]
