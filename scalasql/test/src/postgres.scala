@@ -9,6 +9,8 @@ import scala.io.Source
 import java.sql.DriverManager
 import org.testcontainers.utility.DockerImageName
 
+import com.eed3si9n.eval.Eval
+
 class PgSpec extends FunSuite with TestContainerForAll:
 
   override val containerDef = PostgreSQLContainer.Def(
@@ -29,6 +31,11 @@ class PgSpec extends FunSuite with TestContainerForAll:
       val createTable = "CREATE TABLE test_table (id SERIAL PRIMARY KEY, name VARCHAR(50), town text, something double precision);"
       statement.execute(createTable)
 
+      val code = s"""1 == "a" """.stripMargin
+
+      val x = Eval[Unit]("""println("hi")""")
+
     }
   }
+
 end PgSpec
