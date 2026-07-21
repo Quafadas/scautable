@@ -34,7 +34,7 @@ type NTRow[N <: Tuple, Vals <: Tuple] = [T[_]] =>> NamedTuple[N, Tuple.Map[Vals,
   * // Macro infers schema at compile time; `DB.connection` returns a live DbApi
   * // wired from SCAUTABLE_DB_URL / _USER / _PASSWORD, connected lazily on first use.
   * val countries = DB.sqlTable[H2]("country")
-  * val db = DB.connection[H2]("country")
+  * val db = DB.connection[H2]
   *
   * // Full scalasql DSL:
   * val big = db.run(countries.select.filter(_.population > 1_000_000))
