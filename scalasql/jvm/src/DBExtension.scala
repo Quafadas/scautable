@@ -17,6 +17,7 @@ import scalasql.core.{Queryable, DialectTypeMappers, Expr as SExpr}
   * import io.github.quafadas.scautable.scalasql.*
   *
   * // Schema inferred at compile time; `connection` returns a live DbApi built from the same
+  * // Schema inferred at compile time; `connection` returns a live DbApi built from the same
   * // SCAUTABLE_DB_URL / _USER / _PASSWORD env vars, connected lazily on first use.
   * val countries = DB.sqlTable[H2]("country")
   * // countries: NamedTupleTable[("iso3","name","population","area_km2","is_island"),
