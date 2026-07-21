@@ -46,7 +46,7 @@ jobs:
         run: ./mill -i scautable.${{ matrix.platform }}.publishArtifacts
       - name: Run db tests
         if: matrix.platform == 'jvm'
-        run: ./mill scalasql.test.jvm.test        
+        run: ./mill scalasql.test.jvm        
         
       
       - name: Publish Test Report
