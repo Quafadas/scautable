@@ -6,26 +6,43 @@ import java.sql.DriverManager
 import scalasql.query.{Table, TableRef, Column}
 import scalasql.core.{Queryable, DialectTypeMappers, Expr as SExpr}
 
-/** Extension point on the `DB` object that adds the `sqlTable` macro.
+/** Extension point on the `DB` object that adds the `sqlTable` / `connection` macros.
   *
   * Because this macro needs to reference `NamedTupleTable` (from `scautable-scalasql`) at splice time, it lives in the `scalasql` module rather than `db`. Import both modules and
-  * then call `DB.sqlTable[F]("tableName")`.
+  * then call `DB.sqlTable[F]("tableName")` and, separately, `DB.connection[F]("tableName")`.
   *
   * ==Usage==
   * {{{
   * import io.github.quafadas.scautable.db.*
   * import io.github.quafadas.scautable.scalasql.*
   *
-  * // Schema inferred at compile time; `db` is a live DbApi built from the same
+  * // Schema inferred at compile time; `connection` returns a live DbApi built from the same
   * // SCAUTABLE_DB_URL / _USER / _PASSWORD env vars, connected lazily on first use.
-  * val (db, countries) = DB.sqlTable[H2]("country")
+  * val countries = DB.sqlTable[H2]("country")
   * // countries: NamedTupleTable[("iso3","name","population","area_km2","is_island"),
   * //                             (String,String,Option[Long],Double,Boolean)]
+  * val db = DB.connection[H2]("country")
   *
   * db.run(countries.select.filter(_.population > 1_000_000))
   * }}}
   */
 extension (db: io.github.quafadas.scautable.db.DB.type)
+  /** Infer the schema of `tableName` from the live database at compile time and return just the `NamedTupleTable` — no connection is opened or wired up. Use `DB.connection` to
+    * obtain a matching `DbApi`.
+    */
+  transparent inline def sqlTable[F <: DbFlavour](inline tableName: String)(using
+        fd: FlavourDialect[F]
+    ): Any =
+      ${ SqlTableMacro.tableOnlyImpl[F]('tableName, 'fd) }
+
+  /** A lazily-connecting `DbApi` wired from `SCAUTABLE_DB_URL` / `_USER` / `_PASSWORD`, matching the schema-inference connection used by `DB.sqlTable`. Constructing it never
+    * touches the network.
+    */
+  transparent inline def connection[F <: DbFlavour](inline tableName: String)(using
+      fd: FlavourDialect[F]
+  ): Any =
+    ${ SqlTableMacro.connectionOnlyImpl[F]('tableName, 'fd) }
+
   /** Infer the schema of `tableName` from the live database at compile time and return a `(DbApi, NamedTupleTable)` pair: a lazily-connecting `DbApi` wired from the same
     * connection env vars as the schema inference, and a `NamedTupleTable` that enables the full scalasql push-down query DSL.
     *
@@ -35,7 +52,7 @@ extension (db: io.github.quafadas.scautable.db.DB.type)
     * Schema (compile time): live env vars → filesystem snapshot → classpath snapshot, same priority order as `DB.table`. Runtime `DbApi`: opened lazily from `SCAUTABLE_DB_URL` /
     * `_USER` / `_PASSWORD` on first use — constructing the pair never touches the network.
     */
-  transparent inline def sqlTable[F <: DbFlavour](inline tableName: String)(using
+  transparent inline def sqlConnectionAndTable[F <: DbFlavour](inline tableName: String)(using
       fd: FlavourDialect[F]
   ): Any =
     ${ SqlTableMacro.sqlTableImpl[F]('tableName, 'fd) }
@@ -67,6 +84,22 @@ private object SqlTableMacro:
 
     buildSqlTableExpr(cols, table, schema, fdExpr)
   end sqlTableImpl
+
+  def tableOnlyImpl[F <: DbFlavour: Type](
+      tableNameExpr: Expr[String],
+      fdExpr: Expr[FlavourDialect[F]]
+  )(using q: Quotes): Expr[Any] =
+    sqlTableImpl[F](tableNameExpr, fdExpr) match
+      case '{ $t: (_, r) } => '{ $t._2 }
+  end tableOnlyImpl
+
+  def connectionOnlyImpl[F <: DbFlavour: Type](
+      tableNameExpr: Expr[String],
+      fdExpr: Expr[FlavourDialect[F]]
+  )(using q: Quotes): Expr[Any] =
+    sqlTableImpl[F](tableNameExpr, fdExpr) match
+      case '{ $t: (l, _) } => '{ $t._1 }
+  end connectionOnlyImpl
 
   // ---------------------------------------------------------------------------
   // Helpers (mirror the private helpers in DB)
