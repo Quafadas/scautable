@@ -16,6 +16,8 @@ trait H2FixtureScalasql extends munit.FunSuite:
     val conn = DriverManager.getConnection(jdbcUrl)
     try f(conn)
     finally conn.close()
+    end try
+  end withConn
 
   /** A scalasql DbClient using the test H2 database.
     *
@@ -58,6 +60,7 @@ trait H2FixtureScalasql extends munit.FunSuite:
             |""".stripMargin
         )
     }
+  end beforeAll
 
   override def afterAll(): Unit =
     db.close()
@@ -65,6 +68,7 @@ trait H2FixtureScalasql extends munit.FunSuite:
       conn.createStatement().execute("DROP TABLE IF EXISTS country")
     }
     super.afterAll()
+  end afterAll
 end H2FixtureScalasql
 
 // ---------------------------------------------------------------------------
@@ -81,7 +85,7 @@ class NamedTupleTableSuite extends H2FixtureScalasql:
 
   // Hard-coded table object — Phase 2 spike (no macro)
   type CountryNames = ("iso3", "name", "population", "area_km2", "is_island")
-  type CountryVals  = (String, String, Option[Long], Double, Boolean)
+  type CountryVals = (String, String, Option[Long], Double, Boolean)
 
   object country extends NamedTupleTable[CountryNames, CountryVals]("country")
 
@@ -94,7 +98,7 @@ class NamedTupleTableSuite extends H2FixtureScalasql:
 
   test("R1: row fields accessible by name") {
     val rows = db.run(country.select)
-    val firstIso: String       = rows.head.iso3
+    val firstIso: String = rows.head.iso3
     val firstPop: Option[Long] = rows.head.population
     assert(firstIso.nonEmpty, "iso3 should be non-empty")
     assert(firstPop.isDefined || firstPop.isEmpty, "population can be Some or None")
@@ -137,11 +141,11 @@ class NamedTupleTableSuite extends H2FixtureScalasql:
   test("R3: insert.columns then select") {
     db.run(
       country.insert.columns(
-        _.iso3       := "AUS",
-        _.name       := "Australia",
+        _.iso3 := "AUS",
+        _.name := "Australia",
         _.population := Some(26_000_000L),
-        _.area_km2   := 7_692_024.0,
-        _.is_island  := true
+        _.area_km2 := 7_692_024.0,
+        _.is_island := true
       )
     )
     val result = db.run(country.select.filter(_.iso3 === "AUS"))
@@ -162,11 +166,11 @@ class NamedTupleTableSuite extends H2FixtureScalasql:
   test("R3: delete with filter") {
     db.run(
       country.insert.columns(
-        _.iso3       := "TST",
-        _.name       := "TestLand",
+        _.iso3 := "TST",
+        _.name := "TestLand",
         _.population := None,
-        _.area_km2   := 1.0,
-        _.is_island  := false
+        _.area_km2 := 1.0,
+        _.is_island := false
       )
     )
     val countBefore = db.run(country.select).length
@@ -189,30 +193,57 @@ class NamedTupleTableSuite extends H2FixtureScalasql:
   test("R6: 25-column table compiles and reads correctly") {
     withConn { conn =>
       conn.createStatement().execute("DROP TABLE IF EXISTS wide")
-      conn.createStatement().execute(
-        """CREATE TABLE wide (
+      conn
+        .createStatement()
+        .execute(
+          """CREATE TABLE wide (
           |  c01 INT, c02 INT, c03 INT, c04 INT, c05 INT,
           |  c06 INT, c07 INT, c08 INT, c09 INT, c10 INT,
           |  c11 INT, c12 INT, c13 INT, c14 INT, c15 INT,
           |  c16 INT, c17 INT, c18 INT, c19 INT, c20 INT,
           |  c21 INT, c22 INT, c23 INT, c24 INT, c25 INT
           |)""".stripMargin
-      )
-      conn.createStatement().execute(
-        "INSERT INTO wide VALUES (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25)"
-      )
+        )
+      conn
+        .createStatement()
+        .execute(
+          "INSERT INTO wide VALUES (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25)"
+        )
     }
-    type WN = ("c01","c02","c03","c04","c05","c06","c07","c08","c09","c10",
-               "c11","c12","c13","c14","c15","c16","c17","c18","c19","c20",
-               "c21","c22","c23","c24","c25")
-    type WV = (Int,Int,Int,Int,Int,Int,Int,Int,Int,Int,Int,Int,Int,Int,Int,
-               Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)
+    type WN = (
+        "c01",
+        "c02",
+        "c03",
+        "c04",
+        "c05",
+        "c06",
+        "c07",
+        "c08",
+        "c09",
+        "c10",
+        "c11",
+        "c12",
+        "c13",
+        "c14",
+        "c15",
+        "c16",
+        "c17",
+        "c18",
+        "c19",
+        "c20",
+        "c21",
+        "c22",
+        "c23",
+        "c24",
+        "c25"
+    )
+    type WV = (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)
     object wide extends NamedTupleTable[WN, WV]("wide")
     val rows = db.run(wide.select)
     assertEquals(rows.length, 1)
     assertEquals(rows.head.c01, 1)
     assertEquals(rows.head.c25, 25)
-    withConn { conn => conn.createStatement().execute("DROP TABLE IF EXISTS wide") }
+    withConn(conn => conn.createStatement().execute("DROP TABLE IF EXISTS wide"))
   }
 
 end NamedTupleTableSuite

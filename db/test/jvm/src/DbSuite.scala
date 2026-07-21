@@ -12,6 +12,8 @@ trait H2Fixture extends munit.FunSuite:
     val conn = DriverManager.getConnection(jdbcUrl)
     try f(conn)
     finally conn.close()
+    end try
+  end withConn
 
   override def beforeAll(): Unit =
     super.beforeAll()
@@ -38,12 +40,14 @@ trait H2Fixture extends munit.FunSuite:
             |""".stripMargin
         )
     }
+  end beforeAll
 
   override def afterAll(): Unit =
     withConn { conn =>
       conn.createStatement().execute("DROP TABLE IF EXISTS country")
     }
     super.afterAll()
+  end afterAll
 end H2Fixture
 
 class SchemaReaderSuite extends H2Fixture:
@@ -53,11 +57,13 @@ class SchemaReaderSuite extends H2Fixture:
       val cols = SchemaReader.forTable(conn, None, "COUNTRY")
       assertEquals(cols.length, 5)
 
-      val iso3 = cols.find(_.name.equalsIgnoreCase("iso3"))
+      val iso3 = cols
+        .find(_.name.equalsIgnoreCase("iso3"))
         .getOrElse(fail("iso3 column not found in schema"))
       assertEquals(iso3.nullable, false)
 
-      val pop = cols.find(_.name.equalsIgnoreCase("population"))
+      val pop = cols
+        .find(_.name.equalsIgnoreCase("population"))
         .getOrElse(fail("population column not found in schema"))
       assertEquals(pop.nullable, true) // BIGINT without NOT NULL -> nullable
 
@@ -163,11 +169,11 @@ class JdbcRowDecoderSuite extends H2Fixture:
   test("decodeRow returns typed tuple with correct values from ResultSet") {
     withConn { conn =>
       val stmt = conn.createStatement()
-      val rs   = stmt.executeQuery("SELECT iso3, name, population FROM COUNTRY WHERE iso3='GBR'")
+      val rs = stmt.executeQuery("SELECT iso3, name, population FROM COUNTRY WHERE iso3='GBR'")
       rs.next()
       type Row = (String, String, Option[Long])
       val decoder = summon[JdbcRowDecoder[Row]]
-      val row     = decoder.decodeRow(rs)
+      val row = decoder.decodeRow(rs)
       assertEquals(row._1, "GBR")
       assertEquals(row._2, "United Kingdom")
       assertEquals(row._3, Some(67000000L))
@@ -181,7 +187,7 @@ class DbIteratorSuite extends H2Fixture:
   test("DbIterator reads all rows in order from ResultSet") {
     withConn { conn =>
       val stmt = conn.createStatement()
-      val rs   = stmt.executeQuery("SELECT iso3, name FROM COUNTRY ORDER BY iso3")
+      val rs = stmt.executeQuery("SELECT iso3, name FROM COUNTRY ORDER BY iso3")
       type K = ("iso3", "name")
       type V = (String, String)
       val iter = new DbIterator[K, V](() => (conn, stmt, rs))
@@ -194,7 +200,7 @@ class DbIteratorSuite extends H2Fixture:
   test("DbIterator closes resources on exhaustion") {
     withConn { conn =>
       val stmt = conn.createStatement()
-      val rs   = stmt.executeQuery("SELECT iso3 FROM COUNTRY")
+      val rs = stmt.executeQuery("SELECT iso3 FROM COUNTRY")
       type K = Tuple1["iso3"]
       type V = Tuple1[String]
       val iter = new DbIterator[K, V](() => (conn, stmt, rs))
@@ -207,7 +213,7 @@ class DbIteratorSuite extends H2Fixture:
   test("DbIterator works with ptbln via ConsoleFormat") {
     withConn { conn =>
       val stmt = conn.createStatement()
-      val rs   = stmt.executeQuery("SELECT iso3, name FROM COUNTRY")
+      val rs = stmt.executeQuery("SELECT iso3, name FROM COUNTRY")
       type K = ("iso3", "name")
       type V = (String, String)
       val iter = new DbIterator[K, V](() => (conn, stmt, rs))
@@ -226,8 +232,8 @@ class SchemaSnapshotSuite extends munit.FunSuite:
 
   test("round-trip: renderJson / parseSnapshotJson") {
     val cols = Seq(
-      ColumnMeta("id",   java.sql.Types.INTEGER, "integer", false, 1),
-      ColumnMeta("name", java.sql.Types.VARCHAR, "varchar", true,  2)
+      ColumnMeta("id", java.sql.Types.INTEGER, "integer", false, 1),
+      ColumnMeta("name", java.sql.Types.VARCHAR, "varchar", true, 2)
     )
     val json = SchemaSnapshot.renderJson(Map("mykey" -> cols))
     val parsed = SchemaSnapshot.parseSnapshotJson(json, "mykey")
@@ -244,11 +250,9 @@ end SchemaSnapshotSuite
 
 /** Macro-based tests that compile DB.table / DB.query against the committed snapshot file.
   *
-  * The snapshot at `test/jvm/resources/scautable-db-schema.json` is picked up by the
-  * macro via the classpath (ShareCompileResources adds resources to the compile classpath).
+  * The snapshot at `test/jvm/resources/scautable-db-schema.json` is picked up by the macro via the classpath (ShareCompileResources adds resources to the compile classpath).
   *
-  * Runtime execution requires SCAUTABLE_DB_URL to be set to a running H2 instance.
-  * If it is not set, the runtime tests are skipped.
+  * Runtime execution requires SCAUTABLE_DB_URL to be set to a running H2 instance. If it is not set, the runtime tests are skipped.
   */
 class DbMacroSnapshotSuite extends munit.FunSuite:
 
@@ -278,22 +282,27 @@ class DbMacroSnapshotSuite extends munit.FunSuite:
     val setupConn = java.sql.DriverManager.getConnection(ConnectionResolver.lookup(ConnectionResolver.urlEnvVar).get)
     try
       setupConn.createStatement().execute("DROP TABLE IF EXISTS country")
-      setupConn.createStatement().execute(
-        """CREATE TABLE country (
+      setupConn
+        .createStatement()
+        .execute(
+          """CREATE TABLE country (
           |  iso3       CHAR(3)      NOT NULL PRIMARY KEY,
           |  name       VARCHAR(100) NOT NULL,
           |  population BIGINT,
           |  area_km2   DOUBLE       NOT NULL,
           |  is_island  BOOLEAN      NOT NULL
           |)""".stripMargin
-      )
-      setupConn.createStatement().execute(
-        "INSERT INTO country VALUES ('GBR', 'United Kingdom', 67000000, 242495.0, false)"
-      )
+        )
+      setupConn
+        .createStatement()
+        .execute(
+          "INSERT INTO country VALUES ('GBR', 'United Kingdom', 67000000, 242495.0, false)"
+        )
     finally setupConn.close()
+    end try
 
     val table2 = DB.table[H2]("country")
-    val rows   = table2.toSeq
+    val rows = table2.toSeq
     assert(rows.nonEmpty, "Expected at least one row")
     assertEquals(rows.head.iso3, "GBR")
   }

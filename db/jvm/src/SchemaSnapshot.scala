@@ -2,10 +2,8 @@ package io.github.quafadas.scautable.db
 
 /** A serialisable snapshot of the schema for a single table or query.
   *
-  * Snapshots are stored as JSON (one file per project, keyed by `key`) so that compiled code and
-  * CI can build without a live database connection.  The snapshot path is controlled by the
-  * `SCAUTABLE_DB_SNAPSHOT` system property or environment variable (defaults to
-  * `scautable-db-schema.json` in the working directory).
+  * Snapshots are stored as JSON (one file per project, keyed by `key`) so that compiled code and CI can build without a live database connection. The snapshot path is controlled
+  * by the `SCAUTABLE_DB_SNAPSHOT` system property or environment variable (defaults to `scautable-db-schema.json` in the working directory).
   *
   * Produce a snapshot with:
   * {{{
@@ -52,10 +50,12 @@ object SchemaSnapshot:
   // ---------------------------------------------------------------------------
 
   private[db] def renderJson(snapshots: Map[String, Seq[ColumnMeta]]): String =
-    val entries = snapshots.map { case (key, cols) =>
-      val colsJson = cols.map(colJson).mkString(",\n      ")
-      s"""  ${jsonStr(key)}: [\n      $colsJson\n    ]"""
-    }.mkString(",\n")
+    val entries = snapshots
+      .map { case (key, cols) =>
+        val colsJson = cols.map(colJson).mkString(",\n      ")
+        s"""  ${jsonStr(key)}: [\n      $colsJson\n    ]"""
+      }
+      .mkString(",\n")
     s"{\n$entries\n}"
   end renderJson
 
@@ -77,9 +77,9 @@ object SchemaSnapshot:
       // Start scanning from the '[' (at m.end - 1) to properly track bracket depth,
       // but extract content starting at m.end (first character after '[').
       var depth = 0
-      var i     = m.end - 1 // index of the opening '[' in content
-      val start = m.end     // first character inside the array (after '[')
-      var end   = start
+      var i = m.end - 1 // index of the opening '[' in content
+      val start = m.end // first character inside the array (after '[')
+      var end = start
       var found = false
       while i < content.length && !found do
         content(i) match
@@ -87,9 +87,11 @@ object SchemaSnapshot:
           case ']' =>
             depth -= 1
             if depth == 0 then
-              end   = i
+              end = i
               found = true
+            end if
           case _ => ()
+        end match
         i += 1
       end while
       val arrayContent = content.substring(start, end)
@@ -107,20 +109,24 @@ object SchemaSnapshot:
     def extract(field: String): Option[String] =
       val pat = s""""$field"\\s*:\\s*"([^"]*)"""".r
       pat.findFirstMatchIn(obj).map(_.group(1))
+    end extract
     def extractNum(field: String): Option[Int] =
       val pat = s""""$field"\\s*:\\s*(-?\\d+)""".r
       pat.findFirstMatchIn(obj).map(_.group(1).toInt)
+    end extractNum
     def extractBool(field: String): Option[Boolean] =
       val pat = s""""$field"\\s*:\\s*(true|false)""".r
       pat.findFirstMatchIn(obj).map(_.group(1).toBoolean)
+    end extractBool
 
     for
-      name       <- extract("name")
-      jdbcType   <- extractNum("jdbcType")
+      name <- extract("name")
+      jdbcType <- extractNum("jdbcType")
       dbTypeName <- extract("dbTypeName")
-      nullable   <- extractBool("nullable")
-      position   <- extractNum("position")
+      nullable <- extractBool("nullable")
+      position <- extractNum("position")
     yield ColumnMeta(name, jdbcType, dbTypeName, nullable, position)
+    end for
   end parseColumnMeta
 
 end SchemaSnapshot

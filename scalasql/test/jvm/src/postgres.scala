@@ -9,7 +9,7 @@ import scala.io.Source
 import java.sql.DriverManager
 import org.testcontainers.utility.DockerImageName
 
-class PgSpec extends FunSuite with TestContainerForAll {
+class PgSpec extends FunSuite with TestContainerForAll:
 
   override val containerDef = PostgreSQLContainer.Def(
     dockerImageName = DockerImageName.parse("postgres:15.1"),
@@ -25,4 +25,4 @@ class PgSpec extends FunSuite with TestContainerForAll {
       assert(!connection.isClosed())
     }
   }
-}
+end PgSpec

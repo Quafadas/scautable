@@ -7,8 +7,7 @@ import scala.collection.mutable.ArrayBuffer
 
 /** Reads schema information from a live JDBC connection.
   *
-  * All methods are pure functions over a live [[java.sql.Connection]] — they perform no writes and
-  * leave the connection open.
+  * All methods are pure functions over a live [[java.sql.Connection]] — they perform no writes and leave the connection open.
   */
 object SchemaReader:
 
@@ -57,9 +56,8 @@ object SchemaReader:
 
   /** Returns column metadata for an arbitrary SQL query via a prepared statement.
     *
-    * The statement is **never executed** — only `PreparedStatement.getMetaData` is called. This is
-    * the DB path's key advantage over CSV: schema inference for arbitrary SQL text with no data
-    * read.
+    * The statement is **never executed** — only `PreparedStatement.getMetaData` is called. This is the DB path's key advantage over CSV: schema inference for arbitrary SQL text
+    * with no data read.
     *
     * @param conn
     *   An open JDBC connection. Not closed by this method.
@@ -94,6 +92,7 @@ object SchemaReader:
       end for
       buf.toSeq
     finally stmt.close()
+    end try
   end forQuery
 
   // ---------------------------------------------------------------------------
@@ -106,6 +105,7 @@ object SchemaReader:
       val rs = md.getTables(null, schema.orNull, "%", Array("TABLE", "VIEW"))
       val all = ArrayBuffer.empty[String]
       while rs.next() do all += rs.getString("TABLE_NAME")
+      end while
       rs.close()
       val lower = table.toLowerCase
       all.filter(t => t.toLowerCase.contains(lower) || levenshtein(t.toLowerCase, lower) <= 3).toSeq
@@ -117,7 +117,9 @@ object SchemaReader:
     val n = b.length
     val dp = Array.ofDim[Int](m + 1, n + 1)
     for i <- 0 to m do dp(i)(0) = i
+    end for
     for j <- 0 to n do dp(0)(j) = j
+    end for
     for
       i <- 1 to m
       j <- 1 to n
@@ -125,6 +127,7 @@ object SchemaReader:
       dp(i)(j) =
         if a(i - 1) == b(j - 1) then dp(i - 1)(j - 1)
         else 1 + (dp(i - 1)(j) min dp(i)(j - 1) min dp(i - 1)(j - 1))
+    end for
     dp(m)(n)
   end levenshtein
 

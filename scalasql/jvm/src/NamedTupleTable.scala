@@ -12,10 +12,8 @@ import scala.annotation.nowarn
 
 /** The higher-kinded row-type for a NamedTuple table.
   *
-  * When `T = scalasql.Expr` the row is `NamedTuple[N, Tuple.Map[Vals, Expr]]` — an expression
-  * tuple usable inside scalasql queries. When `T = scalasql.Sc` (identity) the row is
-  * `NamedTuple[N, Tuple.Map[Vals, Sc]]` — effectively `NamedTuple[N, Vals]` returned from
-  * `db.run`.
+  * When `T = scalasql.Expr` the row is `NamedTuple[N, Tuple.Map[Vals, Expr]]` — an expression tuple usable inside scalasql queries. When `T = scalasql.Sc` (identity) the row is
+  * `NamedTuple[N, Tuple.Map[Vals, Sc]]` — effectively `NamedTuple[N, Vals]` returned from `db.run`.
   */
 type NTRow[N <: Tuple, Vals <: Tuple] = [T[_]] =>> NamedTuple[N, Tuple.Map[Vals, T]]
 
@@ -25,11 +23,10 @@ type NTRow[N <: Tuple, Vals <: Tuple] = [T[_]] =>> NamedTuple[N, Tuple.Map[Vals,
 
 /** A scalasql [[scalasql.query.Table]] whose row type is an anonymous `NamedTuple`.
   *
-  * Enables the full scalasql query DSL (select / filter / map / join / aggregate / insert /
-  * update / delete) on a table whose schema was inferred from a live JDBC database at compile
-  * time by `DB.sqlTable`. No case class, no codegen step.
+  * Enables the full scalasql query DSL (select / filter / map / join / aggregate / insert / update / delete) on a table whose schema was inferred from a live JDBC database at
+  * compile time by `DB.sqlTable`. No case class, no codegen step.
   *
-  * == Usage ==
+  * ==Usage==
   * {{{
   * import io.github.quafadas.scautable.db.*
   * import io.github.quafadas.scautable.scalasql.*
@@ -42,15 +39,18 @@ type NTRow[N <: Tuple, Vals <: Tuple] = [T[_]] =>> NamedTuple[N, Tuple.Map[Vals,
   * val big = db.run(countries.select.filter(_.population > 1_000_000))
   * }}}
   *
-  * == Identifier handling ==
-  * Table names are always quoted by the dialect's `escape` mechanism. Column names are passed
-  * through without transformation: configure your `scalasql.Config` with
+  * ==Identifier handling==
+  * Table names are always quoted by the dialect's `escape` mechanism. Column names are passed through without transformation: configure your `scalasql.Config` with
   * `columnNameMapper = identity` to prevent any camelCase-to-snake_case conversion.
   *
-  * @param ntName   The exact database table name.
-  * @param ntSchema Optional schema qualifier (e.g. `"public"` for PostgreSQL).
-  * @tparam N    Tuple of column-name string literals.
-  * @tparam Vals Tuple of Scala value types for each column.
+  * @param ntName
+  *   The exact database table name.
+  * @param ntSchema
+  *   Optional schema qualifier (e.g. `"public"` for PostgreSQL).
+  * @tparam N
+  *   Tuple of column-name string literals.
+  * @tparam Vals
+  *   Tuple of Scala value types for each column.
   */
 class NamedTupleTable[N <: Tuple, Vals <: Tuple](
     val ntName: String,
@@ -77,9 +77,8 @@ end NamedTupleTable
 // Custom Queryable.Row (avoids TableQueryable's <: Product bound)
 // ---------------------------------------------------------------------------
 
-/** A `Queryable.Row` for `NamedTuple` rows that does not require the result type to extend
-  * `Product`. This is necessary because `Table.Internal.TableQueryable[Q, R <: Product]` cannot
-  * prove `R = NTRow[N, Vals][Sc] <: Product` when `Vals` is abstract.
+/** A `Queryable.Row` for `NamedTuple` rows that does not require the result type to extend `Product`. This is necessary because `Table.Internal.TableQueryable[Q, R <: Product]`
+  * cannot prove `R = NTRow[N, Vals][Sc] <: Product` when `Vals` is abstract.
   */
 private final class NTQueryableRow[N <: Tuple, Vals <: Tuple](
     private val walkLabels0: () => Seq[String],
@@ -99,6 +98,7 @@ private final class NTQueryableRow[N <: Tuple, Vals <: Tuple](
   def construct(args: Queryable.ResultSetIterator): NTRow[N, Vals][Sc] =
     val data = (0 until rows.length).map(i => rows(i).construct(args).asInstanceOf[AnyRef])
     Tuple.fromIArray(IArray.unsafeFromArray(data.toArray)).asInstanceOf[NTRow[N, Vals][Sc]]
+  end construct
 
   def deconstruct(r: NTRow[N, Vals][Sc]): NTRow[N, Vals][Expr] =
     val data = r.toTuple.productIterator.toIndexedSeq.zipWithIndex.map { case (v, i) =>
@@ -106,6 +106,7 @@ private final class NTQueryableRow[N <: Tuple, Vals <: Tuple](
       rows(i).asInstanceOf[Queryable.Row[Expr[?], R]].deconstruct(v.asInstanceOf[R]).asInstanceOf[AnyRef]
     }
     Tuple.fromIArray(IArray.unsafeFromArray(data.toArray)).asInstanceOf[NTRow[N, Vals][Expr]]
+  end deconstruct
 end NTQueryableRow
 
 // ---------------------------------------------------------------------------
@@ -122,6 +123,7 @@ object NamedTupleTable:
     inline given [T]: ColRowFn[T] = mappers =>
       import mappers.given
       compiletime.summonInline[Queryable.Row[Expr[T], T]]
+  end ColRowFn
 
   /** Opaque deferred column maker. */
   opaque type ColMaker[T] = (DialectTypeMappers, TableRef, String) => Column[T]
@@ -131,28 +133,31 @@ object NamedTupleTable:
     inline given [T]: ColMaker[T] = (mappers, ref, name) =>
       import mappers.given
       new Column[T](ref, name)(using compiletime.summonInline[TypeMapper[T]])
+  end ColMaker
 
   /** Build `Table.Metadata[NTRow[N, Vals]]` from compile-time column type information.
     *
-    * Used by the `inline given initNTMetadata` for hand-coded tables.
-    * Not suitable for macros because it calls `constValueTuple[N]` and
-    * `compiletime.summonAll`, which fail when `N` or `Vals` contain intersection types
-    * (e.g. `n & Tuple` generated by a macro splice).
+    * Used by the `inline given initNTMetadata` for hand-coded tables. Not suitable for macros because it calls `constValueTuple[N]` and `compiletime.summonAll`, which fail when
+    * `N` or `Vals` contain intersection types (e.g. `n & Tuple` generated by a macro splice).
     */
   inline def buildMetadata[N <: Tuple, Vals <: Tuple]: Table.Metadata[NTRow[N, Vals]] =
     import NamedTupleTable.ColRowFn.given
     import NamedTupleTable.ColMaker.given
-    type RowFns    = Tuple.Map[Vals, ColRowFn]
+    type RowFns = Tuple.Map[Vals, ColRowFn]
     type ColMakers = Tuple.Map[Vals, ColMaker]
 
     val rowFns: IArray[DialectTypeMappers => Queryable.Row[Expr[?], ?]] =
       IArray.from(
-        compiletime.summonAll[RowFns].productIterator
+        compiletime
+          .summonAll[RowFns]
+          .productIterator
           .asInstanceOf[Iterator[DialectTypeMappers => Queryable.Row[Expr[?], ?]]]
       )
     val colMakers: IArray[(DialectTypeMappers, TableRef, String) => Column[?]] =
       IArray.from(
-        compiletime.summonAll[ColMakers].productIterator
+        compiletime
+          .summonAll[ColMakers]
+          .productIterator
           .asInstanceOf[Iterator[(DialectTypeMappers, TableRef, String) => Column[?]]]
       )
     val colNames: IArray[String] =
@@ -163,10 +168,8 @@ object NamedTupleTable:
 
   /** Build `Table.Metadata` from explicit runtime arrays.
     *
-    * Used by the `DB.sqlTable` macro which cannot call `constValueTuple` or
-    * `compiletime.summonAll` from inside a quote splice.  The macro constructs
-    * per-column `rowFn` and `colMaker` closures inside the quoted expression and
-    * passes them here at runtime.
+    * Used by the `DB.sqlTable` macro which cannot call `constValueTuple` or `compiletime.summonAll` from inside a quote splice. The macro constructs per-column `rowFn` and
+    * `colMaker` closures inside the quoted expression and passes them here at runtime.
     */
   def buildMetadataFrom[N <: Tuple, Vals <: Tuple](
       colNames: IArray[String],
@@ -195,6 +198,7 @@ object NamedTupleTable:
         colMakers(i)(mappers, ref, name).asInstanceOf[AnyRef]
       }
       Tuple.fromIArray(data).asInstanceOf[NTRow[N, Vals][Column]]
+    end vExpr0
 
     new Table.Metadata[NTRow[N, Vals]](queryables, walkLabels0, buildQueryable, vExpr0)
   end buildMetadataFrom
