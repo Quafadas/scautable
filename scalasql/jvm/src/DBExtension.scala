@@ -58,9 +58,11 @@ private object SqlTableMacro:
       case other       =>
         report.throwError(s"Invalid table name: '$tableName'. Use 'table' or 'schema.table'.")
 
-    val cols = readSchema(s"table:$tableName", (url, user, pass) =>
-      val conn = ConnectionResolver.openConnectionWith(url, user, pass)
-      SchemaReader.forTable(conn, schema, table)
+    val cols = readSchema(
+      s"table:$tableName",
+      (url, user, pass) =>
+        val conn = ConnectionResolver.openConnectionWith(url, user, pass)
+        SchemaReader.forTable(conn, schema, table)
     )
 
     buildSqlTableExpr(cols, table, schema, fdExpr)
