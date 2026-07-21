@@ -1,7 +1,9 @@
 package io.github.quafadas.scautable.db
 
 import java.sql.ResultSet
-import java.time.{Instant, LocalDate, LocalDateTime}
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
 import java.util.UUID
 
 /** Typeclass for reading a single column from a [[java.sql.ResultSet]] by 1-based index.

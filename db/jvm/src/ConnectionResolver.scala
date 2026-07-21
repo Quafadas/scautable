@@ -1,6 +1,8 @@
 package io.github.quafadas.scautable.db
 
-import java.sql.{Connection, DriverManager}
+import java.sql.Connection
+import java.sql.DriverManager
+
 import scala.jdk.CollectionConverters.*
 
 /** Resolves JDBC connection parameters from the environment.
@@ -35,7 +37,7 @@ object ConnectionResolver:
     */
   def resolveAtCompileTime(lookup: String => Option[String] = lookup): Option[(String, Option[String], Option[String])] =
     lookup(urlEnvVar).map { url =>
-      (url, lookup(userEnvVar), lookup(passwordEnvVar))
+      (url = url, user = lookup(userEnvVar), password = lookup(passwordEnvVar))
     }
   end resolveAtCompileTime
 
@@ -55,7 +57,7 @@ object ConnectionResolver:
   def openConnection(): Connection =
     val url = lookup(urlEnvVar).getOrElse(throw new IllegalStateException(
       s"Neither system property nor environment variable '$urlEnvVar' is set. " +
-        s"Set it to a JDBC URL such as 'jdbc:h2:mem:test;DB_CLOSE_DELAY=-1'."
+        "Set it to a JDBC URL such as 'jdbc:h2:mem:test;DB_CLOSE_DELAY=-1'."
     ))
     openConnectionWith(url, lookup(userEnvVar), lookup(passwordEnvVar))
   end openConnection

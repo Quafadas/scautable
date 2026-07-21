@@ -1,6 +1,9 @@
 package io.github.quafadas.scautable.db
 
-import java.sql.{Connection, ResultSet, Statement}
+import java.sql.Connection
+import java.sql.ResultSet
+import java.sql.Statement
+
 import scala.NamedTuple.*
 import scala.annotation.publicInBinary
 

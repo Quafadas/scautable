@@ -1,6 +1,8 @@
 package io.github.quafadas.scautable.db
 
-import java.sql.{Connection, ResultSet}
+import java.sql.Connection
+import java.sql.ResultSet
+
 import scala.collection.mutable.ArrayBuffer
 
 /** Reads schema information from a live JDBC connection.

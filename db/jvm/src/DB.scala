@@ -1,7 +1,8 @@
 package io.github.quafadas.scautable.db
 
-import scala.quoted.*
 import java.sql.Connection
+
+import scala.quoted.*
 
 /** Entry point for compile-time database schema inference.
   *

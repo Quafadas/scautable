@@ -1,7 +1,9 @@
 package io.github.quafadas.scautable.db
 
 import java.sql.ResultSet
-import scala.compiletime.{erasedValue, summonInline}
+
+import scala.compiletime.erasedValue
+import scala.compiletime.summonInline
 
 /** Typeclass for decoding an entire row from a [[java.sql.ResultSet]] into a typed [[Tuple]].
   *
