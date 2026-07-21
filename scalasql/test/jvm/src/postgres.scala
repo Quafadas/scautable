@@ -29,10 +29,6 @@ class PgSpec extends FunSuite with TestContainerForAll:
       val createTable = "CREATE TABLE test_table (id SERIAL PRIMARY KEY, name VARCHAR(50), town text, something double precision);"
       statement.execute(createTable)
 
-
-
-
-
     }
   }
 end PgSpec
