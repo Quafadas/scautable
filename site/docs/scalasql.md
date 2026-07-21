@@ -2,11 +2,60 @@
 
 The `scalasql` module lets you point [scalasql](https://github.com/com-lihaoyi/scalasql) at a live JDBC database and get a fully typed, query-pushdown-capable table — schema inferred at *compile time*, no case class or codegen step required.
 
-Add both the `db` and `scalasql` modules, and bring both packages into scope:
+Assuming you have a postgres database running locally (e.g. [world](https://www.postgresql.org/ftp/projects/pgFoundry/dbsamples/world/)), that is identified by the following three variables;
+
+```bash
+"SCAUTABLE_DB_USER": "testuser",
+"SCAUTABLE_DB_PASSWORD": "testpass",
+"SCAUTABLE_DB_URL": "jdbc:postgresql://localhost:5432/testdb"
+```
+
+If you are using scala-cli, you should put these in `ide-envs.json`. Restart bloop - `scala-cli bloop exit`...
 
 ```scala
-import io.github.quafadas.scautable.db.*
+//> using dep io.github.quafadas::scautable-scalasql:0.0.37-5-22d216
+//> using compileOnly.dep io.github.quafadas::scautable-scalasql:0.0.37-5-22d216
+
+//> using dep org.postgresql:postgresql:42.7.13
+//> using compileOnly.dep org.postgresql:postgresql:42.7.13
+
 import io.github.quafadas.scautable.scalasql.*
+import io.github.quafadas.scautable.db.DB
+import io.github.quafadas.scautable.db.Postgres
+import scalasql.PostgresDialect.*
+import scalasql.simple.{*, given}
+import io.github.quafadas.table.*
+
+
+@main def run(): Unit = {
+  val db = DB.connection[Postgres]
+  val country  = DB.sqlTable[Postgres]("country")
+  val city  = DB.sqlTable[Postgres]("city")
+  val countrylanguage  = DB.sqlTable[Postgres]("countrylanguage")
+
+  db.run(country.select.take(10)).ptbln
+
+  db.run(city.select.take(10)).ptbln
+  db.run(countrylanguage.select.take(10)).ptbln
+
+  db.run(city.select.sumBy(_.population))
+}
+
+// TO CHECK IF YOUR CONNECTION IS WORKING, you can also use a raw JDBC connection:
+// val dataSource = new org.postgresql.ds.PGSimpleDataSource
+//   dataSource.setURL("jdbc:postgresql://localhost:5432/testdb");
+
+//   dataSource.setUser("testuser");
+//   dataSource.setPassword("testpass");
+
+// lazy val postgresClient = new scalasql.DbClient.DataSource(
+//   dataSource,
+//   config = new scalasql.Config {}
+// )
+
+// postgresClient.transaction { db =>
+//   db.runRaw[Int]("SELECT 1")
+// }
 ```
 
 ## Connection configuration
@@ -21,28 +70,6 @@ You select a dialect via a `DbFlavour` marker type (`H2`, `Postgres`, ...) — t
 
 `DB.sqlTable[F]("tableName")` reads the schema of `tableName` from the database at compile time and returns a `NamedTupleTable` — a scalasql `Table` whose row type is an anonymous `NamedTuple`. `tableName` may include a schema qualifier: `"schema.table"` or just `"table"`.
 
-```scala
-import io.github.quafadas.scautable.db.*
-import io.github.quafadas.scautable.scalasql.*
-
-@main def run(): Unit = {
-  val db = DB.connection[Postgres]("boo")
-  val country  = DB.sqlTable[Postgres]("country")
-  // country: NamedTupleTable[("iso3", "name", "population", "area_km2", "is_island"),
-//                            (String, String, Option[Long], Double, Boolean)]
-  val city  = DB.sqlTable[Postgres]("city")
-  val countrylanguage  = DB.sqlTable[Postgres]("countrylanguage")
-
-  db.run(country.select.take(10)).ptbln
-
-  db.run(city.select.take(10)).ptbln
-  db.run(countrylanguage.select.take(10)).ptbln
-
-  db.run(city.select.sumBy(_.population))
-}
-
-
-```
 
 Constructing `countries` never opens a network connection — it only runs at compile time against the schema-inference connection (or a snapshot).
 
