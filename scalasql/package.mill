@@ -3,6 +3,7 @@ package build.scalasql
 import mill.*
 import mill.scalalib.*
 import build.Config
+import mill.api.Task.Simple
 
 object `package` extends Module:
 
@@ -19,6 +20,13 @@ object `package` extends Module:
     object jvm extends ScalaModule with TestModule.Munit with build.CommonTests with build.ShareCompileResources:
       override def scalaVersion = build.Config.scalaVersion
       override def moduleDeps = Seq(build.scalasql.jvm, build.db.jvm)
+
+      override def forkEnv: Simple[Map[String, String]] = 
+        super.forkEnv() ++ Map(
+          // "SCAUTABLE_DB_URL" -> "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1",
+          "SCAUTABLE_DB_USER" -> "scala",
+          "SCAUTABLE_DB_PASSWORD" -> "scala"
+        )
       override def mvnDeps = super.mvnDeps() ++ Seq(
         mvn"com.h2database:h2:2.3.232",
         mvn"org.postgresql:postgresql:42.6.0",
