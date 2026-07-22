@@ -5,6 +5,7 @@ package io.github.quafadas.scautable.db
   * Built-in flavours:
   *   - [[Postgres]] — PostgreSQL via any JDBC driver
   *   - [[H2]] — H2 in-memory / file database (useful for tests and local dev)
+  *   - [[MsSqlServer]] — Microsoft SQL Server via any JDBC driver
   *
   * Connection parameters are read from JVM system properties or environment variables (system properties take precedence) at macro-expansion time:
   *   - `SCAUTABLE_DB_URL` — JDBC URL (required)
@@ -21,6 +22,9 @@ trait Postgres extends DbFlavour
 
 /** H2 flavour marker (in-memory or file). */
 trait H2 extends DbFlavour
+
+/** Microsoft SQL Server flavour marker. */
+trait MsSqlServer extends DbFlavour
 
 /** Generic / unknown flavour — uses standard JDBC type mapping without dialect-specific overrides.
   */

@@ -282,3 +282,24 @@ class DbSqlTableSuite extends H2FixtureScalasql:
   }
 
 end DbSqlTableSuite
+
+// ---------------------------------------------------------------------------
+// FlavourDialect resolution: each DbFlavour marker resolves to the expected
+// scalasql dialect object.
+// ---------------------------------------------------------------------------
+
+class FlavourDialectSuite extends munit.FunSuite:
+  import io.github.quafadas.scautable.db.{H2 as DbH2, Postgres as DbPostgres, MsSqlServer as DbMsSqlServer}
+
+  test("H2 flavour resolves to scalasql.H2Dialect") {
+    assertEquals(summon[FlavourDialect[DbH2]].dialect, scalasql.H2Dialect)
+  }
+
+  test("Postgres flavour resolves to scalasql.PostgresDialect") {
+    assertEquals(summon[FlavourDialect[DbPostgres]].dialect, scalasql.PostgresDialect)
+  }
+
+  test("MsSqlServer flavour resolves to scalasql.MsSqlDialect") {
+    assertEquals(summon[FlavourDialect[DbMsSqlServer]].dialect, scalasql.MsSqlDialect)
+  }
+end FlavourDialectSuite

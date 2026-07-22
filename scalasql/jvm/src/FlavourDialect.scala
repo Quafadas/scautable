@@ -1,7 +1,7 @@
 package io.github.quafadas.scautable.scalasql
 
 import scalasql.core.DialectConfig
-import io.github.quafadas.scautable.db.{DbFlavour, H2, Postgres}
+import io.github.quafadas.scautable.db.{DbFlavour, H2, MsSqlServer, Postgres}
 
 /** Maps a [[DbFlavour]] marker type to its scalasql dialect.
   *
@@ -18,5 +18,9 @@ object FlavourDialect:
 
   given FlavourDialect[Postgres] with
     def dialect: DialectConfig = scalasql.PostgresDialect
+  end given
+
+  given FlavourDialect[MsSqlServer] with
+    def dialect: DialectConfig = scalasql.MsSqlDialect
   end given
 end FlavourDialect
