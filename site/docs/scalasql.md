@@ -64,7 +64,7 @@ Schema inference (compile time) and the runtime `DbApi` are both configured from
 
 `SCAUTABLE_DB_URL`, `SCAUTABLE_DB_USER`, `SCAUTABLE_DB_PASSWORD`.
 
-You select a dialect via a `DbFlavour` marker type (`H2`, `Postgres`, ...) — this determines both the scalasql dialect used to build queries and which `TypeMapper`s are summoned for each column.
+You select a dialect via a `DbFlavour` marker type (`H2`, `Postgres`, `MsSqlServer`, ...) — this determines both the scalasql dialect used to build queries and which `TypeMapper`s are summoned for each column.
 
 ## `DB.sqlTable` — infer a table's schema
 
