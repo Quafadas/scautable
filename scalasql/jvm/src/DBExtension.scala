@@ -9,7 +9,7 @@ import scalasql.core.{Queryable, DialectTypeMappers, Expr as SExpr}
 /** Extension point on the `DB` object that adds the `sqlTable` / `connection` macros.
   *
   * Because this macro needs to reference `NamedTupleTable` (from `scautable-scalasql`) at splice time, it lives in the `scalasql` module rather than `db`. Import both modules and
-  * then call `DB.sqlTable[F]("tableName")` and, separately, `DB.connection[F]("tableName")`.
+  * then call `DB.sqlTable[F]("tableName")` and, separately, `DB.connection[F]`.
   *
   * ==Usage==
   * {{{
@@ -17,11 +17,12 @@ import scalasql.core.{Queryable, DialectTypeMappers, Expr as SExpr}
   * import io.github.quafadas.scautable.scalasql.*
   *
   * // Schema inferred at compile time; `connection` returns a live DbApi built from the same
+  * // Schema inferred at compile time; `connection` returns a live DbApi built from the same
   * // SCAUTABLE_DB_URL / _USER / _PASSWORD env vars, connected lazily on first use.
   * val countries = DB.sqlTable[H2]("country")
   * // countries: NamedTupleTable[("iso3","name","population","area_km2","is_island"),
   * //                             (String,String,Option[Long],Double,Boolean)]
-  * val db = DB.connection[H2]("country")
+  * val db = DB.connection[H2]
   *
   * db.run(countries.select.filter(_.population > 1_000_000))
   * }}}
@@ -35,13 +36,13 @@ extension (db: io.github.quafadas.scautable.db.DB.type)
   ): Any =
     ${ SqlTableMacro.tableOnlyImpl[F]('tableName, 'fd) }
 
-  /** A lazily-connecting `DbApi` wired from `SCAUTABLE_DB_URL` / `_USER` / `_PASSWORD`, matching the schema-inference connection used by `DB.sqlTable`. Constructing it never
-    * touches the network.
+  /** A lazily-connecting `DbApi` wired from `SCAUTABLE_DB_URL` / `_USER` / `_PASSWORD`, matching the connection used by `DB.sqlTable`. Constructing it never touches the network.
+    * Not table-specific, so no table name is needed here.
     */
-  transparent inline def connection[F <: DbFlavour](inline tableName: String)(using
+  transparent inline def connection[F <: DbFlavour](using
       fd: FlavourDialect[F]
   ): Any =
-    ${ SqlTableMacro.connectionOnlyImpl[F]('tableName, 'fd) }
+    ${ SqlTableMacro.connectionOnlyImpl[F]('fd) }
 
   /** Infer the schema of `tableName` from the live database at compile time and return a `(DbApi, NamedTupleTable)` pair: a lazily-connecting `DbApi` wired from the same
     * connection env vars as the schema inference, and a `NamedTupleTable` that enables the full scalasql push-down query DSL.
@@ -94,11 +95,18 @@ private object SqlTableMacro:
   end tableOnlyImpl
 
   def connectionOnlyImpl[F <: DbFlavour: Type](
-      tableNameExpr: Expr[String],
       fdExpr: Expr[FlavourDialect[F]]
   )(using q: Quotes): Expr[Any] =
-    sqlTableImpl[F](tableNameExpr, fdExpr) match
-      case '{ $t: (l, _) } => '{ $t._1 }
+    '{
+      val liveDb: scalasql.core.DbApi = new LazyDbApi(() =>
+        scalasql.DbClient
+          .Connection(ConnectionResolver.openConnection(), new scalasql.Config {})(using
+            $fdExpr.dialect
+          )
+          .getAutoCommitClientConnection
+      )
+      liveDb
+    }
   end connectionOnlyImpl
 
   // ---------------------------------------------------------------------------
