@@ -92,8 +92,9 @@ class TerminalTableSuite extends FunSuite:
     val lines = out.linesIterator.toList
     // top separator, header, separator, single data row, bottom separator - never more than one line per data row
     assertEquals(lines.length, 5)
-    val dataLines = lines.filter(l => !l.startsWith("+") && !l.startsWith("| col") && l.contains("y"))
-    assertEquals(dataLines.length, 1)
+    // by position: index 3 is the (single) data row for this one-row table, and it must be truncated, not wrapped
+    assert(lines(3).contains("y"))
+    assert(lines(3).contains("…"))
   }
 
   test("render - empty rows, headers only") {

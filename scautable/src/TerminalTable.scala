@@ -7,6 +7,9 @@ case class TableRow(cells: Seq[String])
   *
   * Unlike [[ConsoleFormat]], which always renders every cell at its natural width (and can therefore overflow arbitrarily wide terminals), `TerminalTable` shrinks columns to fit
   * the detected (or supplied) terminal width, truncating overflowing cell content with an ellipsis (`…`) rather than wrapping it onto additional lines.
+  *
+  * Width calculations use `String#length` (UTF-16 code units), not code-point-aware display width - correctness for wide (CJK) or zero-width/combining characters is not
+  * guaranteed, only that such content will not crash rendering.
   */
 object TerminalTable:
 

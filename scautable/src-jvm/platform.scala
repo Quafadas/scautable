@@ -19,6 +19,6 @@ private[scautable] def platformDetectWidth(fallback: Int): Int =
       end if
     finally terminal.close()
     end try
-  catch case _: Throwable => fallback
+  catch case _: Exception => fallback
   end try
 end platformDetectWidth
