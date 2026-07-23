@@ -9,9 +9,20 @@ import fansi.Str
 object ConsoleFormat:
 
   extension [C <: IterableOnce[Product]](s: C)
-    inline def consoleFormat(fancy: Boolean): String = consoleFormat_(s.iterator.toSeq, fancy)
-    inline def consoleFormat: String = consoleFormat_(s.iterator.toSeq, true)
-    inline def ptbl: Unit = println(consoleFormat_(s.iterator.toSeq, true))
+    inline def consoleFormat(fancy: Boolean): String = 
+      if(fancy) 
+        consoleFormat
+      else 
+        consoleFormat_(s.iterator.toSeq, false)
+
+    inline def consoleFormat: String = 
+      val materialise = s.iterator.toSeq
+      val headers = if materialise.isEmpty then Seq.empty else (0 until materialise.head.productArity).map(i => s"col${i + 1}")
+      TerminalTable.render(
+        headers,
+        materialise.map(row => TableRow(row.productIterator.toSeq.map(_.toString))).toSeq
+      )
+    inline def ptbl: Unit = println(consoleFormat)
   end extension
 
   private val colours: List[EscapeAttr] = List(
@@ -38,7 +49,11 @@ object ConsoleFormat:
   extension [K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](nt: C)
 
     inline def consoleFormatNt: String =
-      consoleFormatNt(None, true)
+      val rows: Seq[Product] = nt.iterator.map(_.toTuple).toSeq
+      TerminalTable.render(
+        constValueTuple[K].toList.map(_.toString()),
+        rows.map(row => TableRow(row.productIterator.toSeq.map(_.toString))).toSeq
+      )
     end consoleFormatNt
 
     inline def ptbln: Unit = println(nt.consoleFormatNt)
@@ -46,9 +61,12 @@ object ConsoleFormat:
     inline def html: String = HtmlRenderer.nt(nt).render
 
     inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true): String =
-      val foundHeaders = constValueTuple[K].toList.map(_.toString())
-      val values = nt.iterator.map(_.toTuple).toSeq
-      ConsoleFormat.consoleFormat_(values, fansi, headers.getOrElse(foundHeaders))
+      if fansi then 
+        consoleFormatNt 
+      else         
+        val foundHeaders = constValueTuple[K].toList.map(_.toString())
+        val values = nt.iterator.map(_.toTuple).toSeq
+        ConsoleFormat.consoleFormat_(values, fansi, headers.getOrElse(foundHeaders))
     end consoleFormatNt
   end extension
 

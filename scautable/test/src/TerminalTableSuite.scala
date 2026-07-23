@@ -77,9 +77,9 @@ class TerminalTableSuite extends FunSuite:
       widthOverride = Some(40)
     )
     assert(out.contains("…"))
-    assert(out.linesIterator.forall(_.length <= 40))
-    // id column header/values should never be truncated since they're short/narrow
-    assert(out.contains(" id "))
+    assert(out.linesIterator.forall(s => fansi.Str(s).plainText.length <= 40))
+    // id column header/values should never be truncated since they're short/narrow    
+    assert(fansi.Str(out).plainText.contains(" id "))
   }
 
   test("render - never wraps, each row is a single line") {

@@ -1,5 +1,7 @@
 package io.github.quafadas.scautable
 
+import fansi.EscapeAttr
+
 /** A single row of a [[TerminalTable]], i.e. one cell of text per column. */
 case class TableRow(cells: Seq[String])
 
@@ -142,12 +144,28 @@ object TerminalTable:
     else content.take(width - 1) + ellipsis
   end truncateCell
 
+
+  /**
+  * Recommendation — stick to the six chromatic ANSI colors (no White/Black/Gray shades, which are theme-dependent), 
+  * ordered for maximum perceptual distinctness up front and with Red/Green pushed to the end:
+  **/
+  private val colours: List[EscapeAttr] = List(
+    fansi.Color.Cyan,
+    fansi.Color.Magenta,
+    fansi.Color.Yellow,
+    fansi.Color.Blue,
+    fansi.Color.Green,
+    fansi.Color.Red
+  )
+
+
   private def renderRow(cells: Seq[String], colWidths: Seq[Int]): String =
     // Uses `String#length` (UTF-16 code units) for width/padding, not code-point-aware display width; per the
     // issue's non-goals, correctness for wide/CJK or zero-width/combining characters is not required for v1.
-    val padded = cells.zip(colWidths).map { (cell, w) =>
+    val padded = cells.zip(colWidths).zipWithIndex.map { case ((cell, w), colNum) =>
       val truncated = truncateCell(if cell == null then "" else cell, w)
-      truncated + (" " * (w - truncated.length))
+      val idx = colNum % colours.length
+      colours(idx)(truncated + (" " * (w - truncated.length))).render
     }
     padded.mkString("| ", " | ", " |")
   end renderRow
