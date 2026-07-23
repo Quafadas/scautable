@@ -5,9 +5,8 @@ case class TableRow(cells: Seq[String])
 
 /** A width-aware terminal table renderer.
   *
-  * Unlike [[ConsoleFormat]], which always renders every cell at its natural width (and can therefore overflow
-  * arbitrarily wide terminals), `TerminalTable` shrinks columns to fit the detected (or supplied) terminal width,
-  * truncating overflowing cell content with an ellipsis (`…`) rather than wrapping it onto additional lines.
+  * Unlike [[ConsoleFormat]], which always renders every cell at its natural width (and can therefore overflow arbitrarily wide terminals), `TerminalTable` shrinks columns to fit
+  * the detected (or supplied) terminal width, truncating overflowing cell content with an ellipsis (`…`) rather than wrapping it onto additional lines.
   */
 object TerminalTable:
 
@@ -55,20 +54,31 @@ object TerminalTable:
       sb.append(separatorLine(colWidths))
 
       sb.toString
+    end if
   end render
 
-  /** Detect the terminal width, falling back to `fallback` when not attached to a real tty (or when detection isn't
-    * supported on the current platform).
+  /** Detect the terminal width, falling back to `fallback` when not attached to a real tty (or when detection isn't supported on the current platform).
     */
   def detectWidth(fallback: Int = 120): Int = platformDetectWidth(fallback)
 
-  /** Allocate column widths given natural (max content) widths and a total character budget for content
-    * (i.e. excluding separators/padding), following a max-min fair-share ("water-filling") allocation:
+  /** Allocate column widths given natural (max content) widths and a total character budget for content (i.e. excluding separators/padding), following a max-min fair-share
+    * ("water-filling") allocation - modeled on comfy-table's `dynamic::arrange` (see the issue this implements for full rationale). "Water-filling" here means columns that don't
+    * need much space are left untouched at their natural width, while the remaining budget is "poured" evenly over the columns that do need more, rather than shrinking every
+    * column by the same proportion.
     *
-    *   1. Enforce a minimum-width floor for every column.
-    *   1. Give away columns that already fit within the current average.
-    *   1. Split whatever remains equally amongst the columns that still need it, with any remainder distributed one
-    *      character at a time, left to right.
+    * The three phases below are applied in order, each removing columns from further consideration ("freezing" them at a fixed width) as they're decided:
+    *
+    *   1. '''Floor enforcement''': if the average budget-per-undecided-column would fall below `minColumnWidth`, freeze columns at `minColumnWidth` (not their natural width) until
+    *      the average recovers or everything is frozen at the floor. This only bites when the terminal is genuinely too narrow for every column to have breathing room - in that
+    *      case some/all columns are simply clamped at `minColumnWidth` (their content will then be truncated by [[truncateCell]]).
+    *   1. '''Give away columns that already fit''': freeze any column whose natural width is `<=` the current average at its full natural width (never squeeze a column that
+    *      already fits).
+    *   1. '''Distribute what's left equally''': split the remaining budget evenly amongst columns still undecided, handing out any remainder (from integer division) one character
+    *      at a time, left to right, so no single column absorbs the whole remainder.
+    *
+    * @return
+    *   one width per input column, in the same order as `naturalWidths`; widths always sum to `<= max(totalBudget, 0)` and are always `>= minColumnWidth` (even if `totalBudget` is
+    *   smaller than `minColumnWidth * naturalWidths.size`, in which case the budget is simply exceeded rather than raising an exception).
     */
   private[scautable] def allocateWidths(naturalWidths: Seq[Int], totalBudget: Int, minColumnWidth: Int = 3): Seq[Int] =
     if naturalWidths.isEmpty then Seq.empty
@@ -84,12 +94,13 @@ object TerminalTable:
         floorChanged = false
         val average = remaining / undecided.size
         if average < minColumnWidth then
+          // Iterate a stable snapshot of the undecided set; each `i` here is only visited once and hasn't been
+          // removed yet by this same loop, so no `undecided.contains(i)` guard is needed.
           for i <- undecided.toSeq.sorted do
-            if undecided.contains(i) then
-              result(i) = minColumnWidth
-              remaining -= minColumnWidth
-              undecided -= i
-              floorChanged = true
+            result(i) = minColumnWidth
+            remaining -= minColumnWidth
+            undecided -= i
+            floorChanged = true
         end if
       end while
 
@@ -99,7 +110,7 @@ object TerminalTable:
         foundFit = false
         val average = remaining / undecided.size
         for i <- undecided.toSeq.sorted do
-          if undecided.contains(i) && naturalWidths(i) <= average then
+          if naturalWidths(i) <= average then
             result(i) = naturalWidths(i)
             remaining -= naturalWidths(i)
             undecided -= i
@@ -113,13 +124,13 @@ object TerminalTable:
         val average = remaining / ordered.size
         val excess = remaining - average * ordered.size
         for (i, idx) <- ordered.zipWithIndex do result(i) = average + (if idx < excess then 1 else 0)
+        end for
       end if
 
       result.toSeq
   end allocateWidths
 
-  /** Truncate a single cell to `width`, appending an ellipsis if truncated. Content already within `width` is
-    * returned unchanged.
+  /** Truncate a single cell to `width`, appending an ellipsis if truncated. Content already within `width` is returned unchanged.
     */
   private[scautable] def truncateCell(content: String, width: Int): String =
     if width <= 0 then ""
@@ -129,6 +140,8 @@ object TerminalTable:
   end truncateCell
 
   private def renderRow(cells: Seq[String], colWidths: Seq[Int]): String =
+    // Uses `String#length` (UTF-16 code units) for width/padding, not code-point-aware display width; per the
+    // issue's non-goals, correctness for wide/CJK or zero-width/combining characters is not required for v1.
     val padded = cells.zip(colWidths).map { (cell, w) =>
       val truncated = truncateCell(if cell == null then "" else cell, w)
       truncated + (" " * (w - truncated.length))
