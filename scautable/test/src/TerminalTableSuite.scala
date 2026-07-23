@@ -78,7 +78,7 @@ class TerminalTableSuite extends FunSuite:
     )
     assert(out.contains("…"))
     assert(out.linesIterator.forall(s => fansi.Str(s).plainText.length <= 40))
-    // id column header/values should never be truncated since they're short/narrow    
+    // id column header/values should never be truncated since they're short/narrow
     assert(fansi.Str(out).plainText.contains(" id "))
   }
 

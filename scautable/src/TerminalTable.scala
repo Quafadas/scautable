@@ -144,11 +144,9 @@ object TerminalTable:
     else content.take(width - 1) + ellipsis
   end truncateCell
 
-
-  /**
-  * Recommendation — stick to the six chromatic ANSI colors (no White/Black/Gray shades, which are theme-dependent), 
-  * ordered for maximum perceptual distinctness up front and with Red/Green pushed to the end:
-  **/
+  /** Recommendation — stick to the six chromatic ANSI colors (no White/Black/Gray shades, which are theme-dependent), ordered for maximum perceptual distinctness up front and with
+    * Red/Green pushed to the end:
+    */
   private val colours: List[EscapeAttr] = List(
     fansi.Color.Cyan,
     fansi.Color.Magenta,
@@ -157,7 +155,6 @@ object TerminalTable:
     fansi.Color.Green,
     fansi.Color.Red
   )
-
 
   private def renderRow(cells: Seq[String], colWidths: Seq[Int]): String =
     // Uses `String#length` (UTF-16 code units) for width/padding, not code-point-aware display width; per the

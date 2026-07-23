@@ -9,19 +9,18 @@ import fansi.Str
 object ConsoleFormat:
 
   extension [C <: IterableOnce[Product]](s: C)
-    inline def consoleFormat(fancy: Boolean): String = 
-      if(fancy) 
-        consoleFormat
-      else 
-        consoleFormat_(s.iterator.toSeq, false)
+    inline def consoleFormat(fancy: Boolean): String =
+      if fancy then consoleFormat
+      else consoleFormat_(s.iterator.toSeq, false)
 
-    inline def consoleFormat: String = 
+    inline def consoleFormat: String =
       val materialise = s.iterator.toSeq
       val headers = if materialise.isEmpty then Seq.empty else (0 until materialise.head.productArity).map(i => s"col${i + 1}")
       TerminalTable.render(
         headers,
         materialise.map(row => TableRow(row.productIterator.toSeq.map(_.toString))).toSeq
       )
+    end consoleFormat
     inline def ptbl: Unit = println(consoleFormat)
   end extension
 
@@ -61,9 +60,8 @@ object ConsoleFormat:
     inline def html: String = HtmlRenderer.nt(nt).render
 
     inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true): String =
-      if fansi then 
-        consoleFormatNt 
-      else         
+      if fansi then consoleFormatNt
+      else
         val foundHeaders = constValueTuple[K].toList.map(_.toString())
         val values = nt.iterator.map(_.toTuple).toSeq
         ConsoleFormat.consoleFormat_(values, fansi, headers.getOrElse(foundHeaders))
