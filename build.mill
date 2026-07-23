@@ -21,6 +21,7 @@ object Config:
 
   val laminar = mvn"com.raquo::laminar::17.2.1"
   val munit = mvn"org.scalameta::munit::1.2.4"
+  val jlineTerminal = mvn"org.jline:jline-terminal:3.30.6"
   val scalaVersion = "3.8.4"
   val scalaJSVersion = "1.21.0"
   val apachePoi = "5.5.1"
