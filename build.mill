@@ -23,7 +23,7 @@ object Config:
   val munit = mvn"org.scalameta::munit::1.2.4"
   val jlineTerminal = mvn"org.jline:jline-terminal:3.30.16"
   val scalaVersion = "3.8.4"
-  val scalaJSVersion = "1.21.0"
+  val scalaJSVersion = "1.22.0"
   val apachePoi = "5.5.1"
 end Config
 
