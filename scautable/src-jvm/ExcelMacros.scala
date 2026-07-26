@@ -143,8 +143,8 @@ object ExcelMacros:
         val cellRange = CellRangeAddress.valueOf(range)
         val firstRow = sheet.getRow(cellRange.getFirstRow)
         val cells =
-          for (i <- cellRange.getFirstColumn to cellRange.getLastColumn)
-            yield firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+          for i <- cellRange.getFirstColumn to cellRange.getLastColumn
+          yield firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
         cells.toList
       case _ =>
         if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(_.toString)
