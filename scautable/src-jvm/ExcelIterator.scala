@@ -103,8 +103,8 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     val sheet = workbook.getSheet(sheetName)
     val headerRow = sheet.getRow(firstRow)
     val cells =
-      for (i <- firstCol.to(lastCol))
-        yield headerRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+      for i <- firstCol.to(lastCol)
+      yield headerRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
     cells.toList
   end extractHeadersFromRange
 
@@ -122,8 +122,8 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
       case Some(range) if range.nonEmpty =>
         val (_, _, firstCol, lastCol) = parseRange(range)
         val cells =
-          for (i <- firstCol.to(lastCol))
-            yield row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+          for i <- firstCol.to(lastCol)
+          yield row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
         cells.toList
       case _ =>
         row.cellIterator().asScala.toList.map(_.toString)
