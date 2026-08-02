@@ -6,11 +6,13 @@ import scala.compiletime.testing.*
 
 import io.github.quafadas.table.*
 import munit.FunSuite
+import scala.compiletime.testing.typeChecks
 
 class CsvFromStringSuite extends FunSuite:
 
   test("fromString should correctly parse a simple CSV string") {
     inline val csvContent = "colA,colB\n1,val1\n2,val2"
+    assert(typeChecks("""val csvIterator: CsvIterator[("colA", "colB"), (Int, String)]  = CSV.fromString("colA,colB\n1,val1\n2,val2", HeaderOptions.Default, TypeInferrer.FromTuple[(Int, String)]())"""))
     val csvIterator = CSV.fromString(csvContent, HeaderOptions.Default, TypeInferrer.FromTuple[(Int, String)]())
 
     assertEquals(csvIterator.headers, List("colA", "colB"))
