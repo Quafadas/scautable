@@ -5,7 +5,7 @@ import scala.compiletime.testing.typeChecks
 class CsvColumnsSuite extends munit.FunSuite:
 
   test("simple.csv - loads column data correctly") {
-    assert(typeChecks( """val (col1 : Array[Int], col2 : Array[Int], col3 : Array[Int]) = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.Columns))"""))
+    assert(typeChecks("""val (col1 : Array[Int], col2 : Array[Int], col3 : Array[Int]) = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.Columns))"""))
     val cols = CSV.resource("simple.csv", CsvOpts(readAs = ReadAs.Columns))
 
     // Check column access - columns should be arrays
