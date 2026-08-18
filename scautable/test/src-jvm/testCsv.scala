@@ -2,10 +2,13 @@ package io.github.quafadas.scautable
 import scala.NamedTuple.*
 
 import io.github.quafadas.table.*
+import scala.compiletime.testing.typeChecks
 
 class CSVSuite extends munit.FunSuite:
 
   test("csv from resource compiles and typechecks") {
+    assert(typeChecks("""val csv: CsvIterator[("col1", "col2", "col3"), (Int, Int, Int)] = CSV.resource("simple.csv")"""))
+    assert(typeChecks("""val csv: CsvIterator[("col1", "col2", "col3"), (Int, Int, Int)] = CSV.resource("simple.csv", CsvOpts.default)"""))
     val csv: CsvIterator[("col1", "col2", "col3"), (Int, Int, Int)] = CSV.resource("simple.csv", CsvOpts.default)
 
     val titanic: CsvIterator[
