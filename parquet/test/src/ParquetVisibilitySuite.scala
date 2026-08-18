@@ -2,6 +2,9 @@ package parquetusage
 
 import io.github.quafadas.scautable.parquet.Parquet
 import io.github.quafadas.table.ReadAs
+import io.github.quafadas.scautable.parquet.ParquetSchema
+import io.github.quafadas.scautable.parquet.ParquetSource
+
 
 import scala.compiletime.testing.typeChecks
 
@@ -20,7 +23,7 @@ class ParquetVisibilitySuite extends munit.FunSuite:
     val titanic = Parquet.resource("titanic.parquet", ReadAs.Columns)
     assertEquals(titanic.PassengerId.length, 891)
 
-  test("Schema read available"):
-    assert(typeChecks("""Parquet.readSchema("titanic.parquet")"""))
+  test("Schema read available"):        
+    assert(typeChecks("""ParquetSchema.read(ParquetSource.Resource("titanic.parquet"))"""))
 
 end ParquetVisibilitySuite
