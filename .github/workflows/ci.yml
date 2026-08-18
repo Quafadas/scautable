@@ -29,7 +29,7 @@ jobs:
         platform: [ 'jvm', 'js' ]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           java-version: 21
           distribution: 'temurin'
@@ -40,10 +40,25 @@ jobs:
       - uses: coursier/cache-action@v6.4
       - name: Compile ${{ matrix.platform }}
         run: ./mill scautable.${{ matrix.platform }}.compile
+            
       - name: test ${{ matrix.platform }}
         run: ./mill scautable.test.${{ matrix.platform }}
+
+      - name: DB tests ${{ matrix.platform }}
+        run: ./mill db.test
+        if: matrix.platform == 'jvm'
+
+      - name: SQL tests ${{ matrix.platform }}
+        run: ./mill scalasql.test
+        if: matrix.platform == 'jvm'
+
+      - name: Parquet Tests ${{ matrix.platform }}
+        run: ./mill parquet.test
+        if: matrix.platform == 'jvm'
+
       - name: Publish ${{ matrix.platform }} artifacts
         run: ./mill -i scautable.${{ matrix.platform }}.publishArtifacts
+        
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v5
         if: always()

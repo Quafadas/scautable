@@ -20,12 +20,10 @@ object `package` extends Module:
     def forkArgs = Seq("--add-opens=java.base/sun.security.util=ALL-UNNAMED")
   end jvm
 
-  object test extends Module:
-    object jvm extends ScalaModule with TestModule.Munit with build.CommonTests with build.ShareCompileResources:
-      override def scalaVersion = build.Config.scalaVersion
-      override def moduleDeps = Seq(build.parquet.jvm)
-      override def forkArgs = Seq("--add-opens=java.base/sun.security.util=ALL-UNNAMED")
-    end jvm
+  object test extends ScalaModule with TestModule.Munit with build.CommonTests with build.ShareCompileResources:
+    override def scalaVersion = build.Config.scalaVersion
+    override def moduleDeps = Seq(build.parquet.jvm)
+    override def forkArgs = Seq("--add-opens=java.base/sun.security.util=ALL-UNNAMED")
   end test
 
 end `package`

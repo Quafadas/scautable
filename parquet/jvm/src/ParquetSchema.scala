@@ -13,8 +13,8 @@ final class UnsupportedParquetSchemaException(msg: String) extends Exception(msg
 
 /** The Scala type a parquet column is surfaced as.
   *
-  * This is the single source of truth shared by the compile-time macro (which turns it into a `TypeRepr`) and the runtime column reader (which produces values of the
-  * corresponding class). Keeping both sides driven by the same enum means the inferred type and the decoded value can never drift apart.
+  * This is the single source of truth shared by the compile-time macro (which turns it into a `TypeRepr`) and the runtime column reader (which produces values of the corresponding
+  * class). Keeping both sides driven by the same enum means the inferred type and the decoded value can never drift apart.
   */
 private[scautable] enum ParquetScalaType:
   case IntT

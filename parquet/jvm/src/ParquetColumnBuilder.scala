@@ -19,7 +19,7 @@ import scala.reflect.ClassTag
   * This is the column-oriented counterpart to [[ParquetDecoder]]. Because the target array type is known statically, the primitive instances write into `Array[Long]`,
   * `Array[Double]` and friends with no boxing at all — the value goes from the parquet page to its final slot in one step.
   */
-private[scautable] trait ParquetColumnBuilder[T]:
+trait ParquetColumnBuilder[T]:
 
   /** Allocate the backing array for a whole column. The parquet footer tells us the exact row count up front, so this is allocated once and never resized. */
   def allocate(n: Int): Array[T]
@@ -41,7 +41,7 @@ private[scautable] trait ParquetColumnBuilder[T]:
 
 end ParquetColumnBuilder
 
-private[scautable] object ParquetColumnBuilder:
+object ParquetColumnBuilder:
 
   def nullInRequiredColumn(reader: ColumnReader): ParquetDecodeException =
     ParquetDecodeException(
@@ -66,6 +66,7 @@ private[scautable] object ParquetColumnBuilder:
         reader.consume()
         i += 1
       end while
+    end fill
   end given
 
   given ParquetColumnBuilder[Long] with
@@ -80,6 +81,7 @@ private[scautable] object ParquetColumnBuilder:
         reader.consume()
         i += 1
       end while
+    end fill
   end given
 
   given ParquetColumnBuilder[Float] with
@@ -94,6 +96,7 @@ private[scautable] object ParquetColumnBuilder:
         reader.consume()
         i += 1
       end while
+    end fill
   end given
 
   given ParquetColumnBuilder[Double] with
@@ -108,6 +111,7 @@ private[scautable] object ParquetColumnBuilder:
         reader.consume()
         i += 1
       end while
+    end fill
   end given
 
   given ParquetColumnBuilder[Boolean] with
@@ -122,6 +126,7 @@ private[scautable] object ParquetColumnBuilder:
         reader.consume()
         i += 1
       end while
+    end fill
   end given
 
   given ParquetColumnBuilder[String] = objectBuilder(ParquetValues.string)
@@ -144,6 +149,7 @@ private[scautable] object ParquetColumnBuilder:
         reader.consume()
         i += 1
       end while
+    end fill
   end given
 
 end ParquetColumnBuilder
@@ -156,7 +162,7 @@ end ParquetColumnBuilder
   * Unlike CSV — where the row count is unknown until the file has been read — the parquet footer gives us the exact record count, so each column is allocated once at its final
   * size.
   */
-private[scautable] object ParquetColumns:
+object ParquetColumns:
 
   /** Read every column of `source` into arrays. `V` is the tuple of array types, e.g. `(Array[Long], Array[Option[String]])`. */
   inline def readAll[V <: Tuple](source: ParquetSource): V =
@@ -191,14 +197,14 @@ private[scautable] object ParquetColumns:
     end try
   end readAll
 
-  private inline def allocateAll[V <: Tuple](n: Int, into: Array[Any], idx: Int): Unit =
+  inline def allocateAll[V <: Tuple](n: Int, into: Array[Any], idx: Int): Unit =
     inline erasedValue[V] match
       case _: EmptyTuple      => ()
       case _: (Array[h] *: t) =>
         into(idx) = summonInline[ParquetColumnBuilder[h]].allocate(n)
         allocateAll[t](n, into, idx + 1)
 
-  private inline def fillAll[V <: Tuple](
+  inline def fillAll[V <: Tuple](
       arrays: Array[Any],
       offset: Int,
       count: Int,
@@ -219,7 +225,7 @@ private[scautable] object ParquetColumns:
         )
         fillAll[t](arrays, offset, count, readStore, descriptors, idx + 1)
 
-  private inline def toTuple[V <: Tuple](arrays: Array[Any], idx: Int): V =
+  inline def toTuple[V <: Tuple](arrays: Array[Any], idx: Int): V =
     inline erasedValue[V] match
       case _: EmptyTuple      => EmptyTuple.asInstanceOf[V]
       case _: (Array[h] *: t) =>

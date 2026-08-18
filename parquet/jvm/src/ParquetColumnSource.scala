@@ -12,15 +12,19 @@ import scala.jdk.CollectionConverters.*
 /** A single row group, materialised column by column.
   *
   * `columns(c)(r)` is the value of column `c` for row `r` within the group, or `null` where the parquet definition level says the value is absent.
+  *
+  * Internal API — public only because the `Parquet` macros splice references to it into user code.
   */
-private[scautable] final case class RowGroupColumns(columns: Array[Array[Any]], rowCount: Int)
+final case class RowGroupColumns(columns: Array[Array[Any]], rowCount: Int)
 
 /** Reads a parquet file the way parquet is laid out on disk: one row group at a time, and within a row group one column chunk at a time.
   *
   * This keeps the sequential-scan behaviour that makes parquet fast, while still letting scautable hand back rows as `NamedTuple`s. Only one row group is resident in memory at a
   * time, so the memory cost is bounded by the row group size rather than the file size.
+  *
+  * Internal API — public only because the `Parquet` macros splice references to it into user code.
   */
-private[scautable] final class ParquetColumnSource(source: ParquetSource) extends AutoCloseable:
+final class ParquetColumnSource(source: ParquetSource) extends AutoCloseable:
 
   private val reader: ParquetFileReader = source.openReader()
   private val fileMetaData = reader.getFooter.getFileMetaData
@@ -69,7 +73,8 @@ private[scautable] final class ParquetColumnSource(source: ParquetSource) extend
 
 end ParquetColumnSource
 
-private[scautable] object ParquetColumnSource:
+/** Internal API — public only because the `Parquet` macros splice references to it into user code. */
+object ParquetColumnSource:
 
   /** `ColumnReadStoreImpl` insists on a converter tree, but we read values directly off the `ColumnReader` rather than pushing them into converters. A converter that never claims
     * dictionary support keeps the reader on the plain-value path.

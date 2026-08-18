@@ -1,7 +1,6 @@
 package io.github.quafadas.scautable.parquet
 
 import scala.NamedTuple.*
-import scala.annotation.publicInBinary
 
 /** A lazily-evaluated `Iterator[NamedTuple[K, V]]` over a parquet file.
   *
@@ -9,15 +8,15 @@ import scala.annotation.publicInBinary
   * column arrays on demand — so only one row group is ever resident in memory.
   *
   * ===Single-use semantics===
-  * Like [[io.github.quafadas.scautable.CsvIterator]] this iterator can only be traversed once; the underlying file handle is closed when the iterator is exhausted or when [[close]]
-  * is called.
+  * Like [[io.github.quafadas.scautable.CsvIterator]] this iterator can only be traversed once; the underlying file handle is closed when the iterator is exhausted or when
+  * [[close]] is called.
   *
   * @tparam K
   *   Tuple of column-name string literals, e.g. `("PassengerId", "Name")`.
   * @tparam V
   *   Tuple of Scala value types, e.g. `(Option[Long], Option[String])`.
   */
-class ParquetIterator[K <: Tuple, V <: Tuple] @publicInBinary private[parquet] (
+class ParquetIterator[K <: Tuple, V <: Tuple](
     val headers: Seq[String],
     private val open: () => ParquetColumnSource
 )(using decoder: ParquetRowDecoder[V])
@@ -51,6 +50,7 @@ class ParquetIterator[K <: Tuple, V <: Tuple] @publicInBinary private[parquet] (
               rowIdx = 0
               // A row group with no rows is legal but carries no data — keep looking.
               if next.rowCount == 0 then advance() else true
+              end if
             case None =>
               close()
               false

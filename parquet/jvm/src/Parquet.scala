@@ -7,8 +7,8 @@ import scala.quoted.*
 
 /** Compile-time schema inference for parquet files.
   *
-  * Parquet files carry their schema in the footer, so — unlike CSV — nothing has to be guessed. The macro reads the footer at compile time and hands back a
-  * [[ParquetIterator]] whose `NamedTuple` shape is exactly the file's schema.
+  * Parquet files carry their schema in the footer, so — unlike CSV — nothing has to be guessed. The macro reads the footer at compile time and hands back a [[ParquetIterator]]
+  * whose `NamedTuple` shape is exactly the file's schema.
   *
   * {{{
   * val titanic = Parquet.resource("titanic.parquet")
@@ -38,6 +38,7 @@ import scala.quoted.*
   *
   * A field declared `optional` is surfaced as `Option[T]`; a `required` field is surfaced as `T`.
   */
+
 object Parquet:
 
   /** Read a parquet file from the java resources, inferring its schema at compile time.
@@ -122,6 +123,7 @@ object Parquet:
             valueTypeRepr.asType match
               case '[v] =>
                 '{ new ParquetIterator[hdrs & Tuple, v & Tuple]($headersExpr, () => new ParquetColumnSource($sourceExpr)) }
+            end match
 
           case ReadAs.Columns =>
             val arrayTypeRepr = cols.foldRight(TypeRepr.of[EmptyTuple]) { (col, acc) =>
@@ -130,6 +132,7 @@ object Parquet:
             arrayTypeRepr.asType match
               case '[arrs] =>
                 '{ NamedTuple.build[hdrs & Tuple]()(ParquetColumns.readAll[arrs & Tuple]($sourceExpr)) }
+            end match
 
           case other =>
             report.throwError(s"Parquet supports ReadAs.Rows and ReadAs.Columns; $other is not available.")
@@ -145,17 +148,17 @@ object Parquet:
     import ParquetScalaType.*
 
     val base: TypeRepr = col.scalaType match
-      case IntT       => TypeRepr.of[Int]
-      case LongT      => TypeRepr.of[Long]
-      case FloatT     => TypeRepr.of[Float]
-      case DoubleT    => TypeRepr.of[Double]
-      case BooleanT   => TypeRepr.of[Boolean]
-      case StringT    => TypeRepr.of[String]
-      case BinaryT    => TypeRepr.of[Array[Byte]]
-      case DateT      => TypeRepr.of[java.time.LocalDate]
-      case InstantT   => TypeRepr.of[java.time.Instant]
-      case DecimalT   => TypeRepr.of[BigDecimal]
-      case UuidT      => TypeRepr.of[java.util.UUID]
+      case IntT     => TypeRepr.of[Int]
+      case LongT    => TypeRepr.of[Long]
+      case FloatT   => TypeRepr.of[Float]
+      case DoubleT  => TypeRepr.of[Double]
+      case BooleanT => TypeRepr.of[Boolean]
+      case StringT  => TypeRepr.of[String]
+      case BinaryT  => TypeRepr.of[Array[Byte]]
+      case DateT    => TypeRepr.of[java.time.LocalDate]
+      case InstantT => TypeRepr.of[java.time.Instant]
+      case DecimalT => TypeRepr.of[BigDecimal]
+      case UuidT    => TypeRepr.of[java.util.UUID]
 
     if col.nullable then TypeRepr.of[Option].appliedTo(base) else base
     end if

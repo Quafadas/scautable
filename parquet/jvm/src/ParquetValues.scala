@@ -66,6 +66,7 @@ private[scautable] object ParquetValues:
               case TimeUnit.MICROS => Instant.EPOCH.plusNanos(raw * 1000L)
               case TimeUnit.NANOS  => Instant.EPOCH.plusNanos(raw)
           case _ => Instant.ofEpochMilli(raw)
+        end match
 
       case other =>
         throw UnsupportedParquetSchemaException(s"TIMESTAMP is not supported over parquet physical type $other.")
