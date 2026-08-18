@@ -18,7 +18,8 @@ object `package` extends Module:
       mvn"org.apache.poi:poi-ooxml:${build.Config.apachePoi}",
       mvn"com.tdunning:t-digest:3.3",
       mvn"org.glassfish:jakarta.json:2.0.1",
-      build.Config.oslib
+      build.Config.oslib,
+      build.Config.jlineTerminal
     )
   end jvm
 

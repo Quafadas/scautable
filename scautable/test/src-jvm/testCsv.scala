@@ -369,12 +369,13 @@ import CsvSchema.*"""
     val csv: CsvIterator[("col1", "col2", "col3"), (String, String, String)] = CSV.resource("simple.csv", TypeInferrer.StringType)
     assertNoDiff(
       csv.toArray.consoleFormatNt(),
-      """| |col1|col2|col3|
-|-|----|----|----|
-|0|   1|   2|   7|
-|1|   3|   4|   8|
-|2|   5|   6|   9|
-|-|----|----|----|""".trim()
+      """+------+------+------+
+| col1 | col2 | col3 |
++------+------+------+
+| 1    | 2    | 7    |
+| 3    | 4    | 8    |
+| 5    | 6    | 9    |
++------+------+------+""".trim()
     )
 
     val titanic = CSV.resource("titanic.csv").toArray
@@ -387,11 +388,6 @@ import CsvSchema.*"""
     assertEquals(csv.headerIndex("col1"), 0)
     assertEquals(csv.headerIndex("col2"), 1)
     assertEquals(csv.headerIndex("col3"), 2)
-
-    // csv.filter{ x =>
-    //   println(x.col1)
-    //   ???
-    // }.toVector
   }
 
   test("missing values") {
