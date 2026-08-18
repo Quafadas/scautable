@@ -1,0 +1,29 @@
+package build.parquet
+
+import mill.*
+import mill.scalalib.*
+import build.Config
+
+object `package` extends Module:
+
+  object jvm extends ScalaModule with build.Common with build.PublishModule:
+    override def artifactName = "scautable-parquet"
+    override def moduleDeps = Seq(build.scautable.jvm)
+    override def mvnDeps = super.mvnDeps() ++ Seq(
+      mvn"org.apache.parquet:parquet-hadoop:1.15.0",
+      // Shaded jackson used by parquet to read the file footer. It is a runtime-scope
+      // transitive dep, but the schema macro needs it on the *compile* classpath too.
+      mvn"org.apache.parquet:parquet-jackson:1.15.0",
+      mvn"org.apache.hadoop:hadoop-common:3.4.1".exclude(Seq(("org.slf4j", "slf4j-log4j12"))*),
+      mvn"org.apache.hadoop:hadoop-mapreduce-client-core:3.4.1".exclude(Seq(("org.slf4j", "slf4j-log4j12"))*)
+    )
+    def forkArgs = Seq("--add-opens=java.base/sun.security.util=ALL-UNNAMED")
+  end jvm
+
+  object test extends ScalaModule with TestModule.Munit with build.CommonTests with build.ShareCompileResources:
+    override def scalaVersion = build.Config.scalaVersion
+    override def moduleDeps = Seq(build.parquet.jvm)
+    override def forkArgs = Seq("--add-opens=java.base/sun.security.util=ALL-UNNAMED")
+  end test
+
+end `package`
