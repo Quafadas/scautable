@@ -67,17 +67,17 @@ object ConsoleFormat:
     case _     =>
       val indexLen = table.length.toString.length
       val sizes =
-        for (row <- table)
-          yield (for (cell <- row.productIterator.toSeq) yield if cell == null then 0 else cell.toString.length)
-      val headSizes = for (i <- headers) yield headers.toString()
+        for row <- table
+        yield (for cell <- row.productIterator.toSeq yield if cell == null then 0 else cell.toString.length)
+      val headSizes = for i <- headers yield headers.toString()
       val colSizes =
-        for ((col, header) <- sizes.transpose.zip(headers)) yield Seq(header.toString().length(), col.max).max
+        for (col, header) <- sizes.transpose.zip(headers) yield Seq(header.toString().length(), col.max).max
       val colSizesWithIndex = indexLen +: colSizes
       val rows =
-        for ((row, i) <- table.zipWithIndex)
-          yield
-            if fancy then formatFancyRow((i +: row.productIterator.toSeq).zipWithIndex, colSizesWithIndex)
-            else formatRow(i +: row.productIterator.toSeq, colSizesWithIndex)
+        for (row, i) <- table.zipWithIndex
+        yield
+          if fancy then formatFancyRow((i +: row.productIterator.toSeq).zipWithIndex, colSizesWithIndex)
+          else formatRow(i +: row.productIterator.toSeq, colSizesWithIndex)
 
       if fancy then
         formatFancyHeader((Str("") +: headers.map(Str(_))).zipWithIndex, colSizesWithIndex) ++ formatRows(
@@ -101,12 +101,12 @@ object ConsoleFormat:
 
   private def formatRow(row: Seq[Any], colSizes: Seq[Int]) =
     val cells =
-      (for ((item, size) <- row.zip(colSizes)) yield if size == 0 then "" else ("%" + size + "s").format(item))
+      (for (item, size) <- row.zip(colSizes) yield if size == 0 then "" else ("%" + size + "s").format(item))
     cells.mkString("|", "|", "|")
   end formatRow
 
   inline private def formatFancyRow(row: Seq[(Any, Int)], colSizes: Seq[Int]) =
-    val cells = (for ((item, size) <- row.zip(colSizes)) yield
+    val cells = (for (item, size) <- row.zip(colSizes) yield
       val raw = if size == 0 then "" else ("%" + size + "s").format(item._1)
       makeFancy(raw, item._2)
     )
@@ -115,7 +115,7 @@ object ConsoleFormat:
   end formatFancyRow
 
   inline private def formatFancyHeader(row: Seq[(Str, Int)], colSizes: Seq[Int]) =
-    val cells = (for ((item, size) <- row.zip(colSizes)) yield
+    val cells = (for (item, size) <- row.zip(colSizes) yield
       val raw = if size == 0 then "" else ("%" + size + "s").format(item._1)
       makeFancy(raw, item._2)
     )
@@ -125,7 +125,7 @@ object ConsoleFormat:
 
   inline private def formatHeader(row: Seq[String], colSizes: Seq[Int]) =
     val cells =
-      (for ((item, size) <- row.zip(colSizes)) yield if size == 0 then "" else ("%" + size + "s").format(item))
+      (for (item, size) <- row.zip(colSizes) yield if size == 0 then "" else ("%" + size + "s").format(item))
     cells.mkString("|", "|", "|") + "\n"
   end formatHeader
 

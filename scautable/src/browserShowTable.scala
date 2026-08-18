@@ -302,7 +302,7 @@ object HtmlRenderer extends PlatformSpecific:
       tableDeriveInstance: HtmlTableRender[A]
   ): TypedTag[String] =
     val header = tr(h.map(th(_)))
-    val rows = (for (r <- a) yield tableDeriveInstance.tableRow(r)).iterator.toSeq
+    val rows = (for r <- a yield tableDeriveInstance.tableRow(r)).iterator.toSeq
     if addHeader then table(thead(header), tbody(rows), id := "scautable", cls := "display")
     else table(thead(header), tbody(rows))
     end if

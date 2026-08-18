@@ -372,8 +372,8 @@ object CSV:
       val filePathExpr = Expr(path)
       '{
         val lines = scala.io.Source.fromFile($filePathExpr).getLines()
-        val (headers, iterator) = lines.headers(${ csvHeadersExpr }, ${ delimiterExpr })
-        new CsvIterator[Hdrs, Data](iterator, headers, ${ delimiterExpr })
+        val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
+        new CsvIterator[Hdrs, Data](iterator, headers, $delimiterExpr)
       }
     end constructRowIterator
 
