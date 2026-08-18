@@ -13,7 +13,7 @@ import scala.compiletime.testing.typeChecks
 class ParquetVisibilitySuite extends munit.FunSuite:
 
   test("the row oriented macro expands in a foreign package"):
-    assert(typeChecks("""Parquet.resource("titanic.parquet")"""))    
+    assert(typeChecks("""Parquet.resource("titanic.parquet")"""))
 
   test("the column oriented macro expands in a foreign package"):
     assert(typeChecks("""Parquet.resource("titanic.parquet", ReadAs.Columns)"""))
