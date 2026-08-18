@@ -37,7 +37,7 @@ private[scautable] final case class ParquetColumnMeta(
     nullable: Boolean
 )
 
-private[scautable] object ParquetSchema:
+object ParquetSchema:
 
   /** Read the parquet footer schema without materialising any data. */
   def read(source: ParquetSource): MessageType =

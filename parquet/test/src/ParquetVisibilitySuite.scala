@@ -13,11 +13,14 @@ import scala.compiletime.testing.typeChecks
 class ParquetVisibilitySuite extends munit.FunSuite:
 
   test("the row oriented macro expands in a foreign package"):
-    assert(typeChecks("""Parquet.resource("titanic.parquet")"""))
+    assert(typeChecks("""Parquet.resource("titanic.parquet")"""))    
 
   test("the column oriented macro expands in a foreign package"):
     assert(typeChecks("""Parquet.resource("titanic.parquet", ReadAs.Columns)"""))
     val titanic = Parquet.resource("titanic.parquet", ReadAs.Columns)
     assertEquals(titanic.PassengerId.length, 891)
+
+  test("Schema read available"):
+    assert(typeChecks("""Parquet.readSchema("titanic.parquet")"""))
 
 end ParquetVisibilitySuite
