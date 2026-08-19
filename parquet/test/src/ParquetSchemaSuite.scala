@@ -3,6 +3,7 @@ package io.github.quafadas.scautable.parquet
 import io.github.quafadas.table.ReadAs
 
 import scala.NamedTuple.NamedTuple
+import scala.compiletime.testing.typeChecks
 
 class ParquetSchemaSuite extends munit.FunSuite:
 
@@ -108,5 +109,8 @@ class ParquetSchemaSuite extends munit.FunSuite:
 
     assertEquals(ages.length, 891 - 177)
     assertEqualsDouble(ages.sum / ages.length, 29.699, 0.001)
+
+  test("non-nullable columns are respected"):
+    assert(typeChecks("""val mixed: ParquetIterator[("req_int", "req_string", "req_bool", "opt_int", "opt_string", "opt_bool"), (Int, String, Boolean, Option[Int], Option[String], Option[Boolean])] = Parquet.resource("required_optional_mix.parquet")"""))
 
 end ParquetSchemaSuite
