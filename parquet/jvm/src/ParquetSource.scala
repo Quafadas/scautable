@@ -4,8 +4,11 @@ import org.apache.parquet.ParquetReadOptions
 import org.apache.parquet.hadoop.ParquetFileReader
 import org.apache.parquet.io.LocalInputFile
 
+import java.nio.file.Files
 import java.nio.file.Path as JPath
 import java.nio.file.Paths
+
+import scala.jdk.CollectionConverters.*
 
 /** Where a parquet file lives.
   *
@@ -43,6 +46,28 @@ object ParquetSource:
     /** Open a [[ParquetFileReader]] over this source. Callers are responsible for closing it. */
     def openReader(): ParquetFileReader =
       ParquetFileReader.open(new LocalInputFile(source.localPath), ParquetReadOptions.builder().build())
+
+    /** Treat this source as a directory, and list the `.parquet` files directly inside it, sorted by file name.
+      *
+      * Used by `Parquet.resourceDir` and friends: the directory itself is resolved the same way a single file would be (classloader for [[ParquetSource.Resource]], filesystem
+      * otherwise), then re-listed fresh every time this is called - so, like a single file, the *lookup* happens at runtime even though the macro only bakes in *where to look*.
+      */
+    def listParquetFiles: Vector[ParquetSource] =
+      val dir = source.localPath
+      if !Files.isDirectory(dir) then throw new java.io.FileNotFoundException(s"Not a directory: '$dir'")
+      end if
+      val listing = Files.list(dir)
+      try
+        listing
+          .iterator()
+          .asScala
+          .toVector
+          .filter(p => Files.isRegularFile(p) && p.getFileName.toString.endsWith(".parquet"))
+          .sortBy(_.getFileName.toString)
+          .map(p => ParquetSource.AbsolutePath(p.toString))
+      finally listing.close()
+      end try
+    end listParquetFiles
   end extension
 
 end ParquetSource

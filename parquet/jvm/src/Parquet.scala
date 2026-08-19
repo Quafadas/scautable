@@ -49,12 +49,17 @@ object Parquet:
     */
   transparent inline def resource(inline name: String): Any = ${ resourceImpl('name, '{ ReadAs.Rows }) }
 
-  /** Read a parquet file from the java resources as rows or as columns.
+  /** Read a parquet file from the java resources as rows, columns, or vectors.
     *
     * {{{
     * val cols = Parquet.resource("titanic.parquet", ReadAs.Columns)
     * // cols: NamedTuple[("PassengerId", ...), (Array[Option[Long]], ...)]
     * cols.Age.flatten.sum
+    *
+    * val vecs = Parquet.resource("titanic.parquet", ReadAs.Vectors)
+    * // vecs: Iterator[NamedTuple[("PassengerId", ...), (ParquetVector[Long], ...)]]
+    * // one ParquetVector-tuple per row group - lazy across groups, vectorized within one
+    * for batch <- vecs do batch.Age.values.sum
     * }}}
     */
   transparent inline def resource(inline name: String, inline readAs: ReadAs): Any = ${ resourceImpl('name, 'readAs) }
@@ -75,6 +80,27 @@ object Parquet:
   /** Read a parquet file relative to the working directory, as rows or as columns. */
   transparent inline def pwd(inline path: String, inline readAs: ReadAs): Any = ${ pwdImpl('path, 'readAs) }
 
+  /** Read every `.parquet` file directly inside a resource directory, in file-name order, as one `Iterator` of rows.
+    *
+    * Every file is assumed to share one schema - the macro reads the first file's footer for the static type, then checks every other file agrees, failing to compile if any
+    * disagree.
+    *
+    * {{{
+    * val sales = Parquet.resourceDir("sales")
+    * // sales: Iterator[NamedTuple[("order_id", "region", "amount", "quantity"), (Long, String, Double, Option[Int])]]
+    * // one file after another, lazily - only one file's current row group is ever resident
+    * }}}
+    */
+  transparent inline def resourceDir(inline dirName: String): Any = ${ resourceDirImpl('dirName) }
+
+  /** Read every `.parquet` file directly inside a directory on the local filesystem, in file-name order, as one `Iterator` of rows. See [[resourceDir]]. */
+  transparent inline def absolutePathDir(inline path: String): Any = ${ absolutePathDirImpl('path) }
+
+  /** Read every `.parquet` file directly inside a directory relative to the working directory, in file-name order, as one `Iterator` of rows. See [[resourceDir]] and the caveat on
+    * [[pwd]] about compiler vs runtime working directories.
+    */
+  transparent inline def pwdDir(inline path: String): Any = ${ pwdDirImpl('path) }
+
   /** The parquet footer schema, as a string. Handy when a schema is rejected and you want to see why. */
   def schemaOf(source: ParquetSource): String = ParquetSchema.read(source).toString
 
@@ -90,6 +116,67 @@ object Parquet:
 
   private def pwdImpl(pathExpr: Expr[String], readAsExpr: Expr[ReadAs])(using Quotes): Expr[Any] =
     build(ParquetSource.RelativePath(pathExpr.valueOrAbort), readAsExpr)
+
+  private def resourceDirImpl(nameExpr: Expr[String])(using Quotes): Expr[Any] =
+    buildDir(ParquetSource.Resource(nameExpr.valueOrAbort))
+
+  private def absolutePathDirImpl(pathExpr: Expr[String])(using Quotes): Expr[Any] =
+    buildDir(ParquetSource.AbsolutePath(pathExpr.valueOrAbort))
+
+  private def pwdDirImpl(pathExpr: Expr[String])(using Quotes): Expr[Any] =
+    buildDir(ParquetSource.RelativePath(pathExpr.valueOrAbort))
+
+  private def buildDir(dirSource: ParquetSource)(using q: Quotes): Expr[Any] =
+    import q.reflect.*
+
+    val files =
+      try dirSource.listParquetFiles
+      catch case ex: Exception => report.throwError(s"Could not list parquet files in $dirSource: ${ex.getMessage}")
+
+    if files.isEmpty then report.throwError(s"No .parquet files found in $dirSource.")
+    end if
+
+    val colsByFile = files.map { file =>
+      val cols =
+        try ParquetSchema.columns(ParquetSchema.read(file))
+        catch
+          case ex: UnsupportedParquetSchemaException => report.throwError(s"${ex.getMessage} (in $file)")
+          case ex: Exception                         => report.throwError(s"Could not read the parquet schema of $file: ${ex.getMessage}")
+      file -> cols
+    }
+
+    val (firstFile, cols) = colsByFile.head
+    for (file, otherCols) <- colsByFile.tail do
+      if otherCols != cols then
+        report.throwError(
+          s"Parquet.resourceDir assumes every file in a directory shares one schema, but '$file' does not match '$firstFile':\n  $firstFile: $cols\n  $file: $otherCols"
+        )
+      end if
+    end for
+
+    val headers = cols.map(_.name).toList
+
+    if headers.distinct.size != headers.size then report.warning(s"Duplicate column names in parquet schema: ${headers.diff(headers.distinct).distinct.mkString(", ")}")
+    end if
+
+    val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+    val dirSourceExpr = sourceToExpr(dirSource)
+
+    headerTupleExpr match
+      case '{ $tup: hdrs } =>
+        val valueTypeRepr = cols.foldRight(TypeRepr.of[EmptyTuple]) { (col, acc) =>
+          TypeRepr.of[*:].appliedTo(List(typeReprOf(col), acc))
+        }
+        val headersExpr = Expr(headers)
+        valueTypeRepr.asType match
+          case '[v] =>
+            '{ new ParquetDirIterator[hdrs & Tuple, v & Tuple]($headersExpr, () => $dirSourceExpr) }
+        end match
+
+      case _ =>
+        report.throwError("Internal error: could not build the column-name tuple type from the parquet schema.")
+    end match
+  end buildDir
 
   private def build(source: ParquetSource, readAsExpr: Expr[ReadAs])(using q: Quotes): Expr[Any] =
     import q.reflect.*
@@ -109,7 +196,7 @@ object Parquet:
     val sourceExpr = sourceToExpr(source)
 
     val readAs = readAsExpr.value.getOrElse {
-      report.throwError("`readAs` must be a compile-time constant. Parquet supports ReadAs.Rows and ReadAs.Columns.")
+      report.throwError("`readAs` must be a compile-time constant. Parquet supports ReadAs.Rows, ReadAs.Columns and ReadAs.Vectors.")
     }
 
     headerTupleExpr match
@@ -134,8 +221,23 @@ object Parquet:
                 '{ NamedTuple.build[hdrs & Tuple]()(ParquetColumns.readAll[arrs & Tuple]($sourceExpr)) }
             end match
 
+          case ReadAs.Vectors =>
+            val rowTypeRepr = cols.foldRight(TypeRepr.of[EmptyTuple]) { (col, acc) =>
+              TypeRepr.of[*:].appliedTo(List(typeReprOf(col), acc))
+            }
+            val vectorTypeRepr = cols.foldRight(TypeRepr.of[EmptyTuple]) { (col, acc) =>
+              TypeRepr.of[*:].appliedTo(List(TypeRepr.of[ParquetVector].appliedTo(baseTypeReprOf(col)), acc))
+            }
+            val headersExpr = Expr(headers)
+            (rowTypeRepr.asType, vectorTypeRepr.asType) match
+              case ('[v], '[ve]) =>
+                '{ new ParquetVectorIterator[hdrs & Tuple, v & Tuple, ve & Tuple]($headersExpr, () => $sourceExpr) }
+              case _ =>
+                report.throwError("Internal error: could not build the vector tuple type from the parquet schema.")
+            end match
+
           case other =>
-            report.throwError(s"Parquet supports ReadAs.Rows and ReadAs.Columns; $other is not available.")
+            report.throwError(s"Parquet supports ReadAs.Rows, ReadAs.Columns and ReadAs.Vectors; $other is not available.")
         end match
 
       case _ =>
@@ -143,11 +245,11 @@ object Parquet:
     end match
   end build
 
-  private def typeReprOf(col: ParquetColumnMeta)(using q: Quotes): q.reflect.TypeRepr =
+  private def baseTypeReprOf(col: ParquetColumnMeta)(using q: Quotes): q.reflect.TypeRepr =
     import q.reflect.*
     import ParquetScalaType.*
 
-    val base: TypeRepr = col.scalaType match
+    col.scalaType match
       case IntT     => TypeRepr.of[Int]
       case LongT    => TypeRepr.of[Long]
       case FloatT   => TypeRepr.of[Float]
@@ -159,7 +261,12 @@ object Parquet:
       case InstantT => TypeRepr.of[java.time.Instant]
       case DecimalT => TypeRepr.of[BigDecimal]
       case UuidT    => TypeRepr.of[java.util.UUID]
+    end match
+  end baseTypeReprOf
 
+  private def typeReprOf(col: ParquetColumnMeta)(using q: Quotes): q.reflect.TypeRepr =
+    import q.reflect.*
+    val base = baseTypeReprOf(col)
     if col.nullable then TypeRepr.of[Option].appliedTo(base) else base
     end if
   end typeReprOf

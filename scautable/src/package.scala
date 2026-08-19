@@ -28,10 +28,12 @@ object table:
     *   - `Columns`: Returns `NamedTuple[K, (Array[T1], Array[T2], ...)]` - eager column arrays
     *   - `ArrayDenseColMajor[T]`: Returns a single dense array in column-major order
     *   - `ArrayDenseRowMajor[T]`: Returns a single dense array in row-major order
+    *   - `Vectors`: parquet-only. Returns `NamedTuple[K, (ParquetVector[T1], ParquetVector[T2], ...)]` - one boxing-free vector per column
     */
   enum ReadAs:
     case Rows
     case Columns
+    case Vectors
     case ArrayDenseColMajor[T]()
     case ArrayDenseRowMajor[T]()
   end ReadAs
@@ -44,6 +46,7 @@ object table:
         x match
           case '{ ReadAs.Rows }    => Some(ReadAs.Rows)
           case '{ ReadAs.Columns } => Some(ReadAs.Columns)
+          case '{ ReadAs.Vectors } => Some(ReadAs.Vectors)
           case _                   =>
             def unwrapInlined(term: Term): Term = term match
               case Inlined(_, _, body) => unwrapInlined(body)
@@ -52,6 +55,7 @@ object table:
             unwrapInlined(x.asTerm) match
               case Select(_, "Rows")    => Some(ReadAs.Rows)
               case Select(_, "Columns") => Some(ReadAs.Columns)
+              case Select(_, "Vectors") => Some(ReadAs.Vectors)
               case _                    => None
             end match
         end match
