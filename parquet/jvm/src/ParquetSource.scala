@@ -58,7 +58,10 @@ object ParquetSource:
       end if
       val listing = Files.list(dir)
       try
-        listing.iterator().asScala.toVector
+        listing
+          .iterator()
+          .asScala
+          .toVector
           .filter(p => Files.isRegularFile(p) && p.getFileName.toString.endsWith(".parquet"))
           .sortBy(_.getFileName.toString)
           .map(p => ParquetSource.AbsolutePath(p.toString))

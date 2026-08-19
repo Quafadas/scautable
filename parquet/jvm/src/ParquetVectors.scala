@@ -62,6 +62,7 @@ class ParquetVectorIterator[K <: Tuple, V <: Tuple, VE <: Tuple](
         pending = Some(NamedTuple.build[K & Tuple]()(tuple))
         // A row group with no rows is legal but carries no data - keep looking.
         if rowCount == 0 then advance() else true
+        end if
       end if
     end if
   end advance
@@ -87,4 +88,3 @@ class ParquetVectorIterator[K <: Tuple, V <: Tuple, VE <: Tuple](
   end close
 
 end ParquetVectorIterator
-

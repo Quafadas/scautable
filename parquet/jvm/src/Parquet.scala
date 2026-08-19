@@ -261,6 +261,7 @@ object Parquet:
       case InstantT => TypeRepr.of[java.time.Instant]
       case DecimalT => TypeRepr.of[BigDecimal]
       case UuidT    => TypeRepr.of[java.util.UUID]
+    end match
   end baseTypeReprOf
 
   private def typeReprOf(col: ParquetColumnMeta)(using q: Quotes): q.reflect.TypeRepr =

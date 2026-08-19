@@ -111,6 +111,10 @@ class ParquetSchemaSuite extends munit.FunSuite:
     assertEqualsDouble(ages.sum / ages.length, 29.699, 0.001)
 
   test("non-nullable columns are respected"):
-    assert(typeChecks("""val mixed: ParquetIterator[("req_int", "req_string", "req_bool", "opt_int", "opt_string", "opt_bool"), (Int, String, Boolean, Option[Int], Option[String], Option[Boolean])] = Parquet.resource("required_optional_mix.parquet")"""))
+    assert(
+      typeChecks(
+        """val mixed: ParquetIterator[("req_int", "req_string", "req_bool", "opt_int", "opt_string", "opt_bool"), (Int, String, Boolean, Option[Int], Option[String], Option[Boolean])] = Parquet.resource("required_optional_mix.parquet")"""
+      )
+    )
 
 end ParquetSchemaSuite
