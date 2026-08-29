@@ -1,6 +1,7 @@
 package parquetusage
 
 import io.github.quafadas.scautable.parquet.Parquet
+import io.github.quafadas.scautable.parquet.ParquetOptionality
 import io.github.quafadas.table.ReadAs
 import io.github.quafadas.scautable.parquet.ParquetSchema
 import io.github.quafadas.scautable.parquet.ParquetSource
@@ -21,6 +22,9 @@ class ParquetVisibilitySuite extends munit.FunSuite:
     assert(typeChecks("""Parquet.resource("titanic.parquet", ReadAs.Columns)"""))
     val titanic = Parquet.resource("titanic.parquet", ReadAs.Columns)
     assertEquals(titanic.PassengerId.length, 891)
+
+  test("the NoOptions macro expands in a foreign package"):
+    assert(typeChecks("""Parquet.resource("titanic.parquet", ParquetOptionality.NoOptions)"""))
 
   test("Schema read available"):
     assert(typeChecks("""ParquetSchema.read(ParquetSource.Resource("titanic.parquet"))"""))

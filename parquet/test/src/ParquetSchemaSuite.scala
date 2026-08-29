@@ -38,6 +38,21 @@ class ParquetSchemaSuite extends munit.FunSuite:
       Option[String]
   )
 
+  type TitanicConcreteTypes = (
+      Long,
+      Long,
+      Long,
+      String,
+      String,
+      Double,
+      Long,
+      Long,
+      String,
+      Double,
+      String,
+      String
+  )
+
   test("the schema is inferred at compile time from the parquet footer"):
     // If the macro inferred anything else, this ascription fails to compile.
     val titanic: ParquetIterator[TitanicNames, TitanicTypes] = Parquet.resource("titanic.parquet")
@@ -68,6 +83,21 @@ class ParquetSchemaSuite extends munit.FunSuite:
     assertEquals(rows.count(_.Survived.contains(1L)), 342)
     // 177 passengers have no recorded age — `optional` in parquet becomes `None`.
     assertEquals(rows.count(_.Age.isEmpty), 177)
+
+  test("NoOptions infers concrete row types and fails when a value is absent"):
+    val titanic: ParquetIterator[TitanicNames, TitanicConcreteTypes] =
+      Parquet.resource("titanic.parquet", ParquetOptionality.NoOptions)
+
+    val error = intercept[ParquetDecodeException](titanic.next())
+    assert(error.getMessage.contains("null parquet value"))
+
+  test("NoOptions infers concrete column types and fails when a value is absent"):
+    val error = intercept[ParquetDecodeException]:
+      val _: NamedTuple[TitanicNames, Tuple.Map[TitanicConcreteTypes, Array]] =
+        Parquet.resource("titanic.parquet", ReadAs.Columns, ParquetOptionality.NoOptions)
+
+    assert(error.getMessage.contains("Age"))
+    assert(error.getMessage.contains("non-optional type"))
 
   test("the iterator is single use and closes its file handle"):
     val titanic = Parquet.resource("titanic.parquet")
