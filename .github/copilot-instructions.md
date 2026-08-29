@@ -87,18 +87,9 @@ Answer all questions in the style of a friendly colleague that is an expert in d
 
 When you need the API of a JVM dependency, use cellar. Always prefer cellar over hallucinating API signatures.
 
-### Project-aware commands (run from project root)
+To find internal project informaion, use metals MCP.
 
-For querying the current project's code and dependencies (auto-detects build tool):
-
-    cellar get [--module <name>] <fqn>       # single symbol
-    cellar list [--module <name>] <package>  # explore a package
-    cellar search [--module <name>] <query>  # find by name
-
-- Mill/sbt projects: `--module` is required (e.g. `--module lib`, `--module core`)
-- scala-cli projects: `--module` is not supported (omit it)
-- `--no-cache`: skip classpath cache, re-extract from build tool
-- `--java-home`: override JRE classpath
+If either of these don't work, then stop what you are doing, let me know and i'll fix it. Don't waste time guessing or making up APIs.
 
 ### External commands (query arbitrary Maven coordinates)
 
@@ -111,6 +102,10 @@ For querying any published artifact by explicit coordinate:
     cellar deps <coordinate>                     # dependency tree
 
 Coordinates must be explicit: `group:artifact_3:version` (use `latest` for newest version).
+
+### Project internal
+
+Use metals MCP
 
 ### Workflow
 
