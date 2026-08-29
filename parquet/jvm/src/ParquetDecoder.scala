@@ -24,7 +24,7 @@ object ParquetDecoder:
   private def nonNull[T](raw: Any, typeName: String): T =
     if raw == null then
       throw ParquetDecodeException(
-        s"Encountered a null parquet value for a column typed as $typeName. Use Option[$typeName] for columns declared `optional`."
+        s"Encountered a null parquet value for a column typed as $typeName. Read with ParquetOptionality.FromSchema to represent fields declared `optional` as Option[$typeName]."
       )
     else raw.asInstanceOf[T]
 

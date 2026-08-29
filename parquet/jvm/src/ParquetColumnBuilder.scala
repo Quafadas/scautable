@@ -45,7 +45,7 @@ object ParquetColumnBuilder:
 
   def nullInRequiredColumn(reader: ColumnReader): ParquetDecodeException =
     ParquetDecodeException(
-      s"Column '${reader.getDescriptor.getPath.mkString(".")}' contains a null, but was inferred as a non-optional type. This means the parquet footer and its data disagree."
+      s"Column '${reader.getDescriptor.getPath.mkString(".")}' contains a null, but was inferred as a non-optional type. Read with ParquetOptionality.FromSchema to preserve optional fields."
     )
 
   /** Builder for a reference type — values are read one at a time, which costs nothing extra since the array holds references anyway. */

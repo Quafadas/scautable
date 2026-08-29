@@ -36,7 +36,8 @@ import scala.quoted.*
   * any    (DECIMAL)                     -> BigDecimal
   * }}}
   *
-  * A field declared `optional` is surfaced as `Option[T]`; a `required` field is surfaced as `T`.
+  * By default, a field declared `optional` is surfaced as `Option[T]`; a `required` field is surfaced as `T`. Pass [[ParquetOptionality.NoOptions]] to surface every field as `T`
+  * and fail at runtime if a value is absent.
   */
 
 object Parquet:
@@ -47,7 +48,7 @@ object Parquet:
     * val titanic = Parquet.resource("titanic.parquet")
     * }}}
     */
-  transparent inline def resource(inline name: String): Any = ${ resourceImpl('name, '{ ReadAs.Rows }) }
+  transparent inline def resource(inline name: String): Any = ${ resourceImpl('name, '{ ReadAs.Rows }, '{ ParquetOptionality.FromSchema }) }
 
   /** Read a parquet file from the java resources as rows or as columns.
     *
@@ -57,23 +58,47 @@ object Parquet:
     * cols.Age.flatten.sum
     * }}}
     */
-  transparent inline def resource(inline name: String, inline readAs: ReadAs): Any = ${ resourceImpl('name, 'readAs) }
+  transparent inline def resource(inline name: String, inline readAs: ReadAs): Any = ${ resourceImpl('name, 'readAs, '{ ParquetOptionality.FromSchema }) }
+
+  /** Read a parquet resource with explicit handling for fields declared `optional`. */
+  transparent inline def resource(inline name: String, inline optionality: ParquetOptionality): Any =
+    ${ resourceImpl('name, '{ ReadAs.Rows }, 'optionality) }
+
+  /** Read a parquet resource as rows or columns with explicit handling for fields declared `optional`. */
+  transparent inline def resource(inline name: String, inline readAs: ReadAs, inline optionality: ParquetOptionality): Any =
+    ${ resourceImpl('name, 'readAs, 'optionality) }
 
   /** Read a parquet file from an absolute filesystem path, inferring its schema at compile time. */
-  transparent inline def absolutePath(inline path: String): Any = ${ absolutePathImpl('path, '{ ReadAs.Rows }) }
+  transparent inline def absolutePath(inline path: String): Any = ${ absolutePathImpl('path, '{ ReadAs.Rows }, '{ ParquetOptionality.FromSchema }) }
 
   /** Read a parquet file from an absolute filesystem path, as rows or as columns. */
-  transparent inline def absolutePath(inline path: String, inline readAs: ReadAs): Any = ${ absolutePathImpl('path, 'readAs) }
+  transparent inline def absolutePath(inline path: String, inline readAs: ReadAs): Any = ${ absolutePathImpl('path, 'readAs, '{ ParquetOptionality.FromSchema }) }
+
+  /** Read an absolute parquet path with explicit handling for fields declared `optional`. */
+  transparent inline def absolutePath(inline path: String, inline optionality: ParquetOptionality): Any =
+    ${ absolutePathImpl('path, '{ ReadAs.Rows }, 'optionality) }
+
+  /** Read an absolute parquet path as rows or columns with explicit handling for fields declared `optional`. */
+  transparent inline def absolutePath(inline path: String, inline readAs: ReadAs, inline optionality: ParquetOptionality): Any =
+    ${ absolutePathImpl('path, 'readAs, 'optionality) }
 
   /** Read a parquet file relative to the working directory, inferring its schema at compile time.
     *
     * Note that the *compiler's* working directory is used to find the schema and the *runtime* working directory is used to find the data — these are frequently not the same
     * directory. Prefer [[resource]] or [[absolutePath]] unless you know they are.
     */
-  transparent inline def pwd(inline path: String): Any = ${ pwdImpl('path, '{ ReadAs.Rows }) }
+  transparent inline def pwd(inline path: String): Any = ${ pwdImpl('path, '{ ReadAs.Rows }, '{ ParquetOptionality.FromSchema }) }
 
   /** Read a parquet file relative to the working directory, as rows or as columns. */
-  transparent inline def pwd(inline path: String, inline readAs: ReadAs): Any = ${ pwdImpl('path, 'readAs) }
+  transparent inline def pwd(inline path: String, inline readAs: ReadAs): Any = ${ pwdImpl('path, 'readAs, '{ ParquetOptionality.FromSchema }) }
+
+  /** Read a working-directory-relative parquet path with explicit handling for fields declared `optional`. */
+  transparent inline def pwd(inline path: String, inline optionality: ParquetOptionality): Any =
+    ${ pwdImpl('path, '{ ReadAs.Rows }, 'optionality) }
+
+  /** Read a working-directory-relative parquet path as rows or columns with explicit handling for fields declared `optional`. */
+  transparent inline def pwd(inline path: String, inline readAs: ReadAs, inline optionality: ParquetOptionality): Any =
+    ${ pwdImpl('path, 'readAs, 'optionality) }
 
   /** The parquet footer schema, as a string. Handy when a schema is rejected and you want to see why. */
   def schemaOf(source: ParquetSource): String = ParquetSchema.read(source).toString
@@ -82,16 +107,16 @@ object Parquet:
   // Macro implementations — these run at compile time.
   // ---------------------------------------------------------------------------
 
-  private def resourceImpl(nameExpr: Expr[String], readAsExpr: Expr[ReadAs])(using Quotes): Expr[Any] =
-    build(ParquetSource.Resource(nameExpr.valueOrAbort), readAsExpr)
+  private def resourceImpl(nameExpr: Expr[String], readAsExpr: Expr[ReadAs], optionalityExpr: Expr[ParquetOptionality])(using Quotes): Expr[Any] =
+    build(ParquetSource.Resource(nameExpr.valueOrAbort), readAsExpr, optionalityExpr)
 
-  private def absolutePathImpl(pathExpr: Expr[String], readAsExpr: Expr[ReadAs])(using Quotes): Expr[Any] =
-    build(ParquetSource.AbsolutePath(pathExpr.valueOrAbort), readAsExpr)
+  private def absolutePathImpl(pathExpr: Expr[String], readAsExpr: Expr[ReadAs], optionalityExpr: Expr[ParquetOptionality])(using Quotes): Expr[Any] =
+    build(ParquetSource.AbsolutePath(pathExpr.valueOrAbort), readAsExpr, optionalityExpr)
 
-  private def pwdImpl(pathExpr: Expr[String], readAsExpr: Expr[ReadAs])(using Quotes): Expr[Any] =
-    build(ParquetSource.RelativePath(pathExpr.valueOrAbort), readAsExpr)
+  private def pwdImpl(pathExpr: Expr[String], readAsExpr: Expr[ReadAs], optionalityExpr: Expr[ParquetOptionality])(using Quotes): Expr[Any] =
+    build(ParquetSource.RelativePath(pathExpr.valueOrAbort), readAsExpr, optionalityExpr)
 
-  private def build(source: ParquetSource, readAsExpr: Expr[ReadAs])(using q: Quotes): Expr[Any] =
+  private def build(source: ParquetSource, readAsExpr: Expr[ReadAs], optionalityExpr: Expr[ParquetOptionality])(using q: Quotes): Expr[Any] =
     import q.reflect.*
 
     val cols =
@@ -111,13 +136,16 @@ object Parquet:
     val readAs = readAsExpr.value.getOrElse {
       report.throwError("`readAs` must be a compile-time constant. Parquet supports ReadAs.Rows and ReadAs.Columns.")
     }
+    val optionality = optionalityExpr.value.getOrElse {
+      report.throwError("`optionality` must be a compile-time constant.")
+    }
 
     headerTupleExpr match
       case '{ $tup: hdrs } =>
         readAs match
           case ReadAs.Rows =>
             val valueTypeRepr = cols.foldRight(TypeRepr.of[EmptyTuple]) { (col, acc) =>
-              TypeRepr.of[*:].appliedTo(List(typeReprOf(col), acc))
+              TypeRepr.of[*:].appliedTo(List(typeReprOf(col, optionality), acc))
             }
             val headersExpr = Expr(headers)
             valueTypeRepr.asType match
@@ -127,7 +155,7 @@ object Parquet:
 
           case ReadAs.Columns =>
             val arrayTypeRepr = cols.foldRight(TypeRepr.of[EmptyTuple]) { (col, acc) =>
-              TypeRepr.of[*:].appliedTo(List(TypeRepr.of[Array].appliedTo(typeReprOf(col)), acc))
+              TypeRepr.of[*:].appliedTo(List(TypeRepr.of[Array].appliedTo(typeReprOf(col, optionality)), acc))
             }
             arrayTypeRepr.asType match
               case '[arrs] =>
@@ -143,7 +171,7 @@ object Parquet:
     end match
   end build
 
-  private def typeReprOf(col: ParquetColumnMeta)(using q: Quotes): q.reflect.TypeRepr =
+  private def typeReprOf(col: ParquetColumnMeta, optionality: ParquetOptionality)(using q: Quotes): q.reflect.TypeRepr =
     import q.reflect.*
     import ParquetScalaType.*
 
@@ -160,7 +188,7 @@ object Parquet:
       case DecimalT => TypeRepr.of[BigDecimal]
       case UuidT    => TypeRepr.of[java.util.UUID]
 
-    if col.nullable then TypeRepr.of[Option].appliedTo(base) else base
+    if col.nullable && optionality == ParquetOptionality.FromSchema then TypeRepr.of[Option].appliedTo(base) else base
     end if
   end typeReprOf
 
