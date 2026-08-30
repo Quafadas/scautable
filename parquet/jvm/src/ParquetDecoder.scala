@@ -4,6 +4,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
+import scala.NamedTuple.NamedTuple
 import scala.compiletime.erasedValue
 import scala.compiletime.summonInline
 
@@ -39,11 +40,41 @@ object ParquetDecoder:
   given ParquetDecoder[Instant] = raw => nonNull[Instant](raw, "Instant")
   given ParquetDecoder[BigDecimal] = raw => nonNull[BigDecimal](raw, "BigDecimal")
   given ParquetDecoder[UUID] = raw => nonNull[UUID](raw, "UUID")
+  given [Names <: Tuple, Values <: Tuple](using decoder: ParquetTupleDecoder[Values]): ParquetDecoder[NamedTuple[Names, Values]] = raw =>
+    val tuple = nonNull[Tuple](raw, "nested struct")
+    decoder.decode(tuple).asInstanceOf[NamedTuple[Names, Values]]
 
   given [T](using inner: ParquetDecoder[T]): ParquetDecoder[Option[T]] =
     raw => if raw == null then None else Some(inner.decode(raw))
 
 end ParquetDecoder
+
+/** Recursively decodes the values of a tuple-backed nested `NamedTuple`. */
+trait ParquetTupleDecoder[T <: Tuple]:
+  def decode(raw: Tuple): T
+end ParquetTupleDecoder
+
+object ParquetTupleDecoder:
+
+  inline def summonAll[T <: Tuple]: List[ParquetDecoder[?]] =
+    inline erasedValue[T] match
+      case _: EmptyTuple => Nil
+      case _: (h *: t)   => summonInline[ParquetDecoder[h]] :: summonAll[t]
+
+  inline given derived[T <: Tuple]: ParquetTupleDecoder[T] = new ParquetTupleDecoder[T]:
+    private val decoders = summonAll[T]
+
+    def decode(raw: Tuple): T = decodeElems(raw, decoders).asInstanceOf[T]
+
+    private def decodeElems(raw: Tuple, decoders: List[ParquetDecoder[?]]): Tuple =
+      decoders match
+        case Nil             => EmptyTuple
+        case decoder :: rest =>
+          val value = decoder.asInstanceOf[ParquetDecoder[Any]].decode(raw.head)
+          value *: decodeElems(raw.tail, rest)
+  end derived
+
+end ParquetTupleDecoder
 
 /** Decodes one row out of a column-oriented row group into a typed [[Tuple]]. */
 trait ParquetRowDecoder[T <: Tuple]:

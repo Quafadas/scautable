@@ -186,7 +186,7 @@ object ParquetColumns:
       var pages = reader.readNextRowGroup()
       while pages != null do
         val rowCount = pages.getRowCount.toInt
-        val readStore = new ColumnReadStoreImpl(pages, ParquetColumnSource.noOpConverter, schema, fileMetaData.getCreatedBy)
+        val readStore = new ColumnReadStoreImpl(pages, ParquetColumnSource.noOpConverter(schema), schema, fileMetaData.getCreatedBy)
         fillAll[V](arrays, offset, rowCount, readStore, descriptors, 0)
         offset += rowCount
         pages = reader.readNextRowGroup()

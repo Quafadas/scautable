@@ -38,6 +38,11 @@ import scala.quoted.*
   *
   * By default, a field declared `optional` is surfaced as `Option[T]`; a `required` field is surfaced as `T`. Pass [[ParquetOptionality.NoOptions]] to surface every field as `T`
   * and fail at runtime if a value is absent.
+  *
+  * ===Nested structs===
+  *
+  * `ReadAs.Rows` represents parquet groups as nested `NamedTuple` values and supports required and optional structs at arbitrary depth. `ReadAs.Columns` currently supports flat
+  * schemas only; requesting columns for a nested schema is rejected at compile time. Parquet `LIST`, `MAP`, and other repeated fields are not yet supported.
   */
 
 object Parquet:
@@ -50,7 +55,7 @@ object Parquet:
     */
   transparent inline def resource(inline name: String): Any = ${ resourceImpl('name, '{ ReadAs.Rows }, '{ ParquetOptionality.FromSchema }) }
 
-  /** Read a parquet file from the java resources as rows or as columns.
+  /** Read a parquet file from the java resources as rows or as columns. Nested structs require [[ReadAs.Rows]].
     *
     * {{{
     * val cols = Parquet.resource("titanic.parquet", ReadAs.Columns)
@@ -64,21 +69,21 @@ object Parquet:
   transparent inline def resource(inline name: String, inline optionality: ParquetOptionality): Any =
     ${ resourceImpl('name, '{ ReadAs.Rows }, 'optionality) }
 
-  /** Read a parquet resource as rows or columns with explicit handling for fields declared `optional`. */
+  /** Read a parquet resource as rows or columns with explicit handling for fields declared `optional`. Nested structs require [[ReadAs.Rows]]. */
   transparent inline def resource(inline name: String, inline readAs: ReadAs, inline optionality: ParquetOptionality): Any =
     ${ resourceImpl('name, 'readAs, 'optionality) }
 
   /** Read a parquet file from an absolute filesystem path, inferring its schema at compile time. */
   transparent inline def absolutePath(inline path: String): Any = ${ absolutePathImpl('path, '{ ReadAs.Rows }, '{ ParquetOptionality.FromSchema }) }
 
-  /** Read a parquet file from an absolute filesystem path, as rows or as columns. */
+  /** Read a parquet file from an absolute filesystem path, as rows or as columns. Nested structs require [[ReadAs.Rows]]. */
   transparent inline def absolutePath(inline path: String, inline readAs: ReadAs): Any = ${ absolutePathImpl('path, 'readAs, '{ ParquetOptionality.FromSchema }) }
 
   /** Read an absolute parquet path with explicit handling for fields declared `optional`. */
   transparent inline def absolutePath(inline path: String, inline optionality: ParquetOptionality): Any =
     ${ absolutePathImpl('path, '{ ReadAs.Rows }, 'optionality) }
 
-  /** Read an absolute parquet path as rows or columns with explicit handling for fields declared `optional`. */
+  /** Read an absolute parquet path as rows or columns with explicit handling for fields declared `optional`. Nested structs require [[ReadAs.Rows]]. */
   transparent inline def absolutePath(inline path: String, inline readAs: ReadAs, inline optionality: ParquetOptionality): Any =
     ${ absolutePathImpl('path, 'readAs, 'optionality) }
 
@@ -89,14 +94,14 @@ object Parquet:
     */
   transparent inline def pwd(inline path: String): Any = ${ pwdImpl('path, '{ ReadAs.Rows }, '{ ParquetOptionality.FromSchema }) }
 
-  /** Read a parquet file relative to the working directory, as rows or as columns. */
+  /** Read a parquet file relative to the working directory, as rows or as columns. Nested structs require [[ReadAs.Rows]]. */
   transparent inline def pwd(inline path: String, inline readAs: ReadAs): Any = ${ pwdImpl('path, 'readAs, '{ ParquetOptionality.FromSchema }) }
 
   /** Read a working-directory-relative parquet path with explicit handling for fields declared `optional`. */
   transparent inline def pwd(inline path: String, inline optionality: ParquetOptionality): Any =
     ${ pwdImpl('path, '{ ReadAs.Rows }, 'optionality) }
 
-  /** Read a working-directory-relative parquet path as rows or columns with explicit handling for fields declared `optional`. */
+  /** Read a working-directory-relative parquet path as rows or columns with explicit handling for fields declared `optional`. Nested structs require [[ReadAs.Rows]]. */
   transparent inline def pwd(inline path: String, inline readAs: ReadAs, inline optionality: ParquetOptionality): Any =
     ${ pwdImpl('path, 'readAs, 'optionality) }
 
@@ -119,13 +124,16 @@ object Parquet:
   private def build(source: ParquetSource, readAsExpr: Expr[ReadAs], optionalityExpr: Expr[ParquetOptionality])(using q: Quotes): Expr[Any] =
     import q.reflect.*
 
-    val cols =
-      try ParquetSchema.columns(ParquetSchema.read(source))
+    val schema =
+      try ParquetSchema.read(source)
       catch
         case ex: UnsupportedParquetSchemaException => report.throwError(ex.getMessage)
         case ex: Exception                         => report.throwError(s"Could not read the parquet schema of $source: ${ex.getMessage}")
+    val fields =
+      try ParquetSchema.fields(schema)
+      catch case ex: UnsupportedParquetSchemaException => report.throwError(ex.getMessage)
 
-    val headers = cols.map(_.name).toList
+    val headers = fields.map(fieldName).toList
 
     if headers.distinct.size != headers.size then report.warning(s"Duplicate column names in parquet schema: ${headers.diff(headers.distinct).distinct.mkString(", ")}")
     end if
@@ -144,18 +152,21 @@ object Parquet:
       case '{ $tup: hdrs } =>
         readAs match
           case ReadAs.Rows =>
-            val valueTypeRepr = cols.foldRight(TypeRepr.of[EmptyTuple]) { (col, acc) =>
-              TypeRepr.of[*:].appliedTo(List(typeReprOf(col, optionality), acc))
-            }
+            val valueTypeRepr = tupleTypeRepr(fields, optionality)
             val headersExpr = Expr(headers)
             valueTypeRepr.asType match
               case '[v] =>
-                '{ new ParquetIterator[hdrs & Tuple, v & Tuple]($headersExpr, () => new ParquetColumnSource($sourceExpr)) }
+                '{ new ParquetIterator[hdrs & Tuple, v & Tuple]($headersExpr, () => new ParquetColumnSource($sourceExpr, $optionalityExpr)) }
             end match
 
           case ReadAs.Columns =>
+            if ParquetSchema.isNested(fields) then report.throwError("ReadAs.Columns does not yet support nested parquet fields. Use ReadAs.Rows for nested schemas.")
+            end if
+            val cols =
+              ParquetSchema.columns(schema)
             val arrayTypeRepr = cols.foldRight(TypeRepr.of[EmptyTuple]) { (col, acc) =>
-              TypeRepr.of[*:].appliedTo(List(TypeRepr.of[Array].appliedTo(typeReprOf(col, optionality)), acc))
+              val field = ParquetField.Primitive(col.name, col.scalaType, col.nullable, 0, 0)
+              TypeRepr.of[*:].appliedTo(List(TypeRepr.of[Array].appliedTo(typeReprOf(field, optionality)), acc))
             }
             arrayTypeRepr.asType match
               case '[arrs] =>
@@ -171,26 +182,62 @@ object Parquet:
     end match
   end build
 
-  private def typeReprOf(col: ParquetColumnMeta, optionality: ParquetOptionality)(using q: Quotes): q.reflect.TypeRepr =
+  private def tupleTypeRepr(fields: Vector[ParquetField], optionality: ParquetOptionality)(using q: Quotes): q.reflect.TypeRepr =
+    import q.reflect.*
+
+    fields.foldRight(TypeRepr.of[EmptyTuple]) { (field, acc) =>
+      TypeRepr.of[*:].appliedTo(List(typeReprOf(field, optionality), acc))
+    }
+  end tupleTypeRepr
+
+  private def namesTypeRepr(fields: Vector[ParquetField])(using q: Quotes): q.reflect.TypeRepr =
+    import q.reflect.*
+
+    fields.foldRight(TypeRepr.of[EmptyTuple]) { (field, acc) =>
+      TypeRepr.of[*:].appliedTo(List(ConstantType(StringConstant(fieldName(field))), acc))
+    }
+  end namesTypeRepr
+
+  private def typeReprOf(field: ParquetField, optionality: ParquetOptionality)(using q: Quotes): q.reflect.TypeRepr =
     import q.reflect.*
     import ParquetScalaType.*
 
-    val base: TypeRepr = col.scalaType match
-      case IntT     => TypeRepr.of[Int]
-      case LongT    => TypeRepr.of[Long]
-      case FloatT   => TypeRepr.of[Float]
-      case DoubleT  => TypeRepr.of[Double]
-      case BooleanT => TypeRepr.of[Boolean]
-      case StringT  => TypeRepr.of[String]
-      case BinaryT  => TypeRepr.of[Array[Byte]]
-      case DateT    => TypeRepr.of[java.time.LocalDate]
-      case InstantT => TypeRepr.of[java.time.Instant]
-      case DecimalT => TypeRepr.of[BigDecimal]
-      case UuidT    => TypeRepr.of[java.util.UUID]
+    val (base, nullable): (TypeRepr, Boolean) = field match
+      case ParquetField.Primitive(_, scalaType, nullable, _, _) =>
+        val primitive = scalaType match
+          case IntT     => TypeRepr.of[Int]
+          case LongT    => TypeRepr.of[Long]
+          case FloatT   => TypeRepr.of[Float]
+          case DoubleT  => TypeRepr.of[Double]
+          case BooleanT => TypeRepr.of[Boolean]
+          case StringT  => TypeRepr.of[String]
+          case BinaryT  => TypeRepr.of[Array[Byte]]
+          case DateT    => TypeRepr.of[java.time.LocalDate]
+          case InstantT => TypeRepr.of[java.time.Instant]
+          case DecimalT => TypeRepr.of[BigDecimal]
+          case UuidT    => TypeRepr.of[java.util.UUID]
+        (primitive, nullable)
+      case ParquetField.Struct(_, children, nullable, _) =>
+        val namedTuple = namedTupleTypeRepr(namesTypeRepr(children), tupleTypeRepr(children, optionality))
+        (namedTuple, nullable)
 
-    if col.nullable && optionality == ParquetOptionality.FromSchema then TypeRepr.of[Option].appliedTo(base) else base
+    if nullable && optionality == ParquetOptionality.FromSchema then TypeRepr.of[Option].appliedTo(base) else base
     end if
   end typeReprOf
+
+  private def namedTupleTypeRepr(using q: Quotes)(names: q.reflect.TypeRepr, values: q.reflect.TypeRepr): q.reflect.TypeRepr =
+    import q.reflect.*
+
+    names.asType match
+      case '[n] =>
+        values.asType match
+          case '[v] => TypeRepr.of[NamedTuple[n & Tuple, v & Tuple]]
+    end match
+  end namedTupleTypeRepr
+
+  private def fieldName(field: ParquetField): String = field match
+    case ParquetField.Primitive(name, _, _, _, _) => name
+    case ParquetField.Struct(name, _, _, _)       => name
 
   private def sourceToExpr(source: ParquetSource)(using Quotes): Expr[ParquetSource] = source match
     case ParquetSource.Resource(name)     => '{ ParquetSource.Resource(${ Expr(name) }) }
