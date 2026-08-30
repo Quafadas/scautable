@@ -26,6 +26,13 @@ class ParquetVisibilitySuite extends munit.FunSuite:
   test("the NoOptions macro expands in a foreign package"):
     assert(typeChecks("""Parquet.resource("titanic.parquet", ParquetOptionality.NoOptions)"""))
 
+  test("nested rows decode in a foreign package"):
+    assert(typeChecks("""Parquet.resource("nested_struct.parquet").next().address.map(_.street)"""))
+    val first = Parquet.resource("nested_struct.parquet").next()
+
+    assertEquals(first.address.map(_.street), Some("Main Street"))
+    assertEquals(first.address.flatMap(_.coordinates).map(_.latitude), Some(51.5))
+
   test("Schema read available"):
     assert(typeChecks("""ParquetSchema.read(ParquetSource.Resource("titanic.parquet"))"""))
 

@@ -17,6 +17,9 @@ import scala.jdk.CollectionConverters.*
   */
 final case class RowGroupColumns(columns: Array[Array[Any]], rowCount: Int)
 
+/** Values and definition levels for one physical parquet leaf column. */
+private[scautable] final case class ParquetLeafColumn(values: Array[Any], definitionLevels: Array[Int])
+
 /** Reads a parquet file the way parquet is laid out on disk: one row group at a time, and within a row group one column chunk at a time.
   *
   * This keeps the sequential-scan behaviour that makes parquet fast, while still letting scautable hand back rows as `NamedTuple`s. Only one row group is resident in memory at a
@@ -24,7 +27,7 @@ final case class RowGroupColumns(columns: Array[Array[Any]], rowCount: Int)
   *
   * Internal API — public only because the `Parquet` macros splice references to it into user code.
   */
-final class ParquetColumnSource(source: ParquetSource) extends AutoCloseable:
+final class ParquetColumnSource(source: ParquetSource, optionality: ParquetOptionality) extends AutoCloseable:
 
   private val reader: ParquetFileReader = source.openReader()
   private val fileMetaData = reader.getFooter.getFileMetaData
@@ -32,8 +35,9 @@ final class ParquetColumnSource(source: ParquetSource) extends AutoCloseable:
   val schema: MessageType = fileMetaData.getSchema
   private val createdBy: String = fileMetaData.getCreatedBy
 
+  private val fields = ParquetSchema.fields(schema)
+  private val leaves = ParquetSchema.leaves(fields)
   private val descriptors = schema.getColumns.asScala.toVector
-  private val scalaTypes = ParquetSchema.columns(schema).map(_.scalaType)
 
   /** Materialise the next row group, or `None` when the file is exhausted. */
   def nextRowGroup(): Option[RowGroupColumns] =
@@ -41,30 +45,34 @@ final class ParquetColumnSource(source: ParquetSource) extends AutoCloseable:
     if pages == null then None
     else
       val rowCount = pages.getRowCount.toInt
-      val readStore = new ColumnReadStoreImpl(pages, ParquetColumnSource.noOpConverter, schema, createdBy)
-      val columns = Array.ofDim[Array[Any]](descriptors.size)
+      val readStore = new ColumnReadStoreImpl(pages, ParquetColumnSource.noOpConverter(schema), schema, createdBy)
+      val leafColumns = new Array[ParquetLeafColumn](descriptors.size)
 
       var c = 0
       while c < descriptors.size do
         val descriptor = descriptors(c)
         val maxDefinitionLevel = descriptor.getMaxDefinitionLevel
         val columnReader = readStore.getColumnReader(descriptor)
-        val scalaType = scalaTypes(c)
+        val scalaType = leaves(c).scalaType
         val values = new Array[Any](rowCount)
+        val definitionLevels = new Array[Int](rowCount)
 
         var r = 0
         while r < rowCount do
+          val definitionLevel = columnReader.getCurrentDefinitionLevel
+          definitionLevels(r) = definitionLevel
           values(r) =
-            if columnReader.getCurrentDefinitionLevel == maxDefinitionLevel then ParquetValues.boxed(columnReader, scalaType)
+            if definitionLevel == maxDefinitionLevel then ParquetValues.boxed(columnReader, scalaType)
             else null
           columnReader.consume()
           r += 1
         end while
 
-        columns(c) = values
+        leafColumns(c) = ParquetLeafColumn(values, definitionLevels)
         c += 1
       end while
 
+      val columns = ParquetStructAssembler.assembleColumns(fields, leafColumns, rowCount, optionality)
       Some(RowGroupColumns(columns, rowCount))
     end if
   end nextRowGroup
@@ -79,9 +87,14 @@ object ParquetColumnSource:
   /** `ColumnReadStoreImpl` insists on a converter tree, but we read values directly off the `ColumnReader` rather than pushing them into converters. A converter that never claims
     * dictionary support keeps the reader on the plain-value path.
     */
-  val noOpConverter: GroupConverter = new GroupConverter:
-    private val primitive = new PrimitiveConverter {}
-    override def getConverter(fieldIndex: Int): Converter = primitive
+  def noOpConverter(schema: MessageType): GroupConverter = groupConverter(schema.getFields.asScala.toVector)
+
+  private def converter(parquetType: org.apache.parquet.schema.Type): Converter =
+    if parquetType.isPrimitive then new PrimitiveConverter {} else groupConverter(parquetType.asGroupType.getFields.asScala.toVector)
+
+  private def groupConverter(fields: Vector[org.apache.parquet.schema.Type]): GroupConverter = new GroupConverter:
+    private val children = fields.map(converter)
+    override def getConverter(fieldIndex: Int): Converter = children(fieldIndex)
     override def start(): Unit = ()
     override def end(): Unit = ()
 
