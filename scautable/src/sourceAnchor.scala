@@ -7,16 +7,15 @@ import scala.quoted.*
 
 /** Compile time resolution of file paths anchored to something more stable than the compiler's working directory.
   *
-  * A macro that reads a file to infer its schema has to find that file twice - once during compilation, and again when
-  * the generated code runs. Anchoring the path to the source file, or to the project root discovered above it, makes the
-  * compile time half of that reproducible no matter where the build was invoked from.
+  * A macro that reads a file to infer its schema has to find that file twice - once during compilation, and again when the generated code runs. Anchoring the path to the source
+  * file, or to the project root discovered above it, makes the compile time half of that reproducible no matter where the build was invoked from.
   *
   * Shared by [[CSV]], [[Excel]], `JsonTable` and `Parquet` so they all resolve paths the same way.
   */
 private[scautable] object SourceAnchor:
 
-  /** A path resolved at compile time, together with the project root it was anchored against. Readers use the root to
-    * build a runtime fallback for the case where the file has moved relative to the machine that compiled it.
+  /** A path resolved at compile time, together with the project root it was anchored against. Readers use the root to build a runtime fallback for the case where the file has
+    * moved relative to the machine that compiled it.
     */
   final case class Anchored(absolutePath: Path, projectRoot: Path)
 
@@ -41,8 +40,8 @@ private[scautable] object SourceAnchor:
 
   /** Directory holding the source file that expanded this macro, if that call site has a file on disk.
     *
-    * Notebook and REPL front ends (almond, ammonite, the scala REPL) compile cells from memory, so there is no source
-    * path to anchor to and this is `None`. Callers fall back to [[workingDir]] in that case.
+    * Notebook and REPL front ends (almond, ammonite, the scala REPL) compile cells from memory, so there is no source path to anchor to and this is `None`. Callers fall back to
+    * [[workingDir]] in that case.
     */
   def callSiteDir(using Quotes): Option[Path] =
     import quotes.reflect.*
@@ -56,8 +55,8 @@ private[scautable] object SourceAnchor:
     }
   end callSiteDir
 
-  /** Working directory of the compiler. In notebooks and REPLs the macro expands in the same JVM the code runs in, so
-    * this is the kernel's directory - which jupyter sets to the notebook's own directory.
+  /** Working directory of the compiler. In notebooks and REPLs the macro expands in the same JVM the code runs in, so this is the kernel's directory - which jupyter sets to the
+    * notebook's own directory.
     */
   def workingDir: Path = Paths.get("").toAbsolutePath.normalize
 
@@ -68,9 +67,8 @@ private[scautable] object SourceAnchor:
       .getOrElse(from)
   end projectRootFrom
 
-  /** Paths given to the anchored constructors are always relative to their anchor, so a leading separator is a slip
-    * rather than a request for the filesystem root. Drop it, otherwise `resolve` discards the anchor and looks for the
-    * file at `/`.
+  /** Paths given to the anchored constructors are always relative to their anchor, so a leading separator is a slip rather than a request for the filesystem root. Drop it,
+    * otherwise `resolve` discards the anchor and looks for the file at `/`.
     */
   def anchorRelative(path: String): String = path.dropWhile(c => c == '/' || c == '\\')
 

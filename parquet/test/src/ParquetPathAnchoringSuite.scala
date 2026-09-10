@@ -1,7 +1,7 @@
 package io.github.quafadas.scautable.parquet
 
-/** The test sources live in `parquet/test/src`, so `../resources/x` from here is `parquet/test/resources/x` - which is
-  * what the project-root anchored calls address by their full path.
+/** The test sources live in `parquet/test/src`, so `../resources/x` from here is `parquet/test/resources/x` - which is what the project-root anchored calls address by their full
+  * path.
   */
 class ParquetPathAnchoringSuite extends munit.FunSuite:
 

@@ -5,8 +5,8 @@ import io.github.quafadas.table.*
 
 /** Excel and JSON counterparts to [[CsvPathAnchoringSuite]].
   *
-  * The test sources live in `scautable/test/src-jvm`, so `../resources/x` from here is `scautable/test/resources/x` -
-  * which is what the project-root anchored calls address by their full path.
+  * The test sources live in `scautable/test/src-jvm`, so `../resources/x` from here is `scautable/test/resources/x` - which is what the project-root anchored calls address by
+  * their full path.
   */
 class AnchoredPathSuite extends munit.FunSuite:
 
