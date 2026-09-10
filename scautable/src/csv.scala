@@ -341,16 +341,24 @@ object CSV:
     }
   end buildDenseArrayRowMajor
 
-  private case class RuntimePathChain(absolutePath: String, rootRelativePath: String, resourceName: String, useFallback: Boolean)
+  /** @param anchorHint
+    *   how the compile time path was arrived at, for diagnostics. Empty for the constructors that take the path as given and so have nothing to explain.
+    */
+  private case class RuntimePathChain(absolutePath: String, rootRelativePath: String, resourceName: String, useFallback: Boolean, anchorHint: String = "")
 
-  private def runtimePathChain(absolutePath: Path, rootPath: Path, useFallback: Boolean): RuntimePathChain =
+  private def runtimePathChain(absolutePath: Path, rootPath: Path, useFallback: Boolean, anchorHint: String = ""): RuntimePathChain =
     val normalizedAbsolute = absolutePath.toAbsolutePath.normalize
     val normalizedRoot = rootPath.toAbsolutePath.normalize
     val rootRelative =
       try normalizedRoot.relativize(normalizedAbsolute).toString
       catch case _: IllegalArgumentException => normalizedAbsolute.getFileName.toString
-    RuntimePathChain(normalizedAbsolute.toString, rootRelative, normalizedAbsolute.getFileName.toString, useFallback)
+    RuntimePathChain(normalizedAbsolute.toString, rootRelative, normalizedAbsolute.getFileName.toString, useFallback, anchorHint)
   end runtimePathChain
+
+  /** Explains where an anchored path came from, so a compile time miss says which channel chose the directory that was searched. */
+  private def anchorHintFor(anchored: SourceAnchor.Anchored): String =
+    s" That path was anchored to ${anchored.provenance.describe}. ${SourceAnchor.anchorAdvice}"
+  end anchorHintFor
 
   private[scautable] def openSourceWithFallback(absolutePath: String, rootRelativePath: String, resourceName: String): Source =
     openSourceWithFallback(absolutePath, rootRelativePath, resourceName, useFallback = true)
@@ -412,7 +420,9 @@ object CSV:
     val source = scala.util
       .Try(Source.fromFile(pathChain.absolutePath))
       .getOrElse(
-        report.errorAndAbort(s"scautable: could not read a CSV at '${pathChain.absolutePath}' while compiling. The file has to exist at compile time so its columns can be typed.")
+        report.errorAndAbort(
+          s"scautable: could not read a CSV at '${pathChain.absolutePath}' while compiling. The file has to exist at compile time so its columns can be typed.${pathChain.anchorHint}"
+        )
       )
     val lineIterator: Iterator[String] = source.getLines()
     val (headers, iter) = lineIterator.headers(csvHeaders, delimiter)
@@ -685,12 +695,12 @@ object CSV:
 
   private def readCsvRelativeToSource(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     val anchored = SourceAnchor.relativeToSource(pathExpr.valueOrAbort)
-    readHeaderlineAsCsv(runtimePathChain(anchored.absolutePath, anchored.projectRoot, useFallback = true), optsExpr)
+    readHeaderlineAsCsv(runtimePathChain(anchored.absolutePath, anchored.projectRoot, useFallback = true, anchorHintFor(anchored)), optsExpr)
   end readCsvRelativeToSource
 
   private def readCsvProjectRoot(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     val anchored = SourceAnchor.projectRoot(pathExpr.valueOrAbort)
-    readHeaderlineAsCsv(runtimePathChain(anchored.absolutePath, anchored.projectRoot, useFallback = true), optsExpr)
+    readHeaderlineAsCsv(runtimePathChain(anchored.absolutePath, anchored.projectRoot, useFallback = true, anchorHintFor(anchored)), optsExpr)
   end readCsvProjectRoot
 
   private def readCsvFromString(csvContentExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =

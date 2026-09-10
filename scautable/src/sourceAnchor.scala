@@ -10,14 +10,34 @@ import scala.quoted.*
   * A macro that reads a file to infer its schema has to find that file twice - once during compilation, and again when the generated code runs. Anchoring the path to the source
   * file, or to the project root discovered above it, makes the compile time half of that reproducible no matter where the build was invoked from.
   *
+  * Some front ends give the macro nothing useful to anchor against. A notebook cell has no source file on disk, and under a build server the compiler runs inside a long lived
+  * daemon whose working directory is a cache directory unrelated to anyone's code. For those, [[anchorKey]] lets the host declare the anchor outright, which takes priority over
+  * everything this object would otherwise infer.
+  *
   * Shared by [[CSV]], [[Excel]], `JsonTable` and `Parquet` so they all resolve paths the same way.
   */
 private[scautable] object SourceAnchor:
 
+  /** Name of the anchor, accepted both as a `-Xmacro-settings` entry and as a system property.
+    *
+    * Two channels because the hosts that need them cannot both reach the same one. A build server compiles in a daemon that a `-D` on the build never touches, so it needs
+    * `-Xmacro-settings:scautable.root=...`, which travels with the compile request. A notebook kernel compiles cells in its own JVM, so a cell can call
+    * `System.setProperty("scautable.root", ...)` and have every later cell see it.
+    */
+  val anchorKey = "scautable.root"
+
+  /** Where an anchor directory came from, so a failure can say which channel produced the directory it searched. */
+  enum Provenance(val describe: String):
+    case MacroSetting extends Provenance(s"the '$anchorKey' compiler setting")
+    case SystemProperty extends Provenance(s"the '$anchorKey' system property")
+    case CallSite extends Provenance("the source file that called it")
+    case WorkingDir extends Provenance("the compiler's working directory")
+  end Provenance
+
   /** A path resolved at compile time, together with the project root it was anchored against. Readers use the root to build a runtime fallback for the case where the file has
     * moved relative to the machine that compiled it.
     */
-  final case class Anchored(absolutePath: Path, projectRoot: Path)
+  final case class Anchored(absolutePath: Path, projectRoot: Path, provenance: Provenance)
 
   /** Files that mark the top of a project. */
   val rootMarkers: Set[String] = Set(
@@ -32,16 +52,45 @@ private[scautable] object SourceAnchor:
     "build.gradle"
   )
 
+  /** Path fragments that identify a compile server's own cache rather than a project. A working directory under one of these belongs to a daemon that was started long before the
+    * code being compiled existed, so it is never a meaningful anchor.
+    */
+  private val buildServerDirs = Seq("ScalaCli/bloop", "ScalaCli\\bloop", ".bloop", ".bsp", ".metals")
+
   private def ancestors(path: Path): LazyList[Path] =
     LazyList
       .iterate(Option(path))(_.flatMap(p => Option(p.getParent)))
       .takeWhile(_.isDefined)
       .map(_.get)
 
+  /** Reads `-Xmacro-settings` off the `Quotes` instance reflectively.
+    *
+    * `CompilationInfo.XmacroSettings` is `@experimental`, and calling it directly would force every enclosing definition to be `@experimental` too - all the way out through
+    * `CSV.relativeToSource` to user code, which would need `-experimental` to compile. Reaching it reflectively gets the same list with no annotation to propagate.
+    */
+  private def macroSettings(using q: Quotes): List[String] =
+    try
+      val reflectModule = q.getClass.getMethod("reflect").invoke(q)
+      val compilationInfo = reflectModule.getClass.getMethod("CompilationInfo").invoke(reflectModule)
+      compilationInfo.getClass.getMethod("XmacroSettings").invoke(compilationInfo).asInstanceOf[List[String]]
+    catch case _: Throwable => Nil
+  end macroSettings
+
+  /** Value of `anchorKey` in `-Xmacro-settings`, which arrives as `key=value` entries. */
+  private def anchorFromMacroSettings(using Quotes): Option[String] =
+    macroSettings
+      .collectFirst {
+        case setting if setting.startsWith(s"$anchorKey=") => setting.drop(anchorKey.length + 1)
+      }
+      .filter(_.nonEmpty)
+
+  /** Value of `anchorKey` as a system property. */
+  private def anchorFromSystemProperty: Option[String] =
+    Option(System.getProperty(anchorKey)).map(_.trim).filter(_.nonEmpty)
+
   /** Directory holding the source file that expanded this macro, if that call site has a file on disk.
     *
-    * Notebook and REPL front ends (almond, ammonite, the scala REPL) compile cells from memory, so there is no source path to anchor to and this is `None`. Callers fall back to
-    * [[workingDir]] in that case.
+    * Notebook and REPL front ends (almond, ammonite, the scala REPL) compile cells from memory, so there is no source path to anchor to and this is `None`.
     */
   def callSiteDir(using Quotes): Option[Path] =
     import quotes.reflect.*
@@ -55,8 +104,10 @@ private[scautable] object SourceAnchor:
     }
   end callSiteDir
 
-  /** Working directory of the compiler. In notebooks and REPLs the macro expands in the same JVM the code runs in, so this is the kernel's directory - which jupyter sets to the
-    * notebook's own directory.
+  /** Working directory of the compiler.
+    *
+    * Only meaningful when the compiler runs in the process the build started. Behind a build server it is the daemon's own cache directory, which is why [[anchorDir]] treats it as
+    * a last resort and warns when it lands here.
     */
   def workingDir: Path = Paths.get("").toAbsolutePath.normalize
 
@@ -72,37 +123,62 @@ private[scautable] object SourceAnchor:
     */
   def anchorRelative(path: String): String = path.dropWhile(c => c == '/' || c == '\\')
 
-  /** Announces that an anchored call site had no source file, and that [[workingDir]] is standing in for it. */
-  private def warnNoSourceFile(anchor: Path)(using Quotes): Unit =
+  /** The directory anchored paths resolve against.
+    *
+    * A declared anchor wins over an inferred one. That ordering is the point: a tool that compiles a notebook cell by writing it to a scratch file has a call site on disk, but at
+    * a location with no relationship to the notebook the reader is looking at, so the declared value has to be able to override it.
+    */
+  def anchorDir(using Quotes): (Path, Provenance) =
+    val declared = anchorFromMacroSettings.map(_ -> Provenance.MacroSetting).orElse(anchorFromSystemProperty.map(_ -> Provenance.SystemProperty))
+    declared match
+      case Some((dir, provenance)) => Paths.get(dir).toAbsolutePath.normalize -> provenance
+      case None                    =>
+        callSiteDir match
+          case Some(sourceDir) => sourceDir -> Provenance.CallSite
+          case None            => workingDir -> Provenance.WorkingDir
+    end match
+  end anchorDir
+
+  /** Says how to declare an anchor, for the case where the one in use is not the one the caller wanted. */
+  def anchorAdvice: String =
+    s"The anchor can be set with -Xmacro-settings:$anchorKey=/path/to/dir, which travels with the compile request and so reaches a build server daemon, " +
+      s"or with System.setProperty(\"$anchorKey\", \"/path/to/dir\") from an earlier cell in a notebook kernel, which compiles in its own JVM. " +
+      "Alternatively use absolutePath or resource, which do not anchor."
+
+  /** Warns when a resolution fell back to [[workingDir]], which is only coincidentally related to the code being compiled - and under a build server is not related to it at all.
+    */
+  private def warnWorkingDir(anchor: Path)(using Quotes): Unit =
     import quotes.reflect.*
     val pos = Position.ofMacroExpansion
-    report.warning(
-      s"scautable: no file on disk for this call site (${pos.sourceFile.path}), so paths resolve against the working directory '$anchor' instead of the source file. Use absolutePath or resource to be explicit.",
-      pos
-    )
-  end warnNoSourceFile
+    val daemon = buildServerDirs.exists(anchor.toString.contains)
+    val diagnosis =
+      if daemon then
+        s"scautable: this call site has no source file on disk, so paths resolve against the compiler's working directory '$anchor'. That directory belongs to a build server " +
+          "daemon, not to your project, so this will not find your data."
+      else s"scautable: this call site has no source file on disk, so paths resolve against the compiler's working directory '$anchor', which may not be where your data lives."
+    report.warning(s"$diagnosis $anchorAdvice", pos)
+  end warnWorkingDir
 
-  /** Resolves `path` against the directory of the source file that expanded this macro. */
+  /** Resolves `path` against [[anchorDir]]. */
   def relativeToSource(path: String)(using Quotes): Anchored =
-    val relative = anchorRelative(path)
-    callSiteDir match
-      case Some(sourceDir) => Anchored(sourceDir.resolve(relative).toAbsolutePath.normalize, projectRootFrom(sourceDir))
-      case None            =>
-        val cwd = workingDir
-        warnNoSourceFile(cwd)
-        Anchored(Paths.get(relative).toAbsolutePath.normalize, projectRootFrom(cwd))
-    end match
+    val (anchor, provenance) = anchorDir
+    if provenance == Provenance.WorkingDir then warnWorkingDir(anchor)
+    end if
+    Anchored(anchor.resolve(anchorRelative(path)).toAbsolutePath.normalize, projectRootFrom(anchor), provenance)
   end relativeToSource
 
-  /** Resolves `path` against the project root discovered above the call site's source file. */
+  /** Resolves `path` against the project root above [[anchorDir]].
+    *
+    * A declared anchor is taken as the root as given. Walking up from it to find a build file would ignore what the caller just said the root was.
+    */
   def projectRoot(path: String)(using Quotes): Anchored =
-    val root = callSiteDir match
-      case Some(sourceDir) => projectRootFrom(sourceDir)
-      case None            =>
-        val cwd = workingDir
-        warnNoSourceFile(cwd)
-        projectRootFrom(cwd)
-    Anchored(root.resolve(anchorRelative(path)).toAbsolutePath.normalize, root)
+    val (anchor, provenance) = anchorDir
+    if provenance == Provenance.WorkingDir then warnWorkingDir(anchor)
+    end if
+    val root = provenance match
+      case Provenance.MacroSetting | Provenance.SystemProperty => anchor
+      case Provenance.CallSite | Provenance.WorkingDir         => projectRootFrom(anchor)
+    Anchored(root.resolve(anchorRelative(path)).toAbsolutePath.normalize, root, provenance)
   end projectRoot
 
 end SourceAnchor

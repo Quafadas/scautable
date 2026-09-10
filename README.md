@@ -37,7 +37,12 @@ data.ptbln
 
 `pwd(...)` has been removed - it anchored to the _compiler's_ working directory, which is rarely where you think it is. Prefer `relativeToSource(...)`.
 
-In a notebook or REPL (almond, ammonite) there is no source file on disk, so the two anchored constructors fall back to the working directory and emit a compile time warning saying so.
+In a notebook or REPL (almond, ammonite) there is no source file on disk, and behind a build server the compiler runs in a daemon whose working directory is a cache directory. For those, declare the anchor outright and it takes priority over anything the two anchored constructors would otherwise infer:
+
+- `-Xmacro-settings:scautable.root=/path/to/dir` travels with the compile request, so it reaches a build server daemon.
+- `System.setProperty("scautable.root", "/path/to/dir")` from an earlier cell, for a notebook kernel that compiles in its own JVM.
+
+Without one, the anchored constructors fall back to the working directory and emit a compile time warning saying so. See [Workbooks](site/docs/cookbook/workbooks.md).
 
 
 
