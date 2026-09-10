@@ -29,6 +29,7 @@ class CsvPathAnchoringSuite extends munit.FunSuite:
     finally
       source.close()
       java.nio.file.Files.deleteIfExists(tempFile)
+    end try
   }
 
   test("runtime fallback chain uses classpath resource when file paths are unavailable") {
@@ -39,5 +40,6 @@ class CsvPathAnchoringSuite extends munit.FunSuite:
     )
     try assertEquals(source.getLines().next(), "col1,col2,col3")
     finally source.close()
+    end try
   }
 end CsvPathAnchoringSuite
