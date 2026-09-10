@@ -26,6 +26,14 @@ data.ptbln
 // +-+----+----+----+
 ```
 
+## CSV path anchors
+
+- `CSV.relativeToSource("file.csv")`: resolves from the directory of the source file that contains the macro call.
+- `CSV.projectRoot("path/to/file.csv")`: resolves from the first ancestor containing a project marker (`build.sbt`, `build.sc`, `build.mill`, `.scala-build`, `.git`, ...).
+- `CSV.resource("file.csv")`: resolves from the runtime classpath.
+- `CSV.absolutePath("/abs/path/file.csv")`: resolves from an explicit absolute file path.
+- `CSV.pwd(...)` is deprecated; prefer `CSV.relativeToSource(...)`.
+
 
 
 ## Infrequently Asked Questions
