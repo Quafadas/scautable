@@ -15,7 +15,7 @@ object `package` extends Module:
       // transitive dep, but the schema macro needs it on the *compile* classpath too.
       mvn"org.apache.parquet:parquet-jackson:1.15.0",
       mvn"org.apache.hadoop:hadoop-common:3.4.3".exclude(Seq(("org.slf4j", "slf4j-log4j12"))*),
-      mvn"org.apache.hadoop:hadoop-mapreduce-client-core:3.4.1".exclude(Seq(("org.slf4j", "slf4j-log4j12"))*)
+      mvn"org.apache.hadoop:hadoop-mapreduce-client-core:3.4.3".exclude(Seq(("org.slf4j", "slf4j-log4j12"))*)
     )
     def forkArgs = Seq("--add-opens=java.base/sun.security.util=ALL-UNNAMED")
   end jvm
