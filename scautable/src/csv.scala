@@ -710,6 +710,7 @@ object CSV:
         val stream = resourcePath.openStream()
         try Files.copy(stream, tmpPath, StandardCopyOption.REPLACE_EXISTING)
         finally stream.close()
+        end try
         tmpPath.toAbsolutePath.normalize
     readHeaderlineAsCsv(RuntimePathChain(resolved.toString, path, path, useFallback = false), optsExpr)
   end readCsvResource
