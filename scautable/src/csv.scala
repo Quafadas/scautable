@@ -4,6 +4,8 @@ import scala.NamedTuple.*
 import scala.io.Source
 import scala.quoted.*
 import java.nio.file.{Files, Path, Paths}
+import java.nio.file.StandardCopyOption
+import scala.util.Try
 
 import io.github.quafadas.scautable.ColumnTyped.*
 import io.github.quafadas.table.HeaderOptions
@@ -368,7 +370,7 @@ object CSV:
     }
   end buildDenseArrayRowMajor
 
-  private case class RuntimePathChain(absolutePath: String, rootRelativePath: String, resourceName: String)
+  private case class RuntimePathChain(absolutePath: String, rootRelativePath: String, resourceName: String, useFallback: Boolean)
 
   private def ancestors(path: Path): LazyList[Path] =
     LazyList
@@ -389,10 +391,11 @@ object CSV:
       .toAbsolutePath
       .normalize
 
-    ancestors(abs)
+    val sourceDir = Option(abs.getParent).getOrElse(abs)
+    ancestors(sourceDir)
       .find(p => Option(p.getFileName).exists(_.toString == ".scala-build"))
       .flatMap(p => Option(p.getParent))
-      .getOrElse(Option(abs.getParent).getOrElse(abs))
+      .getOrElse(sourceDir)
   end macroCallSiteDir
 
   private def macroProjectRoot(using Quotes): Path =
@@ -402,30 +405,37 @@ object CSV:
       .getOrElse(from)
   end macroProjectRoot
 
-  private def runtimePathChain(absolutePath: Path, rootPath: Path): RuntimePathChain =
+  private def runtimePathChain(absolutePath: Path, rootPath: Path, useFallback: Boolean): RuntimePathChain =
     val normalizedAbsolute = absolutePath.toAbsolutePath.normalize
     val normalizedRoot = rootPath.toAbsolutePath.normalize
     val rootRelative =
       try normalizedRoot.relativize(normalizedAbsolute).toString
       catch case _: IllegalArgumentException => normalizedAbsolute.getFileName.toString
-    RuntimePathChain(normalizedAbsolute.toString, rootRelative, normalizedAbsolute.getFileName.toString)
+    RuntimePathChain(normalizedAbsolute.toString, rootRelative, normalizedAbsolute.getFileName.toString, useFallback)
   end runtimePathChain
 
   private[scautable] def openSourceWithFallback(absolutePath: String, rootRelativePath: String, resourceName: String): Source =
-    val absolute = Paths.get(absolutePath)
-    if Files.exists(absolute) then Source.fromFile(absolute.toString)
+    openSourceWithFallback(absolutePath, rootRelativePath, resourceName, useFallback = true)
+  end openSourceWithFallback
+
+  private[scautable] def openSourceWithFallback(absolutePath: String, rootRelativePath: String, resourceName: String, useFallback: Boolean): Source =
+    if !useFallback then Source.fromFile(absolutePath)
     else
-      val rootRelative = Paths.get(".").toAbsolutePath.normalize.resolve(rootRelativePath).normalize
-      if Files.exists(rootRelative) then Source.fromFile(rootRelative.toString)
-      else
-        val classLoader = Option(getClass.getClassLoader).getOrElse(ClassLoader.getSystemClassLoader)
-        val stream = Option(classLoader.getResourceAsStream(resourceName)).getOrElse {
-          throw new java.io.FileNotFoundException(
-            s"Could not find CSV via compile-time path '$absolutePath', runtime-root path '$rootRelativePath', or classpath resource '$resourceName'."
+      val candidateResources = Seq(rootRelativePath, resourceName).map(_.replace('\\', '/')).distinct
+      Try(Source.fromFile(absolutePath))
+        .orElse(Try(Source.fromFile(rootRelativePath)))
+        .orElse(
+          candidateResources.iterator
+            .map(resource => Try(Source.fromResource(resource)))
+            .collectFirst { case scala.util.Success(source) => source }
+            .map(scala.util.Success(_))
+            .getOrElse(scala.util.Failure(new RuntimeException("Resource lookup failed")))
+        )
+        .getOrElse(
+          throw new RuntimeException(
+            s"Could not find CSV via compile-time path '$absolutePath', runtime cwd + project-relative path '$rootRelativePath', or classpath resources ${candidateResources.mkString("[", ", ", "]")}."
           )
-        }
-        Source.fromInputStream(stream)
-      end if
+        )
     end if
   end openSourceWithFallback
 
@@ -474,8 +484,9 @@ object CSV:
       val absolutePathExpr = Expr(pathChain.absolutePath)
       val rootRelativeExpr = Expr(pathChain.rootRelativePath)
       val resourceNameExpr = Expr(pathChain.resourceName)
+      val useFallbackExpr = Expr(pathChain.useFallback)
       '{
-        val lines = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr).getLines()
+        val lines = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr).getLines()
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
         new CsvIterator[Hdrs, Data](iterator, headers, $delimiterExpr)
       }
@@ -485,8 +496,9 @@ object CSV:
       val absolutePathExpr = Expr(pathChain.absolutePath)
       val rootRelativeExpr = Expr(pathChain.rootRelativePath)
       val resourceNameExpr = Expr(pathChain.resourceName)
+      val useFallbackExpr = Expr(pathChain.useFallback)
       '{
-        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr)
+        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
         val lines = source.getLines()
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
 
@@ -515,12 +527,13 @@ object CSV:
       val absolutePathExpr = Expr(pathChain.absolutePath)
       val rootRelativeExpr = Expr(pathChain.rootRelativePath)
       val resourceNameExpr = Expr(pathChain.resourceName)
+      val useFallbackExpr = Expr(pathChain.useFallback)
       // Summon the decoder at compile-time
       val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
         report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
       }
       val buffersExpr = '{
-        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr)
+        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
         val lines = source.getLines()
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
 
@@ -548,12 +561,13 @@ object CSV:
       val absolutePathExpr = Expr(pathChain.absolutePath)
       val rootRelativeExpr = Expr(pathChain.rootRelativePath)
       val resourceNameExpr = Expr(pathChain.resourceName)
+      val useFallbackExpr = Expr(pathChain.useFallback)
       // Summon the decoder at compile-time
       val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
         report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
       }
       val buffersExpr = '{
-        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr)
+        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
         val lines = source.getLines()
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
 
@@ -698,19 +712,19 @@ object CSV:
     val source = Source.fromURL(pathExpr.valueOrAbort)
     val tmpPath = java.nio.file.Files.createTempFile("temp_csv_", ".csv")
     java.nio.file.Files.writeString(tmpPath, source.mkString)
-    readHeaderlineAsCsv(runtimePathChain(tmpPath, Paths.get(".").toAbsolutePath.normalize), optsExpr)
+    readHeaderlineAsCsv(runtimePathChain(tmpPath, Paths.get(".").toAbsolutePath.normalize, useFallback = false), optsExpr)
 
   end readCsvFromUrl
 
   private def readCsvFromCurrentDir(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     val cwd = java.nio.file.Paths.get(".").toAbsolutePath.normalize()
     val path = cwd.resolve(pathExpr.valueOrAbort)
-    readHeaderlineAsCsv(runtimePathChain(path, cwd), optsExpr)
+    readHeaderlineAsCsv(runtimePathChain(path, cwd, useFallback = false), optsExpr)
   end readCsvFromCurrentDir
 
   def readCsvAbsolutePath(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     val absolute = Paths.get(pathExpr.valueOrAbort).toAbsolutePath.normalize
-    readHeaderlineAsCsv(runtimePathChain(absolute, Paths.get(".").toAbsolutePath.normalize), optsExpr)
+    readHeaderlineAsCsv(runtimePathChain(absolute, Paths.get(".").toAbsolutePath.normalize, useFallback = false), optsExpr)
   end readCsvAbsolutePath
 
   private def readCsvResource(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
@@ -721,21 +735,28 @@ object CSV:
     if resourcePath == null then report.throwError(s"Resource not found: $path")
     end if
 
-    val resolved = Paths.get(resourcePath.toURI).toAbsolutePath.normalize
-    readHeaderlineAsCsv(RuntimePathChain(resolved.toString, path, path), optsExpr)
+    val resolved =
+      if resourcePath.getProtocol == "file" then Paths.get(resourcePath.toURI).toAbsolutePath.normalize
+      else
+        val tmpPath = java.nio.file.Files.createTempFile("scautable_resource_", ".csv")
+        val stream = resourcePath.openStream()
+        try Files.copy(stream, tmpPath, StandardCopyOption.REPLACE_EXISTING)
+        finally stream.close()
+        tmpPath.toAbsolutePath.normalize
+    readHeaderlineAsCsv(RuntimePathChain(resolved.toString, path, path, useFallback = false), optsExpr)
   end readCsvResource
 
   private def readCsvRelativeToSource(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     val sourceDir = macroCallSiteDir
     val absolute = sourceDir.resolve(pathExpr.valueOrAbort).toAbsolutePath.normalize
     val projectRoot = macroProjectRoot
-    readHeaderlineAsCsv(runtimePathChain(absolute, projectRoot), optsExpr)
+    readHeaderlineAsCsv(runtimePathChain(absolute, projectRoot, useFallback = true), optsExpr)
   end readCsvRelativeToSource
 
   private def readCsvProjectRoot(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     val projectRoot = macroProjectRoot
     val absolute = projectRoot.resolve(pathExpr.valueOrAbort).toAbsolutePath.normalize
-    readHeaderlineAsCsv(runtimePathChain(absolute, projectRoot), optsExpr)
+    readHeaderlineAsCsv(runtimePathChain(absolute, projectRoot, useFallback = true), optsExpr)
   end readCsvProjectRoot
 
   private def readCsvFromString(csvContentExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
