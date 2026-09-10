@@ -1,5 +1,6 @@
 package io.github.quafadas.scautable.parquet
 
+import io.github.quafadas.scautable.SourceAnchor
 import io.github.quafadas.table.ReadAs
 
 import scala.NamedTuple.NamedTuple
@@ -82,23 +83,53 @@ object Parquet:
   transparent inline def absolutePath(inline path: String, inline readAs: ReadAs, inline optionality: ParquetOptionality): Any =
     ${ absolutePathImpl('path, 'readAs, 'optionality) }
 
-  /** Read a parquet file relative to the working directory, inferring its schema at compile time.
+  /** Read a parquet file at a path relative to the source file this is called from, inferring its schema at compile time.
     *
-    * Note that the *compiler's* working directory is used to find the schema and the *runtime* working directory is used to find the data — these are frequently not the same
-    * directory. Prefer [[resource]] or [[absolutePath]] unless you know they are.
+    * The path is anchored to the calling source file rather than to the compiler's working directory, so it resolves the same way no matter where the build was invoked from. At
+    * runtime the compile-time location is tried first, then the same path relative to the working directory.
+    *
+    * In a notebook or REPL there is no source file on disk, so the path resolves against the working directory instead and a compile time warning says so.
+    *
+    * {{{
+    * val titanic = Parquet.relativeToSource("data/titanic.parquet")
+    * }}}
     */
-  transparent inline def pwd(inline path: String): Any = ${ pwdImpl('path, '{ ReadAs.Rows }, '{ ParquetOptionality.FromSchema }) }
+  transparent inline def relativeToSource(inline path: String): Any = ${ relativeToSourceImpl('path, '{ ReadAs.Rows }, '{ ParquetOptionality.FromSchema }) }
 
-  /** Read a parquet file relative to the working directory, as rows or as columns. */
-  transparent inline def pwd(inline path: String, inline readAs: ReadAs): Any = ${ pwdImpl('path, 'readAs, '{ ParquetOptionality.FromSchema }) }
+  /** Read a source-relative parquet path as rows or as columns. */
+  transparent inline def relativeToSource(inline path: String, inline readAs: ReadAs): Any = ${ relativeToSourceImpl('path, 'readAs, '{ ParquetOptionality.FromSchema }) }
 
-  /** Read a working-directory-relative parquet path with explicit handling for fields declared `optional`. */
-  transparent inline def pwd(inline path: String, inline optionality: ParquetOptionality): Any =
-    ${ pwdImpl('path, '{ ReadAs.Rows }, 'optionality) }
+  /** Read a source-relative parquet path with explicit handling for fields declared `optional`. */
+  transparent inline def relativeToSource(inline path: String, inline optionality: ParquetOptionality): Any =
+    ${ relativeToSourceImpl('path, '{ ReadAs.Rows }, 'optionality) }
 
-  /** Read a working-directory-relative parquet path as rows or columns with explicit handling for fields declared `optional`. */
-  transparent inline def pwd(inline path: String, inline readAs: ReadAs, inline optionality: ParquetOptionality): Any =
-    ${ pwdImpl('path, 'readAs, 'optionality) }
+  /** Read a source-relative parquet path as rows or columns with explicit handling for fields declared `optional`. */
+  transparent inline def relativeToSource(inline path: String, inline readAs: ReadAs, inline optionality: ParquetOptionality): Any =
+    ${ relativeToSourceImpl('path, 'readAs, 'optionality) }
+
+  /** Read a parquet file at a path relative to the discovered project root, inferring its schema at compile time.
+    *
+    * The root is the first ancestor of the calling source file holding a build marker (`build.mill`, `build.sbt`, `.git`, ...). At runtime the compile-time location is tried
+    * first, then the same root-relative path against the working directory.
+    *
+    * In a notebook or REPL there is no source file on disk to search upwards from, so the root is discovered from the working directory instead and a compile time warning says so.
+    *
+    * {{{
+    * val titanic = Parquet.projectRoot("data/titanic.parquet")
+    * }}}
+    */
+  transparent inline def projectRoot(inline path: String): Any = ${ projectRootImpl('path, '{ ReadAs.Rows }, '{ ParquetOptionality.FromSchema }) }
+
+  /** Read a project-root-relative parquet path as rows or as columns. */
+  transparent inline def projectRoot(inline path: String, inline readAs: ReadAs): Any = ${ projectRootImpl('path, 'readAs, '{ ParquetOptionality.FromSchema }) }
+
+  /** Read a project-root-relative parquet path with explicit handling for fields declared `optional`. */
+  transparent inline def projectRoot(inline path: String, inline optionality: ParquetOptionality): Any =
+    ${ projectRootImpl('path, '{ ReadAs.Rows }, 'optionality) }
+
+  /** Read a project-root-relative parquet path as rows or columns with explicit handling for fields declared `optional`. */
+  transparent inline def projectRoot(inline path: String, inline readAs: ReadAs, inline optionality: ParquetOptionality): Any =
+    ${ projectRootImpl('path, 'readAs, 'optionality) }
 
   /** The parquet footer schema, as a string. Handy when a schema is rejected and you want to see why. */
   def schemaOf(source: ParquetSource): String = ParquetSchema.read(source).toString
@@ -113,8 +144,18 @@ object Parquet:
   private def absolutePathImpl(pathExpr: Expr[String], readAsExpr: Expr[ReadAs], optionalityExpr: Expr[ParquetOptionality])(using Quotes): Expr[Any] =
     build(ParquetSource.AbsolutePath(pathExpr.valueOrAbort), readAsExpr, optionalityExpr)
 
-  private def pwdImpl(pathExpr: Expr[String], readAsExpr: Expr[ReadAs], optionalityExpr: Expr[ParquetOptionality])(using Quotes): Expr[Any] =
-    build(ParquetSource.RelativePath(pathExpr.valueOrAbort), readAsExpr, optionalityExpr)
+  private def relativeToSourceImpl(pathExpr: Expr[String], readAsExpr: Expr[ReadAs], optionalityExpr: Expr[ParquetOptionality])(using Quotes): Expr[Any] =
+    build(anchoredSource(SourceAnchor.relativeToSource(pathExpr.valueOrAbort)), readAsExpr, optionalityExpr)
+
+  private def projectRootImpl(pathExpr: Expr[String], readAsExpr: Expr[ReadAs], optionalityExpr: Expr[ParquetOptionality])(using Quotes): Expr[Any] =
+    build(anchoredSource(SourceAnchor.projectRoot(pathExpr.valueOrAbort)), readAsExpr, optionalityExpr)
+
+  private def anchoredSource(anchored: SourceAnchor.Anchored): ParquetSource =
+    val rootRelative =
+      try anchored.projectRoot.relativize(anchored.absolutePath).toString
+      catch case _: IllegalArgumentException => anchored.absolutePath.getFileName.toString
+    ParquetSource.Anchored(anchored.absolutePath.toString, rootRelative)
+  end anchoredSource
 
   private def build(source: ParquetSource, readAsExpr: Expr[ReadAs], optionalityExpr: Expr[ParquetOptionality])(using q: Quotes): Expr[Any] =
     import q.reflect.*
@@ -193,8 +234,8 @@ object Parquet:
   end typeReprOf
 
   private def sourceToExpr(source: ParquetSource)(using Quotes): Expr[ParquetSource] = source match
-    case ParquetSource.Resource(name)     => '{ ParquetSource.Resource(${ Expr(name) }) }
-    case ParquetSource.AbsolutePath(path) => '{ ParquetSource.AbsolutePath(${ Expr(path) }) }
-    case ParquetSource.RelativePath(path) => '{ ParquetSource.RelativePath(${ Expr(path) }) }
+    case ParquetSource.Resource(name)                   => '{ ParquetSource.Resource(${ Expr(name) }) }
+    case ParquetSource.AbsolutePath(path)               => '{ ParquetSource.AbsolutePath(${ Expr(path) }) }
+    case ParquetSource.Anchored(absolute, rootRelative) => '{ ParquetSource.Anchored(${ Expr(absolute) }, ${ Expr(rootRelative) }) }
 
 end Parquet

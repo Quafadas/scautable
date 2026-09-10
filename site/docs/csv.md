@@ -31,11 +31,12 @@ import io.github.quafadas.table.*
 val csv_resource = CSV.resource("simple.csv")
 val csv_abs = CSV.absolutePath("/users/simon/absolute/path/simple.csv")
 val csv_url = CSV.url("https://example.com/simple.csv")
-/**
- * Note: this reads from the _compilers_ current working directory. If you are compiling via bloop through scala-cli, for example, then this will * read the temporary directory _bloop_ is running in, _not_ your project directory.
- */
+
+// Anchored to the source file this call sits in, and to the project root above it,
+// so neither depends on where the build was invoked from.
 val opts = CsvOpts(typeInferrer = TypeInferrer.FirstN(1000), delimiter = ';')
-val csv_pwd = CSV.pwd("file.csv", opts)
+val csv_rel = CSV.relativeToSource("file.csv", opts)
+val csv_root = CSV.projectRoot("data/file.csv", opts)
 
 ```
 

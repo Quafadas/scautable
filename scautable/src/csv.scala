@@ -15,18 +15,6 @@ import io.github.quafadas.table.ReadAs
 
 object CSV:
 
-  private val rootMarkers = Set(
-    "build.sbt",
-    "project.scala",
-    "build.sc",
-    "build.mill",
-    "build.mill.scala",
-    ".scala-build",
-    ".git",
-    "pom.xml",
-    "build.gradle"
-  )
-
   /** Saves a URL to a local CSV returns a [[io.github.quafadas.scautable.CsvIterator]].
     *
     * Example:
@@ -355,50 +343,6 @@ object CSV:
 
   private case class RuntimePathChain(absolutePath: String, rootRelativePath: String, resourceName: String, useFallback: Boolean)
 
-  private def ancestors(path: Path): LazyList[Path] =
-    LazyList
-      .iterate(Option(path))(_.flatMap(p => Option(p.getParent)))
-      .takeWhile(_.isDefined)
-      .map(_.get)
-
-  /** Directory holding the source file that expanded this macro, if that call site has a file on disk.
-    *
-    * Notebook and REPL front ends (almond, ammonite, the scala REPL) compile cells from memory, so there is no source path to anchor to and this is `None`. Callers fall back to
-    * [[workingDir]] in that case.
-    */
-  private def macroCallSiteDir(using Quotes): Option[Path] =
-    import quotes.reflect.*
-    Position.ofMacroExpansion.sourceFile.getJPath.map { jPath =>
-      val abs = jPath.toAbsolutePath.normalize
-      val sourceDir = Option(abs.getParent).getOrElse(abs)
-      ancestors(sourceDir)
-        .find(p => Option(p.getFileName).exists(_.toString == ".scala-build"))
-        .flatMap(p => Option(p.getParent))
-        .getOrElse(sourceDir)
-    }
-  end macroCallSiteDir
-
-  /** Working directory of the compiler. In notebooks and REPLs the macro expands in the same JVM the code runs in, so this is the kernel's directory - which jupyter sets to the
-    * notebook's own directory.
-    */
-  private def workingDir: Path = Paths.get("").toAbsolutePath.normalize
-
-  /** Announces that a source anchored call site had no source file, and that [[workingDir]] is standing in for it. */
-  private def warnNoSourceFile(anchor: Path)(using Quotes): Unit =
-    import quotes.reflect.*
-    val pos = Position.ofMacroExpansion
-    report.warning(
-      s"scautable: no file on disk for this call site (${pos.sourceFile.path}), so paths resolve against the working directory '$anchor' instead of the source file. Use CSV.absolutePath or CSV.resource to be explicit.",
-      pos
-    )
-  end warnNoSourceFile
-
-  private def projectRootFrom(from: Path): Path =
-    ancestors(from)
-      .find(d => rootMarkers.exists(marker => Files.exists(d.resolve(marker))))
-      .getOrElse(from)
-  end projectRootFrom
-
   private def runtimePathChain(absolutePath: Path, rootPath: Path, useFallback: Boolean): RuntimePathChain =
     val normalizedAbsolute = absolutePath.toAbsolutePath.normalize
     val normalizedRoot = rootPath.toAbsolutePath.normalize
@@ -465,7 +409,11 @@ object CSV:
     val denseColMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseColMajor")
     val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
 
-    val source = Source.fromFile(pathChain.absolutePath)
+    val source = scala.util
+      .Try(Source.fromFile(pathChain.absolutePath))
+      .getOrElse(
+        report.errorAndAbort(s"scautable: could not read a CSV at '${pathChain.absolutePath}' while compiling. The file has to exist at compile time so its columns can be typed.")
+      )
     val lineIterator: Iterator[String] = source.getLines()
     val (headers, iter) = lineIterator.headers(csvHeaders, delimiter)
 
@@ -736,25 +684,13 @@ object CSV:
   end readCsvResource
 
   private def readCsvRelativeToSource(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
-    val path = pathExpr.valueOrAbort
-    val (absolute, projectRoot) = macroCallSiteDir match
-      case Some(sourceDir) => (sourceDir.resolve(path).toAbsolutePath.normalize, projectRootFrom(sourceDir))
-      case None            =>
-        val cwd = workingDir
-        warnNoSourceFile(cwd)
-        (Paths.get(path).toAbsolutePath.normalize, projectRootFrom(cwd))
-    readHeaderlineAsCsv(runtimePathChain(absolute, projectRoot, useFallback = true), optsExpr)
+    val anchored = SourceAnchor.relativeToSource(pathExpr.valueOrAbort)
+    readHeaderlineAsCsv(runtimePathChain(anchored.absolutePath, anchored.projectRoot, useFallback = true), optsExpr)
   end readCsvRelativeToSource
 
   private def readCsvProjectRoot(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
-    val projectRoot = macroCallSiteDir match
-      case Some(sourceDir) => projectRootFrom(sourceDir)
-      case None            =>
-        val cwd = workingDir
-        warnNoSourceFile(cwd)
-        projectRootFrom(cwd)
-    val absolute = projectRoot.resolve(pathExpr.valueOrAbort).toAbsolutePath.normalize
-    readHeaderlineAsCsv(runtimePathChain(absolute, projectRoot, useFallback = true), optsExpr)
+    val anchored = SourceAnchor.projectRoot(pathExpr.valueOrAbort)
+    readHeaderlineAsCsv(runtimePathChain(anchored.absolutePath, anchored.projectRoot, useFallback = true), optsExpr)
   end readCsvProjectRoot
 
   private def readCsvFromString(csvContentExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =

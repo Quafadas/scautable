@@ -4,6 +4,7 @@ import scala.io.Source
 import scala.quoted.*
 
 import io.github.quafadas.scautable.RowDecoder
+import io.github.quafadas.scautable.SourceAnchor
 import io.github.quafadas.scautable.json.StreamingJsonParser.*
 import io.github.quafadas.table.TypeInferrer
 
@@ -64,18 +65,37 @@ object JsonTable:
   transparent inline def absolutePath[T](inline jsonPath: String, inline dataType: TypeInferrer): Any =
     ${ readJsonAbsolutePath('jsonPath, 'dataType) }
 
-  /** Reads a JSON file present in the current _compiler_ working directory and returns a [[JsonIterator]].
+  /** Reads a JSON file at a path relative to the source file this is called from, and returns a [[JsonIterator]].
+    *
+    * The path is anchored to the calling source file rather than to the compiler's working directory, so it resolves the same way no matter where the build was invoked from. In a
+    * notebook or REPL there is no source file on disk, so the path resolves against the working directory instead and a compile time warning says so.
     *
     * Example:
     * {{{
-    * val json: JsonIterator[("a", "b"), (Int, Int)] = JsonTable.pwd("data.json")
+    * val json: JsonIterator[("a", "b"), (Int, Int)] = JsonTable.relativeToSource("data.json")
     * }}}
     */
-  transparent inline def pwd[T](inline jsonPath: String): Any =
-    pwd[T](jsonPath, TypeInferrer.FromAllRows)
+  transparent inline def relativeToSource[T](inline jsonPath: String): Any =
+    relativeToSource[T](jsonPath, TypeInferrer.FromAllRows)
 
-  transparent inline def pwd[T](inline jsonPath: String, inline dataType: TypeInferrer): Any =
-    ${ readJsonFromCurrentDir('jsonPath, 'dataType) }
+  transparent inline def relativeToSource[T](inline jsonPath: String, inline dataType: TypeInferrer): Any =
+    ${ readJsonRelativeToSource('jsonPath, 'dataType) }
+
+  /** Reads a JSON file at a path relative to the discovered project root, and returns a [[JsonIterator]].
+    *
+    * The root is the first ancestor of the calling source file holding a build marker (`build.mill`, `build.sbt`, `.git`, ...). In a notebook or REPL there is no source file on
+    * disk to search upwards from, so the root is discovered from the working directory instead and a compile time warning says so.
+    *
+    * Example:
+    * {{{
+    * val json: JsonIterator[("a", "b"), (Int, Int)] = JsonTable.projectRoot("data/file.json")
+    * }}}
+    */
+  transparent inline def projectRoot[T](inline jsonPath: String): Any =
+    projectRoot[T](jsonPath, TypeInferrer.FromAllRows)
+
+  transparent inline def projectRoot[T](inline jsonPath: String, inline dataType: TypeInferrer): Any =
+    ${ readJsonProjectRoot('jsonPath, 'dataType) }
 
   /** Saves a URL to a local JSON file and returns a [[JsonIterator]].
     *
@@ -137,12 +157,15 @@ object JsonTable:
     end try
   end readJsonAbsolutePath
 
-  private def readJsonFromCurrentDir(pathExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
-    val cwd = java.nio.file.Paths.get(".").toAbsolutePath.normalize()
-    val path = cwd.resolve(pathExpr.valueOrAbort).toString
-    val pathStringExpr = Expr(path)
-    readJsonAbsolutePath(pathStringExpr, typeInferrerExpr)
-  end readJsonFromCurrentDir
+  private def readJsonRelativeToSource(pathExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
+    val anchored = SourceAnchor.relativeToSource(pathExpr.valueOrAbort)
+    readJsonAbsolutePath(Expr(anchored.absolutePath.toString), typeInferrerExpr)
+  end readJsonRelativeToSource
+
+  private def readJsonProjectRoot(pathExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
+    val anchored = SourceAnchor.projectRoot(pathExpr.valueOrAbort)
+    readJsonAbsolutePath(Expr(anchored.absolutePath.toString), typeInferrerExpr)
+  end readJsonProjectRoot
 
   private def readJsonFromUrl(urlExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
     import quotes.reflect.*

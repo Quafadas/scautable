@@ -26,13 +26,18 @@ data.ptbln
 // +-+----+----+----+
 ```
 
-## CSV path anchors
+## Path anchors
 
-- `CSV.relativeToSource("file.csv")`: resolves from the directory of the source file that contains the macro call.
-- `CSV.projectRoot("path/to/file.csv")`: resolves from the first ancestor containing a project marker (`build.sbt`, `build.sc`, `build.mill`, `.scala-build`, `.git`, ...).
-- `CSV.resource("file.csv")`: resolves from the runtime classpath.
-- `CSV.absolutePath("/abs/path/file.csv")`: resolves from an explicit absolute file path.
-- `CSV.pwd(...)` is deprecated; prefer `CSV.relativeToSource(...)`.
+`CSV`, `Excel`, `JsonTable` and `Parquet` all resolve paths the same way:
+
+- `relativeToSource("file.csv")`: resolves from the directory of the source file that contains the macro call.
+- `projectRoot("path/to/file.csv")`: resolves from the first ancestor containing a project marker (`build.sbt`, `build.sc`, `build.mill`, `.scala-build`, `.git`, ...).
+- `resource("file.csv")`: resolves from the runtime classpath.
+- `absolutePath("/abs/path/file.csv")`: resolves from an explicit absolute file path.
+
+`pwd(...)` has been removed - it anchored to the _compiler's_ working directory, which is rarely where you think it is. Prefer `relativeToSource(...)`.
+
+In a notebook or REPL (almond, ammonite) there is no source file on disk, so the two anchored constructors fall back to the working directory and emit a compile time warning saying so.
 
 
 

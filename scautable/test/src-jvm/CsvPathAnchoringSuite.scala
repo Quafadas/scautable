@@ -15,6 +15,17 @@ class CsvPathAnchoringSuite extends munit.FunSuite:
     assertEquals(csv.toList.size, 3)
   }
 
+  test("CSV.relativeToSource treats a leading separator as anchor-relative, not filesystem root") {
+    val csv: CsvIterator[("a", "b"), (Int, Int)] = CSV.relativeToSource("/anchored.csv")
+    assertEquals(csv.toList.map(_.a), List(1, 3))
+  }
+
+  test("CSV.projectRoot treats a leading separator as anchor-relative, not filesystem root") {
+    val csv: CsvIterator[("col1", "col2", "col3"), (Int, Int, Int)] =
+      CSV.projectRoot("/scautable/test/resources/simple.csv")
+    assertEquals(csv.toList.size, 3)
+  }
+
   test("runtime fallback chain uses root-relative path when absolute path is unavailable") {
     val cwd = java.nio.file.Paths.get(".").toAbsolutePath.normalize
     val tempFile = java.nio.file.Files.createTempFile(cwd, "csv-path-fallback", ".csv")

@@ -18,11 +18,16 @@ println(range.toSeq.consoleFormatNt(fansi = false))
 
 ```
 
-One can also read from an absolute path
+One can also read from an absolute path, or from a path anchored to the calling source file or the project root
 
 ```scala
 import io.github.quafadas.table.*
 val csv = Excel.absolutePath("path/to/SimpleTable.xlsx", "Sheet1")
+
+// Relative to the source file this call sits in
+val rel = Excel.relativeToSource("data/SimpleTable.xlsx", "Sheet1")
+// Relative to the first ancestor holding a build marker (build.mill, build.sbt, .git, ...)
+val root = Excel.projectRoot("data/SimpleTable.xlsx", "Sheet1")
 ```
 
 ## Problems and Hints

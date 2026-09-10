@@ -60,6 +60,20 @@ object ExcelMacros:
     processExcelFile(fPath, sheetNameValue, colRange, typeInferrerExpr, fPath)
   end readExcelAbsolutePath
 
+  /** Macro implementation for reading Excel files at a path relative to the calling source file
+    */
+  def readExcelRelativeToSource(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
+    val fPath = SourceAnchor.relativeToSource(pathExpr.valueOrAbort).absolutePath.toString
+    processExcelFile(fPath, sheetName.valueOrAbort, colRangeExpr.value, typeInferrerExpr, fPath)
+  end readExcelRelativeToSource
+
+  /** Macro implementation for reading Excel files at a path relative to the discovered project root
+    */
+  def readExcelProjectRoot(pathExpr: Expr[String], sheetName: Expr[String], colRangeExpr: Expr[String], typeInferrerExpr: Expr[TypeInferrer])(using Quotes) =
+    val fPath = SourceAnchor.projectRoot(pathExpr.valueOrAbort).absolutePath.toString
+    processExcelFile(fPath, sheetName.valueOrAbort, colRangeExpr.value, typeInferrerExpr, fPath)
+  end readExcelProjectRoot
+
   /** Common processing logic for both resource and absolute path Excel reading
     */
   private def processExcelFile(filePath: String, sheetName: String, colRange: Option[String], typeInferrerExpr: Expr[TypeInferrer], outputPath: String)(using Quotes) =
