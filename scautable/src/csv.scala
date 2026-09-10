@@ -17,7 +17,7 @@ object CSV:
 
   private val rootMarkers = Set(
     "build.sbt",
-    "project",
+    "project.scala",
     "build.sc",
     "build.mill",
     "build.mill.scala",
@@ -43,32 +43,6 @@ object CSV:
   transparent inline def url[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any = url[T](path, CsvOpts(headers, dataType))
 
   transparent inline def url[T](inline path: String, inline opts: CsvOpts) = ${ readCsvFromUrl('path, 'opts) }
-
-  /** Reads a CSV present in the current _compiler_ working directory resources and returns a [[io.github.quafadas.scautable.CsvIterator]].
-    *
-    * Note that in most cases, this is _not_ the same as the current _runtime_ working directory, and you are likely to get the bloop server directory.
-    *
-    * Hopefully, useful in almond notebooks.
-    *
-    * Example:
-    * {{{
-    *   val csv: CsvIterator[("colA", "colB", "colC")] = CSV.pwd("file.csv")
-    * }}}
-    */
-  @deprecated("CSV.pwd resolves from the compiler working directory; use CSV.relativeToSource instead.", "0.8.7")
-  transparent inline def pwd[T](inline csvContent: String): Any = pwd[T](csvContent, CsvOpts.default)
-
-  @deprecated("CSV.pwd resolves from the compiler working directory; use CSV.relativeToSource instead.", "0.8.7")
-  transparent inline def pwd[T](inline csvContent: String, inline headers: HeaderOptions): Any = pwd[T](csvContent, CsvOpts(headers))
-
-  @deprecated("CSV.pwd resolves from the compiler working directory; use CSV.relativeToSource instead.", "0.8.7")
-  transparent inline def pwd[T](inline csvContent: String, inline dataType: TypeInferrer): Any = pwd[T](csvContent, CsvOpts.apply(dataType))
-
-  @deprecated("CSV.pwd resolves from the compiler working directory; use CSV.relativeToSource instead.", "0.8.7")
-  transparent inline def pwd[T](inline path: String, inline headers: HeaderOptions, inline dataType: TypeInferrer): Any = pwd[T](path, CsvOpts(headers, dataType))
-
-  @deprecated("CSV.pwd resolves from the compiler working directory; use CSV.relativeToSource instead.", "0.8.7")
-  transparent inline def pwd[T](inline path: String, inline opts: CsvOpts) = ${ readCsvFromCurrentDir('path, 'opts) }
 
   /** Reads a CSV path relative to the source file where this macro is called. */
   transparent inline def relativeToSource[T](inline csvContent: String): Any = relativeToSource[T](csvContent, CsvOpts.default)
@@ -715,12 +689,6 @@ object CSV:
     readHeaderlineAsCsv(runtimePathChain(tmpPath, Paths.get(".").toAbsolutePath.normalize, useFallback = false), optsExpr)
 
   end readCsvFromUrl
-
-  private def readCsvFromCurrentDir(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
-    val cwd = java.nio.file.Paths.get(".").toAbsolutePath.normalize()
-    val path = cwd.resolve(pathExpr.valueOrAbort)
-    readHeaderlineAsCsv(runtimePathChain(path, cwd, useFallback = false), optsExpr)
-  end readCsvFromCurrentDir
 
   def readCsvAbsolutePath(pathExpr: Expr[String], optsExpr: Expr[CsvOpts])(using Quotes) =
     val absolute = Paths.get(pathExpr.valueOrAbort).toAbsolutePath.normalize
