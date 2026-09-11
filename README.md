@@ -26,6 +26,24 @@ data.ptbln
 // +-+----+----+----+
 ```
 
+## Path anchors
+
+`CSV`, `Excel`, `JsonTable` and `Parquet` all resolve paths the same way:
+
+- `relativeToSource("file.csv")`: resolves from the directory of the source file that contains the macro call.
+- `projectRoot("path/to/file.csv")`: resolves from the first ancestor containing a project marker (`build.sbt`, `build.sc`, `build.mill`, `.scala-build`, `.git`, ...).
+- `resource("file.csv")`: resolves from the runtime classpath.
+- `absolutePath("/abs/path/file.csv")`: resolves from an explicit absolute file path.
+
+`pwd(...)` has been removed - it anchored to the _compiler's_ working directory, which is rarely where you think it is. Prefer `relativeToSource(...)`.
+
+In a notebook or REPL (almond, ammonite) there is no source file on disk, and behind a build server the compiler runs in a daemon whose working directory is a cache directory. For those, declare the anchor outright and it takes priority over anything the two anchored constructors would otherwise infer:
+
+- `-Xmacro-settings:scautable.root=/path/to/dir` travels with the compile request, so it reaches a build server daemon.
+- `System.setProperty("scautable.root", "/path/to/dir")` from an earlier cell, for a notebook kernel that compiles in its own JVM.
+
+Without one, the anchored constructors fall back to the working directory and emit a compile time warning saying so. See [Workbooks](site/docs/cookbook/workbooks.md).
+
 
 
 ## Infrequently Asked Questions

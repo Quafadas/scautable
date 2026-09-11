@@ -19,8 +19,12 @@ enum ParquetSource:
   /** An absolute path on the local filesystem. */
   case AbsolutePath(path: String)
 
-  /** A path relative to the working directory. */
-  case RelativePath(path: String)
+  /** A path the macro anchored to the call site's source file or project root.
+    *
+    * `absolutePath` is where the file sat on the machine that compiled the call. `rootRelativePath` is the same file expressed relative to the project root, which is what gets
+    * tried when the compiled artefact runs somewhere else.
+    */
+  case Anchored(absolutePath: String, rootRelativePath: String)
 end ParquetSource
 
 object ParquetSource:
@@ -28,9 +32,19 @@ object ParquetSource:
   extension (source: ParquetSource)
     /** Resolve this source to a local filesystem path. */
     def localPath: JPath = source match
-      case ParquetSource.AbsolutePath(p) => Paths.get(p)
-      case ParquetSource.RelativePath(p) => Paths.get(".").toAbsolutePath.normalize().resolve(p)
-      case ParquetSource.Resource(name)  =>
+      case ParquetSource.AbsolutePath(p)                  => Paths.get(p)
+      case ParquetSource.Anchored(absolute, rootRelative) =>
+        // Compile-time location first, then the same file relative to the runtime working directory. Parquet needs
+        // random access, so unlike CSV there is no classpath leg to fall back to.
+        val candidates = List(Paths.get(absolute), Paths.get(".").toAbsolutePath.normalize().resolve(rootRelative))
+        candidates
+          .find(java.nio.file.Files.isReadable)
+          .getOrElse(
+            throw new java.io.FileNotFoundException(
+              s"Parquet file not found at the compile-time path '$absolute', nor at the working-directory-relative path '$rootRelative'."
+            )
+          )
+      case ParquetSource.Resource(name) =>
         val url = Option(getClass.getClassLoader.getResource(name))
           .getOrElse(throw new java.io.FileNotFoundException(s"Parquet resource not found on the classpath: '$name'"))
         if url.getProtocol != "file" then

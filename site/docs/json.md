@@ -13,13 +13,17 @@ println(JsonTable.fromString(jsonContent).toVector.consoleFormatNt(fansi = false
 
 ```
 
-Other reading methods include `resource` and `absolutePath`:
+Other reading methods include `resource`, `absolutePath` and the two path anchors:
 
 ```scala
 import io.github.quafadas.table.{*, given}
 
 val jsonFromResource = JsonTable.resource("mini-movies.json")
 val jsonFromAbsolutePath = JsonTable.absolutePath("/absolute/path/to/file.json")
-val jsonFromWorkingDir = JsonTable.pwd("relative/path/to/file.json")
+
+// Relative to the source file this call sits in
+val jsonFromSource = JsonTable.relativeToSource("relative/path/to/file.json")
+// Relative to the first ancestor holding a build marker (build.mill, build.sbt, .git, ...)
+val jsonFromRoot = JsonTable.projectRoot("data/file.json")
 
 ```
