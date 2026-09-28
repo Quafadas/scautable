@@ -211,4 +211,54 @@ class ExcelSuite extends munit.FunSuite:
     assertEqualsDouble(rows.column["2% to 3%"].head, 0.3, 0.00001)
   }
 
+  test("range inferred from a top left anchor") {
+    // The real table lives at E3:G6, surrounded by decoy cells. Naming its top left corner is enough.
+    val data = Excel.resource("Offset.xlsx", "Sheet1", "E3", TypeInferrer.StringType)
+    assertEquals(data.getColRange, Some("E3:G6"))
+
+    val rows = data.toSeq
+    assertEquals(rows.size, 3)
+    assertEquals(rows.column["Column 2"].toList.head, "Row 1, Col 2")
+    assertEquals(rows.column["Column 3"].toList.last, "Row 3, Col 3")
+  }
+
+  test("anchor inferred range types identically to the explicit range") {
+    val inferred = Excel.resource("Numbers.xlsx", "Sheet1", "A1", TypeInferrer.FromAllRows)
+    val explicit: ExcelIterator[("Doubles", "Int", "Longs", "Strings"), (Double, Int, Int, String)] =
+      Excel.resource("Numbers.xlsx", "Sheet1", "A1:D3", TypeInferrer.FromAllRows)
+
+    val check: ExcelIterator[("Doubles", "Int", "Longs", "Strings"), (Double, Int, Int, String)] = inferred
+    assertEquals(inferred.toList, explicit.toList)
+  }
+
+  test("anchor with a pinned column edge infers only the last row") {
+    val data = Excel.resource("Bands.xlsx", "Sheet1", "B6:D", TypeInferrer.FromAllRows)
+    assertEquals(data.getColRange, Some("B6:D11"))
+
+    val rows = data.toList
+    assertEquals(rows.size, 5)
+    assertEquals(rows.column["Country"].head, "Japan")
+    assert(
+      compileErrors("""Excel.resource("Bands.xlsx", "Sheet1", "B6:D", TypeInferrer.FromAllRows).column["> 4%"]""").nonEmpty
+    )
+  }
+
+  test("anchor with a pinned row edge infers only the last column") {
+    val data = Excel.resource("Bands.xlsx", "Sheet1", "B6:8", TypeInferrer.FromAllRows)
+    assertEquals(data.getColRange, Some("B6:G8"))
+    assertEquals(data.toList.size, 2)
+  }
+
+  test("anchor on an empty cell fails at compile time") {
+    assert(
+      compileErrors("""Excel.resource("Offset.xlsx", "Sheet1", "C3", TypeInferrer.StringType)""").contains("No data at C3")
+    )
+  }
+
+  test("an unreadable range fails at compile time") {
+    assert(
+      compileErrors("""Excel.resource("Offset.xlsx", "Sheet1", "banana", TypeInferrer.StringType)""").contains("Could not read \"banana\" as a cell range")
+    )
+  }
+
 end ExcelSuite

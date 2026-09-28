@@ -14,7 +14,8 @@ object Excel:
     * @param sheetName
     *   Name of the Excel sheet to read
     * @param range
-    *   Optional cell range (e.g., "A1:C10"), empty string reads entire sheet
+    *   Optional cell range, empty string reads entire sheet. Either fully specified ("A1:C10"), or a top left anchor whose open edges are discovered at compile time the way
+    *   `ctrl-right` and `ctrl-down` discover them in Excel - "A1" infers both edges, "A1:C" pins the columns, "A1:10" pins the rows
     * @param typeInferrer
     *   Type inference strategy (StringType or FromTuple supported)
     * @return
@@ -30,7 +31,8 @@ object Excel:
     * @param sheetName
     *   Name of the Excel sheet to read
     * @param range
-    *   Optional cell range (e.g., "A1:C10"), empty string reads entire sheet
+    *   Optional cell range, empty string reads entire sheet. Either fully specified ("A1:C10"), or a top left anchor whose open edges are discovered at compile time the way
+    *   `ctrl-right` and `ctrl-down` discover them in Excel - "A1" infers both edges, "A1:C" pins the columns, "A1:10" pins the rows
     * @param typeInferrer
     *   Type inference strategy (StringType or FromTuple supported)
     * @return
@@ -55,7 +57,8 @@ object Excel:
     * @param sheetName
     *   Name of the Excel sheet to read
     * @param range
-    *   Optional cell range (e.g., "A1:C10"), empty string reads entire sheet
+    *   Optional cell range, empty string reads entire sheet. Either fully specified ("A1:C10"), or a top left anchor whose open edges are discovered at compile time the way
+    *   `ctrl-right` and `ctrl-down` discover them in Excel - "A1" infers both edges, "A1:C" pins the columns, "A1:10" pins the rows
     * @param typeInferrer
     *   Type inference strategy (StringType or FromTuple supported)
     * @return
@@ -77,7 +80,8 @@ object Excel:
     * @param sheetName
     *   Name of the Excel sheet to read
     * @param range
-    *   Optional cell range (e.g., "A1:C10"), empty string reads entire sheet
+    *   Optional cell range, empty string reads entire sheet. Either fully specified ("A1:C10"), or a top left anchor whose open edges are discovered at compile time the way
+    *   `ctrl-right` and `ctrl-down` discover them in Excel - "A1" infers both edges, "A1:C" pins the columns, "A1:10" pins the rows
     * @param typeInferrer
     *   Type inference strategy (StringType or FromTuple supported)
     * @return
