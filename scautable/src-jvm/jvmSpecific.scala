@@ -31,9 +31,7 @@ private[scautable] trait PlatformSpecific:
       val runtime = java.lang.Runtime.getRuntime()
       runtime.exec(Array[String](s"""xdg-open $uri]"""))
 
-  inline def desktopShowNt[K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](a: C)(using
-      tableDeriveInstance: HtmlRenderer.HtmlTableRender[V]
-  ): os.Path =
+  inline def desktopShowNt[K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](a: C): os.Path =
     val asString = HtmlRenderer.nt(a).toString()
     val theHtml = raw"""
 <!DOCTYPE html>

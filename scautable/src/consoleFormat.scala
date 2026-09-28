@@ -37,12 +37,7 @@ object ConsoleFormat:
     fansi.Color.White
   )
 
-  extension [A](a: A)(using numA: Numeric[A])
-    inline def formatAsPercentage: String =
-      if a == 0 then "0.00%"
-      else
-        val a100 = BigDecimal(numA.toDouble(a) * 100).setScale(2, BigDecimal.RoundingMode.HALF_UP).doubleValue
-        String.format(java.util.Locale.ROOT, "%.2f%%", a100)
+  extension [A](a: A)(using numA: Numeric[A]) inline def formatAsPercentage: String = CellFormat.percentage(numA.toDouble(a), 2)
   end extension
 
   extension [K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](nt: C)
@@ -51,7 +46,7 @@ object ConsoleFormat:
       val rows: Seq[Product] = nt.iterator.map(_.toTuple).toSeq
       TerminalTable.render(
         constValueTuple[K].toList.map(_.toString()),
-        rows.map(row => TableRow(row.productIterator.toSeq.map(_.toString))).toSeq
+        formatRows[V](rows)
       )
     end consoleFormatNt
 
@@ -64,9 +59,19 @@ object ConsoleFormat:
       else
         val foundHeaders = constValueTuple[K].toList.map(_.toString())
         val values = nt.iterator.map(_.toTuple).toSeq
-        ConsoleFormat.consoleFormat_(values, fansi, headers.getOrElse(foundHeaders))
+        ConsoleFormat.consoleFormat_(formatProducts[V](values), fansi, headers.getOrElse(foundHeaders))
     end consoleFormatNt
   end extension
+
+  /** Render each cell of `rows` through the `CellFormat` for its column type, falling back to `toString`. Formatters are resolved once, not per row. */
+  private inline def formatRows[V <: Tuple](rows: Seq[Product]): Seq[TableRow] =
+    val fmts = CellFormat.formattersFor[V].toArray
+    rows.map(row => TableRow(row.productIterator.toSeq.zipWithIndex.map((cell, i) => if i < fmts.length then fmts(i)(cell) else CellFormat.toStringFormat(cell))))
+  end formatRows
+
+  /** As [[formatRows]], but yielding `Product`s of pre-formatted strings for the legacy `consoleFormat_` path. */
+  private inline def formatProducts[V <: Tuple](rows: Seq[Product]): Seq[Product] =
+    formatRows[V](rows).map(r => Tuple.fromArray(r.cells.toArray))
 
   private inline def makeFancy(s: String, i: Int): Str =
     val idx = i % colours.length

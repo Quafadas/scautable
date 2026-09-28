@@ -30,6 +30,7 @@ e.g. `val data : Seq[(col1 : String, col2 : Int, col3 : Double)] = ???`
 | html | `HtmlRenderer.nt(data)` |
 | Almond | `Html(HtmlRenderer.nt(data))` |
 | browser window | `HtmlRenderer.desktopShowNt(data)` |
+| format one column | `data.formatColumn["col3", Decimals[2]].ptbln` |
 
 
 ## Excel Operations (JVM only)

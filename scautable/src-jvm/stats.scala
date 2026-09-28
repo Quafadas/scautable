@@ -7,6 +7,7 @@ import scala.util.Random
 
 import com.tdunning.math.stats.TDigest
 
+import io.github.quafadas.scautable.ColumnFormat.*
 import io.github.quafadas.scautable.ConsoleFormat.ptbln
 import io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
 
@@ -505,10 +506,21 @@ object Stats:
       (numeric = numeric, nonNumeric = nonNumeric)
     end summary
 
+    /** Print [[summary]] to the console.
+      *
+      * The numeric columns are tagged with `SigFigs[4]` for display only - `summary` still returns raw `Double`s, so nothing downstream of it is affected.
+      */
     inline def describe =
       val (numeric, nonNumeric) = nt.summary
       println("===== Numeric Columns: =======")
-      numeric.ptbln
+      numeric
+        .formatColumn["mean", SigFigs[4]]
+        .formatColumn["min", SigFigs[4]]
+        .formatColumn["0.25", SigFigs[4]]
+        .formatColumn["median", SigFigs[4]]
+        .formatColumn["0.75", SigFigs[4]]
+        .formatColumn["max", SigFigs[4]]
+        .ptbln
       println("\n====== Non-Numeric Columns: ======")
       nonNumeric.ptbln
     end describe
