@@ -39,8 +39,7 @@ object ExcelRange:
       case CellType.STRING  => cell.getStringCellValue.trim.isEmpty
       case CellType.FORMULA =>
         cell.getCachedFormulaResultType == CellType.STRING && cell.getStringCellValue.trim.isEmpty
-      case _ => false
-    )
+      case _ => false)
   end isEmpty
 
   private def rowIsEmpty(row: Row | Null, firstCol: Int, lastCol: Int): Boolean =
@@ -106,6 +105,7 @@ object ExcelRange:
     val maxCol = headerRow.getLastCellNum.toInt - 1
     var lastCol = firstCol
     while lastCol < maxCol && !isEmpty(headerRow.getCell(lastCol + 1)) do lastCol += 1
+    end while
     lastCol
   end discoverLastCol
 
@@ -115,6 +115,7 @@ object ExcelRange:
     val maxRow = sheet.getLastRowNum
     var lastRow = firstRow
     while lastRow < maxRow && !rowIsEmpty(sheet.getRow(lastRow + 1), firstCol, lastCol) do lastRow += 1
+    end while
     lastRow
   end discoverLastRow
 

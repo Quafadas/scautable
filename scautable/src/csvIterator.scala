@@ -30,7 +30,7 @@ class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (pr
 
   type Col[N <: Int] = Tuple.Elem[K, N]
 
-  inline override def hasNext: Boolean = rows.hasNext
+  override def hasNext: Boolean = rows.hasNext
 
   // inline override def next() =
   //   val str = rows.next()
@@ -39,7 +39,7 @@ class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (pr
   //   NamedTuple.build[K & Tuple]()(tuple)
   // end next
 
-  inline override def next() =
+  override def next(): NamedTuple[K, V] =
     val str = rows.next()
     val splitted = CSVParser.parseLine(str, delimiter)
     val tuple = decoder
@@ -47,7 +47,7 @@ class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (pr
       .getOrElse(
         throw new Exception("Failed to decode row: " + splitted)
       )
-    NamedTuple.build[K & Tuple]()(tuple)
+    tuple.asInstanceOf[NamedTuple[K, V]]
   end next
 
   def schemaGen: String =
@@ -59,7 +59,7 @@ import CsvSchema.*
 """
   end schemaGen
 
-  inline def headerIndex(s: String) =
+  def headerIndex(s: String) =
     headers.zipWithIndex.find(_._1 == s).get._2
 
   inline def headerIndex[S <: String & Singleton] =

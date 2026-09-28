@@ -37,7 +37,7 @@ class CsvFromStringSuite extends FunSuite:
   }
 
   test("BigInteger") {
-    inline given Decoder[BigInteger] with
+    given Decoder[BigInteger] with
       def decode(str: String): Option[BigInteger] =
         try Some(new BigInteger(str))
         catch case _: NumberFormatException => None

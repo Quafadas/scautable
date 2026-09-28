@@ -68,7 +68,7 @@ $$(document).ready( function () {
     *   \- summon a HtmlTableRender instance for the case class
     * @return
     */
-  inline def desktopShow[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlRenderer.HtmlTableRender[A]) =
+  def desktopShow[A <: Product](a: Seq[A])(using tableDeriveInstance: HtmlRenderer.HtmlTableRender[A]) =
     val asString = HtmlRenderer(a).toString()
     val theHtml = raw"""
 <!DOCTYPE html>
