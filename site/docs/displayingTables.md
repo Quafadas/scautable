@@ -52,15 +52,36 @@ The same tags drive `html` and `desktopShowNt`, so the browser and the terminal 
 
 ### Built-in tags
 
+`N` is always the number of decimal places to round to.
+
 | Tag | Applies to | `1234.5678` renders as |
 |-|-|-|
 | `Decimals[N]` | `Double` | `Decimals[2]` → `1234.57` |
 | `SigFigs[N]` | `Double` | `SigFigs[4]` → `1235` |
-| `Percent[N]` | `Double` | `Percent[2]` → `123456.78%` |
 | `Thousands` | `Double` | `1,234.57` |
 | `Currency[Sym, N]` | `Double` | `Currency["$", 2]` → `$1,234.57` |
 | `IntThousands` | `Int` | `9876543` → `9,876,543` |
 | `LongThousands` | `Long` | `9876543210` → `9,876,543,210` |
+
+Rates, where the value is a fraction and you want it read at a different scale:
+
+| Tag | Applies to | Example |
+|-|-|-|
+| `Percent[N]` | `Double` | `Percent[2]` of `0.0425` → `4.25%` |
+| `BasisPoints[N]` | `Double` | `BasisPoints[0]` of `0.0425` → `425 bps` |
+
+Large magnitudes, where you want a compact number rather than a long one. Note these
+*rescale* the value, unlike `Thousands`, which keeps it at full scale and only adds
+grouping separators:
+
+| Tag | Applies to | Example |
+|-|-|-|
+| `InThousands[N]` | `Double` | `InThousands[3]` of `1234.0` → `1.234 k` |
+| `InMillions[N]` | `Double` | `InMillions[4]` of `123400.0` → `0.1234 M` |
+| `InBillions[N]` | `Double` | `InBillions[2]` of `2500000000.0` → `2.50 B` |
+
+Rescaling and percentage arithmetic are done in `BigDecimal`, not on the `Double`, so
+`InMillions[4]` of `123400.0` is exactly `0.1234 M` rather than `0.1233 M`.
 
 Columns read from a CSV with blank cells arrive as `Option[Double]`; tag them exactly the
 same way, and `None` still renders as `None`.

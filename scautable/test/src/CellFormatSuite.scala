@@ -170,4 +170,49 @@ class CellFormatSuite extends FunSuite:
     assert(out.contains("11.30%"), out)
   }
 
+  test("InThousands, InMillions, InBillions") {
+    val data = Seq((k = 1234.0, m = 123400.0, b = 2500000000.0))
+    val out = data
+      .formatColumn["k", InThousands[3]]
+      .formatColumn["m", InMillions[4]]
+      .formatColumn["b", InBillions[2]]
+      .consoleFormatNt
+    assert(out.contains("1.234 k"), out)
+    assert(out.contains("0.1234 M"), out)
+    assert(out.contains("2.50 B"), out)
+  }
+
+  test("BasisPoints") {
+    val data = Seq((spread = 0.0425), (spread = 0.00015))
+    val out = data.formatColumn["spread", BasisPoints[0]].consoleFormatNt
+    assert(out.contains("425 bps"), out)
+    assert(out.contains("2 bps"), out)
+  }
+
+  test("BasisPoints keeps sub-point precision when asked") {
+    assertEquals(CellFormat.rescaled(0.000155, BigDecimal(10000), 1, " bps"), "1.6 bps")
+  }
+
+  test("rescaling is exact rather than floating point") {
+    // 123400.0 / 1e6 in Double arithmetic is not exactly 0.1234
+    assertEquals(summon[CellFormat[InMillions[4]]].format(123400.0.asInstanceOf[InMillions[4]]), "0.1234 M")
+    assertEquals(summon[CellFormat[InThousands[3]]].format(1234.0.asInstanceOf[InThousands[3]]), "1.234 k")
+    assertEquals(summon[CellFormat[InThousands[0]]].format(1500.0.asInstanceOf[InThousands[0]]), "2 k")
+    assertEquals(summon[CellFormat[InBillions[2]]].format(2500000000.0.asInstanceOf[InBillions[2]]), "2.50 B")
+  }
+
+  test("scale tags handle negatives, zero and non-finite values") {
+    assertEquals(summon[CellFormat[InThousands[1]]].format(-1234.0.asInstanceOf[InThousands[1]]), "-1.2 k")
+    assertEquals(summon[CellFormat[InMillions[2]]].format(0.0.asInstanceOf[InMillions[2]]), "0.00 M")
+    assertEquals(summon[CellFormat[BasisPoints[0]]].format(Double.NaN.asInstanceOf[BasisPoints[0]]), "NaN")
+    assertEquals(summon[CellFormat[InBillions[1]]].format(Double.PositiveInfinity.asInstanceOf[InBillions[1]]), "Infinity")
+  }
+
+  test("scale tags stay numeric and reject non-Double columns") {
+    import scala.compiletime.testing.typeChecks
+    summon[ColumnTyped.IsNumeric[InThousands[3]] =:= true]
+    summon[ColumnTyped.IsNumeric[BasisPoints[0]] =:= true]
+    assert(!typeChecks("""Seq((x = "a")).formatColumn["x", InThousands[3]]"""))
+  }
+
 end CellFormatSuite
