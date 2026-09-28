@@ -76,10 +76,14 @@ object ExcelMacros:
 
   /** Common processing logic for both resource and absolute path Excel reading
     */
-  private def processExcelFile(filePath: String, sheetName: String, colRange: Option[String], typeInferrerExpr: Expr[TypeInferrer], outputPath: String)(using Quotes) =
+  private def processExcelFile(filePath: String, sheetName: String, rawColRange: Option[String], typeInferrerExpr: Expr[TypeInferrer], outputPath: String)(using Quotes) =
     import quotes.reflect.*
 
     try
+      // Resolve any open ended range (e.g. "B5") to a fully specified one (e.g. "B5:Q55") here, at compile time,
+      // so that the generated iterator never has to discover the table's extent itself.
+      val colRange = resolveRange(filePath, sheetName, rawColRange)
+
       // Extract headers at compile time
       val headers = extractHeaders(filePath, sheetName, colRange)
 
@@ -141,6 +145,25 @@ object ExcelMacros:
         report.throwError(s"Error processing Excel file: ${ex.getMessage}")
     end try
   end processExcelFile
+
+  /** Resolves a range specification against the sheet, filling in any edge the caller left open.
+    *
+    * A fully specified range (e.g. "B5:Q55") is returned untouched. An anchor with open ends (e.g. "B5", "B5:Q" or "B5:55") has its missing edges discovered by walking the sheet,
+    * the way `ctrl-right` and `ctrl-down` walk it in Excel.
+    */
+  private def resolveRange(filePath: String, sheetName: String, colRange: Option[String]): Option[String] =
+    colRange.map(_.trim).filter(_.nonEmpty).map { spec =>
+      val workbook = ExcelWorkbookCache
+        .getOrCreate(filePath)
+        .getOrElse(
+          throw new BadTableException(s"Failed to open Excel file: $filePath")
+        )
+      val sheet = Option(workbook.getSheet(sheetName)).getOrElse(
+        throw new BadTableException(s"Sheet not found: $sheetName in $filePath")
+      )
+      ExcelRange.resolve(sheet, spec)
+    }
+  end resolveRange
 
   /** Extracts headers from an Excel sheet, either from a specific range or the first row
     */
