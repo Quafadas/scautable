@@ -11,7 +11,8 @@ import scala.compiletime.*
   *   - the bound (`<: Double`) means match types such as [[ColumnTyped.IsNumeric]] still reduce and arithmetic on the value still compiles;
   *   - there is no runtime cost - attaching a tag is a cast, and the underlying value never changes.
   *
-  * Note that a trait-based tag (`Double & Money`) cannot work here: `Double` is final, so the compiler proves the intersection uninhabited and refuses to reduce match types over it.
+  * Note that a trait-based tag (`Double & Money`) cannot work here: `Double` is final, so the compiler proves the intersection uninhabited and refuses to reduce match types over
+  * it.
   *
   * Define your own the same way:
   * {{{
@@ -52,6 +53,7 @@ end ColumnFormat
   */
 trait CellFormat[A]:
   def format(a: A): String
+end CellFormat
 
 object CellFormat:
 
