@@ -33,6 +33,22 @@ object NamedTupleIteratorExtensions:
     inline def forceColumnType[S <: String, A]: Iterator[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]] =
       itr.map(_.asInstanceOf[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]])
 
+    /** Attach a display tag (see `ColumnFormat`) to a column, changing how it renders without touching the data.
+      *
+      * Zero cost at runtime - like `forceColumnType` this is a cast. `Tag` must be a subtype of the column's element type, so `Decimals[2]` on a `String` column will not compile.
+      *
+      * {{{
+      * csv.formatColumn["price", Currency["$", 2]].formatColumn["rate", Percent[2]].ptbln
+      * }}}
+      */
+    inline def formatColumn[S <: String, Tag](using
+        @implicitNotFound("Column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        @implicitNotFound("Format tag ${Tag} is not compatible with the type of column ${S}")
+        compat: Tag <:< Unwrapped[GetTypeAtName[K, S, V]]
+    ): Iterator[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, Tagged[GetTypeAtName[K, S, V], Tag]]]] =
+      itr.map(_.asInstanceOf[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, Tagged[GetTypeAtName[K, S, V], Tag]]]])
+
     inline def mapColumn[S <: String, A](using
         @implicitNotFound("Column ${S} not found")
         ev: IsColumn[S, K] =:= true,
@@ -335,6 +351,22 @@ object NamedTupleIteratorExtensions:
         bf: BuildFrom[CC[NamedTuple[K, V]], NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]], CC[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]]]
     ): CC[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]] =
       bf.fromSpecific(nt)(nt.view.map(_.asInstanceOf[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, A]]]))
+
+    /** Attach a display tag (see `ColumnFormat`) to a column, changing how it renders without touching the data. */
+    inline def formatColumn[S <: String, Tag](using
+        @implicitNotFound("Column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        @implicitNotFound("Format tag ${Tag} is not compatible with the type of column ${S}")
+        compat: Tag <:< Unwrapped[GetTypeAtName[K, S, V]],
+        bf: BuildFrom[
+          CC[NamedTuple[K, V]],
+          NamedTuple[K, ReplaceOneTypeAtName[K, S, V, Tagged[GetTypeAtName[K, S, V], Tag]]],
+          CC[
+            NamedTuple[K, ReplaceOneTypeAtName[K, S, V, Tagged[GetTypeAtName[K, S, V], Tag]]]
+          ]
+        ]
+    ): CC[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, Tagged[GetTypeAtName[K, S, V], Tag]]]] =
+      bf.fromSpecific(nt)(nt.view.map(_.asInstanceOf[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, Tagged[GetTypeAtName[K, S, V], Tag]]]]))
 
     inline def renameColumn[From <: String, To <: String](using
         ev: IsColumn[From, K] =:= true,

@@ -19,6 +19,92 @@ csv.toSeq.ptbln
 
 ```
 
+## Formatting individual columns
+
+By default every cell is rendered with `toString`, which is rarely what you want for
+numbers - a price, a rate and a ratio are all `Double`, but none of them should look
+the same.
+
+`formatColumn` attaches a *display tag* to one column. The tag lives only in the type;
+the value underneath is untouched, and attaching one costs nothing at runtime.
+
+```scala
+import io.github.quafadas.table.*
+
+def csv = CSV.fromString("product,price,margin\nwidget,1234.5678,0.0425\ngizmo,99.5,0.113")
+
+csv.toSeq
+  .formatColumn["price", Currency["$", 2]]
+  .formatColumn["margin", Percent[2]]
+  .ptbln
+```
+
+```
++---------+-----------+--------+
+| product | price     | margin |
++---------+-----------+--------+
+| widget  | $1,234.57 | 4.25%  |
+| gizmo   | $99.50    | 11.30% |
++---------+-----------+--------+
+```
+
+The same tags drive `html` and `desktopShowNt`, so the browser and the terminal agree.
+
+### Built-in tags
+
+| Tag | Applies to | `1234.5678` renders as |
+|-|-|-|
+| `Decimals[N]` | `Double` | `Decimals[2]` → `1234.57` |
+| `SigFigs[N]` | `Double` | `SigFigs[4]` → `1235` |
+| `Percent[N]` | `Double` | `Percent[2]` → `123456.78%` |
+| `Thousands` | `Double` | `1,234.57` |
+| `Currency[Sym, N]` | `Double` | `Currency["$", 2]` → `$1,234.57` |
+| `IntThousands` | `Int` | `9876543` → `9,876,543` |
+| `LongThousands` | `Long` | `9876543210` → `9,876,543,210` |
+
+Columns read from a CSV with blank cells arrive as `Option[Double]`; tag them exactly the
+same way, and `None` still renders as `None`.
+
+Formatting is locale-independent - a `.` is always the decimal separator, on the JVM and
+in the browser alike.
+
+### Defining your own
+
+A tag is a *bounded opaque type* plus a `given CellFormat` for it:
+
+```scala
+import io.github.quafadas.table.*
+
+object MyTags:
+  opaque type Bytes <: Long = Long
+  given CellFormat[Bytes] = (b: Bytes) =>
+    if b < 1024 then s"$b B" else f"${b / 1024.0}%.1f KiB"
+
+import MyTags.{Bytes, given}
+
+data.formatColumn["size", Bytes].ptbln
+```
+
+The bound (`<: Long`) is what keeps the column usable: `numericCols`, `summary` and
+arithmetic all still see a `Long`. A plain marker trait would *not* work here, because
+`Long` is final - the compiler proves `Long & Bytes` uninhabited and the column machinery
+stops reducing.
+
+### Tag late
+
+A tag is a presentation concern, so apply it at the end of a pipeline, just before
+displaying. Because the column's declared type becomes `Decimals[2]` rather than `Double`,
+anything that needs an *invariant* typeclass on that exact type - `Numeric`, `ClassTag`, a
+CSV `Decoder` - will no longer resolve for it. Match-type machinery (`numericCols`,
+`columns`, `dropColumn`, `summary`) is unaffected.
+
+`forceColumnType` is the escape hatch if you need to strip a tag back off:
+
+```scala
+tagged.forceColumnType["price", Double]
+```
+
+
 ## In browser (currently untested with named tuples)
 
 ```scala

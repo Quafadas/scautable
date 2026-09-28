@@ -311,11 +311,20 @@ object HtmlRenderer extends PlatformSpecific:
   def apply[A <: Product](a: A, addHeader: Boolean)(using tableDeriveInstance: HtmlTableRender[A]): TypedTag[String] =
     apply(Seq(a), addHeader, a.productElementNames.toList)
 
-  inline def nt[K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](a: C)(using
-      tableDeriveInstance: HtmlTableRender[V]
-  ): TypedTag[String] =
+  /** Render an `Iterable`/`Iterator` of named tuples as an HTML table.
+    *
+    * Cells go through the same `CellFormat` lookup the console path uses, so a column tagged with `ColumnFormat.Decimals[2]` (say) renders identically in the browser and in the
+    * terminal. Untagged columns fall back to `toString`, which is what the previous `HtmlTableRender[V]` catch-all did.
+    */
+  inline def nt[K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](a: C): TypedTag[String] =
+    val fmts = CellFormat.formattersFor[V].toArray
     val names = constValueTuple[K].toList.map(_.toString())
-    apply(a.iterator.map(_.toTuple), true, names)
+    val header = tr(names.map(th(_)))
+    val rows = a.iterator.map { row =>
+      val cells = row.toTuple.productIterator.toSeq.zipWithIndex.map((cell, i) => td(if i < fmts.length then fmts(i)(cell) else CellFormat.toStringFormat(cell)))
+      tr(cells)
+    }.toSeq
+    table(thead(header), tbody(rows), id := "scautable", cls := "display")
   end nt
 
 end HtmlRenderer

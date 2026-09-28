@@ -212,4 +212,52 @@ class NamedTupleTypeTest extends munit.FunSuite:
 
   }
 
+  test("Unwrapped") {
+
+    summon[ColumnTyped.Unwrapped[Double] =:= Double]
+    summon[ColumnTyped.Unwrapped[Option[Double]] =:= Double]
+    summon[ColumnTyped.Unwrapped[String] =:= String]
+
+  }
+
+  test("Tagged") {
+
+    import io.github.quafadas.scautable.ColumnFormat.*
+
+    summon[ColumnTyped.Tagged[Double, Decimals[2]] =:= Decimals[2]]
+    summon[ColumnTyped.Tagged[Option[Double], Decimals[2]] =:= Option[Decimals[2]]]
+
+  }
+
+  test("a format tag stays numeric so the column machinery still reduces") {
+
+    import io.github.quafadas.scautable.ColumnFormat.*
+
+    summon[Decimals[2] <:< Double]
+    summon[ColumnTyped.IsNumeric[Decimals[2]] =:= true]
+    summon[ColumnTyped.IsNumeric[Option[Decimals[2]]] =:= true]
+    summon[ColumnTyped.IsNumeric[SigFigs[4]] =:= true]
+    summon[ColumnTyped.IsNumeric[IntThousands] =:= true]
+    summon[ColumnTyped.IsNumeric[LongThousands] =:= true]
+
+    type Cols = ("a", "b")
+    type Vals = (Decimals[2], String)
+    summon[ColumnTyped.NumericColsIdx[Vals] =:= (true, false)]
+    summon[ColumnTyped.GetTypeAtName[Cols, "a", Vals] =:= Decimals[2]]
+
+  }
+
+  test("formatColumn rejects a tag that does not match the column type") {
+
+    import scala.compiletime.testing.typeChecks
+    import io.github.quafadas.table.*
+
+    assert(typeChecks("""Seq((price = 1.0)).formatColumn["price", Decimals[2]]"""))
+    // Decimals is a Double tag; the column is a String
+    assert(!typeChecks("""Seq((price = "a")).formatColumn["price", Decimals[2]]"""))
+    // column does not exist
+    assert(!typeChecks("""Seq((price = 1.0)).formatColumn["nope", Decimals[2]]"""))
+
+  }
+
 end NamedTupleTypeTest

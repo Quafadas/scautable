@@ -102,6 +102,16 @@ object ColumnTyped:
     case A => true
     case _ => false
 
+  /** The element type of a column, i.e. `T` with any `Option` wrapper removed. */
+  type Unwrapped[T] = T match
+    case Option[a] => a
+    case _         => T
+
+  /** Replace a column's value type with a display tag (see `ColumnFormat`), preserving any `Option` wrapper so that `IsNumeric` and friends still reduce. */
+  type Tagged[T, Tag] = T match
+    case Option[a] => Option[Tag]
+    case _         => Tag
+
   type IsNumeric[T] <: Boolean = T match
     case Option[a] => IsNumeric[a]
     case Int       => true
