@@ -51,7 +51,6 @@ build.mill         -- Root build configuration
 4. Run `./mill scautable.test._` to validate
 
 ## Code Guidelines
-- Follow `styleguide.md` for coding conventions
 - Use munit for tests. Cross-platform tests go in `scautable/test/src`
 - JVM-specific tests go in `scautable/test/src-jvm`
 - Use Scala 3 syntax: given/using, extension methods, enum types
