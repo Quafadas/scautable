@@ -44,6 +44,21 @@ object ColumnFormat:
   /** Grouping separators on a whole number, e.g. `9876543` as `9,876,543`. */
   opaque type IntThousands <: Int = Int
 
+  /** Value divided by a thousand with a ` k` suffix, e.g. `InThousands[3]` renders `1234.0` as `1.234 k`.
+    *
+    * Not to be confused with [[Thousands]], which adds grouping separators at full scale rather than rescaling.
+    */
+  opaque type InThousands[N <: Int] <: Double = Double
+
+  /** Value divided by a million with a ` M` suffix, e.g. `InMillions[4]` renders `123400.0` as `0.1234 M`. */
+  opaque type InMillions[N <: Int] <: Double = Double
+
+  /** Value divided by a billion (1e9) with a ` B` suffix, e.g. `InBillions[2]` renders `2500000000.0` as `2.50 B`. */
+  opaque type InBillions[N <: Int] <: Double = Double
+
+  /** Value scaled by 10,000 with a ` bps` suffix, e.g. `BasisPoints[0]` renders `0.0425` as `425 bps`. */
+  opaque type BasisPoints[N <: Int] <: Double = Double
+
 end ColumnFormat
 
 /** How a single cell's value is rendered as text.
@@ -60,6 +75,11 @@ object CellFormat:
   import ColumnFormat.*
 
   def apply[A](f: A => String): CellFormat[A] = (a: A) => f(a)
+
+  private val thousandth = BigDecimal(1) / 1_000
+  private val millionth = BigDecimal(1) / 1_000_000
+  private val billionth = BigDecimal(1) / 1_000_000_000
+  private val tenThousand = BigDecimal(10_000)
 
   /** Round to `places` decimals, half-up, and render without scientific notation.
     *
@@ -86,6 +106,14 @@ object CellFormat:
     if d.isNaN || d.isInfinite then d.toString
     else addGrouping(fixed(d, places))
 
+  /** Rescale by `factor` (multiplying), round half-up to `places` decimals and append `suffix`.
+    *
+    * The arithmetic is done in `BigDecimal` rather than on the `Double`, so e.g. `InMillions[4]` of `123400.0` is exactly `0.1234 M` and not `0.1233 M`.
+    */
+  private[scautable] def rescaled(d: Double, factor: BigDecimal, places: Int, suffix: String): String =
+    if d.isNaN || d.isInfinite then d.toString
+    else (BigDecimal(d) * factor).setScale(places, BigDecimal.RoundingMode.HALF_UP).bigDecimal.toPlainString + suffix
+
   /** Scale by 100, round half-up to `places` decimals, append `%` - the same policy as [[ConsoleFormat.formatAsPercentage]]. */
   private[scautable] def percentage(d: Double, places: Int): String =
     if d.isNaN || d.isInfinite then d.toString
@@ -110,6 +138,14 @@ object CellFormat:
   given longThousands: CellFormat[LongThousands] = (l: LongThousands) => addGrouping(l.toString)
 
   given intThousands: CellFormat[IntThousands] = (i: IntThousands) => addGrouping(i.toString)
+
+  given inThousands[N <: Int](using n: ValueOf[N]): CellFormat[InThousands[N]] = (d: InThousands[N]) => rescaled(d, thousandth, n.value, " k")
+
+  given inMillions[N <: Int](using n: ValueOf[N]): CellFormat[InMillions[N]] = (d: InMillions[N]) => rescaled(d, millionth, n.value, " M")
+
+  given inBillions[N <: Int](using n: ValueOf[N]): CellFormat[InBillions[N]] = (d: InBillions[N]) => rescaled(d, billionth, n.value, " B")
+
+  given basisPoints[N <: Int](using n: ValueOf[N]): CellFormat[BasisPoints[N]] = (d: BasisPoints[N]) => rescaled(d, tenThousand, n.value, " bps")
 
   /** A tagged column read from a CSV with blanks arrives as `Option[Tag]`; render through the inner format. `None` stays `"None"` so untagged output is unchanged. */
   given option[A](using inner: CellFormat[A]): CellFormat[Option[A]] = (o: Option[A]) =>
