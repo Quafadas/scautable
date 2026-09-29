@@ -11,6 +11,57 @@ import io.github.quafadas.scautable.ColumnTyped.*
 object NamedTupleIteratorExtensions:
   private val rand = new scala.util.Random
 
+  /** Fail compilation unless every name in a spec is a column of `K`. `Who` is the calling method, so the message reads in its terms.
+    *
+    * Shared by every spec-driven operation - only what each then does with the spec's *values* differs.
+    */
+  private inline def checkSpecNames[K <: Tuple, V <: Tuple, SpecNames <: Tuple, Who <: String]: Unit =
+    inline erasedValue[SpecNames] match
+      case _: EmptyTuple   => ()
+      case _: (n *: names) =>
+        inline erasedValue[ColTypeAtName[K, V, n]] match
+          case _: NoSuchColumn => error(constValue[Who] + ": no column named " + constValue[n & String])
+          case _               => checkSpecNames[K, V, names, Who]
+
+  /** Fail compilation unless each tag in a style spec refines the element type of its column. Assumes [[checkSpecNames]] has already passed. */
+  private inline def checkStyleTags[K <: Tuple, V <: Tuple, SpecNames <: Tuple, SpecTags <: Tuple]: Unit =
+    inline erasedValue[SpecNames] match
+      case _: EmptyTuple   => ()
+      case _: (n *: names) =>
+        inline erasedValue[SpecTags] match
+          case _: EmptyTuple  => ()
+          case _: (t *: tags) =>
+            inline erasedValue[TagOk[t, Unwrapped[ColTypeAtName[K, V, n]]]] match
+              case _: true => checkStyleTags[K, V, names, tags]
+              case _       => error("style: the tag given for column " + constValue[n & String] + " is not compatible with its type")
+
+  /** Fail compilation unless each function in a `mapColumns` spec accepts its column's type. Assumes [[checkSpecNames]] has already passed. */
+  private inline def checkMapFns[K <: Tuple, V <: Tuple, SpecNames <: Tuple, SpecFns <: Tuple]: Unit =
+    inline erasedValue[SpecNames] match
+      case _: EmptyTuple   => ()
+      case _: (n *: names) =>
+        inline erasedValue[SpecFns] match
+          case _: EmptyTuple => ()
+          case _: (f *: fns) =>
+            inline erasedValue[TagOk[ColTypeAtName[K, V, n], FnArg[f]]] match
+              case _: true => checkMapFns[K, V, names, fns]
+              case _       => error("mapColumns: the function given for column " + constValue[n & String] + " does not accept its type")
+
+  /** The column indexes a spec touches, paired with the spec's values, in spec order. */
+  private inline def specPlan[K <: Tuple, Spec <: AnyNamedTuple](spec: Spec): List[(Int, Any)] =
+    val headers = constValueTuple[K].toList.map(_.toString())
+    val names = constValueTuple[Names[Spec]].toList.map(_.toString())
+    val values = spec.asInstanceOf[DropNames[Spec]].productIterator.toList
+    names.map(headers.indexOf).zip(values)
+  end specPlan
+
+  /** Apply a plan from [[specPlan]] to one row, leaving untouched columns alone. */
+  private def applyPlan[K <: Tuple, V <: Tuple](plan: List[(Int, Any)], row: NamedTuple[K, V]): Tuple =
+    val cells = row.toTuple.toArray
+    plan.foreach { case (idx, fn) => cells(idx) = fn.asInstanceOf[Any => Any](cells(idx)).asInstanceOf[Object] }
+    Tuple.fromArray(cells)
+  end applyPlan
+
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 
     def sample(frac: Double, deterministic: Boolean = false): Iterator[NamedTuple[K, V]] =
@@ -48,6 +99,51 @@ object NamedTupleIteratorExtensions:
         compat: Tag <:< Unwrapped[GetTypeAtName[K, S, V]]
     ): Iterator[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, Tagged[GetTypeAtName[K, S, V], Tag]]]] =
       itr.map(_.asInstanceOf[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, Tagged[GetTypeAtName[K, S, V], Tag]]]])
+
+    /** Attach a whole spec of display tags in one call, so that the look of a table can be named, reused, and applied at the point of display.
+      *
+      * The spec is a named tuple *type* - names are columns, values are tags from `ColumnFormat`. Equivalent to the corresponding chain of `formatColumn` calls, and like them a
+      * cast:
+      * {{{
+      * type PriceSheet = (`Bid Spread`: Decimals[2], `Offer Spread`: Decimals[2], EL: Percent[1])
+      * prices.style[PriceSheet].ptbln
+      * }}}
+      * A column the spec does not mention is left alone, so one spec can serve a family of tables.
+      */
+    inline def style[Spec <: AnyNamedTuple]: Iterator[NamedTuple[K, Styled[K, V, Spec]]] =
+      checkSpecNames[K, V, Names[Spec], "style"]
+      checkStyleTags[K, V, Names[Spec], DropNames[Spec]]
+      itr.asInstanceOf[Iterator[NamedTuple[K, Styled[K, V, Spec]]]]
+    end style
+
+    /** Force the types of several columns at once, as [[forceColumnType]] does for one.
+      *
+      * The spec is a named tuple *type* - names are columns, values are the types they should take. A cast, and just as unchecked: nothing verifies that the data really holds the
+      * new type.
+      * {{{
+      * raw.retype[(price: Double, qty: Int)]
+      * }}}
+      */
+    inline def retype[Spec <: AnyNamedTuple]: Iterator[NamedTuple[K, Retyped[K, V, Spec]]] =
+      checkSpecNames[K, V, Names[Spec], "retype"]
+      itr.asInstanceOf[Iterator[NamedTuple[K, Retyped[K, V, Spec]]]]
+    end retype
+
+    /** Map several columns at once, as [[mapColumn]] does for one.
+      *
+      * The spec is a named tuple *value* - names are columns, values are the functions to apply. Each column's new type is the function's result type; columns the spec omits are
+      * untouched.
+      * {{{
+      * raw.mapColumns((price = (s: String) => s.toDouble, qty = (s: String) => s.toInt))
+      * }}}
+      * The lambdas need their parameter types written out: the spec's type is being inferred from the lambdas themselves, so there is no expected type to infer them from.
+      */
+    inline def mapColumns[Spec <: AnyNamedTuple](spec: Spec): Iterator[NamedTuple[K, MappedCols[K, V, Spec]]] =
+      checkSpecNames[K, V, Names[Spec], "mapColumns"]
+      checkMapFns[K, V, Names[Spec], DropNames[Spec]]
+      val plan = specPlan[K, Spec](spec)
+      itr.map(row => applyPlan(plan, row).withNames[K].asInstanceOf[NamedTuple[K, MappedCols[K, V, Spec]]])
+    end mapColumns
 
     inline def mapColumn[S <: String, A](using
         @implicitNotFound("Column ${S} not found")
@@ -367,6 +463,38 @@ object NamedTupleIteratorExtensions:
         ]
     ): CC[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, Tagged[GetTypeAtName[K, S, V], Tag]]]] =
       bf.fromSpecific(nt)(nt.view.map(_.asInstanceOf[NamedTuple[K, ReplaceOneTypeAtName[K, S, V, Tagged[GetTypeAtName[K, S, V], Tag]]]]))
+
+    /** Attach a whole spec of display tags in one call, so that the look of a table can be named, reused, and applied at the point of display.
+      *
+      * The spec is a named tuple *type* - names are columns, values are tags from `ColumnFormat`. Equivalent to the corresponding chain of `formatColumn` calls, and like them a
+      * cast:
+      * {{{
+      * type PriceSheet = (`Bid Spread`: Decimals[2], `Offer Spread`: Decimals[2], EL: Percent[1])
+      * prices.style[PriceSheet].ptbln
+      * }}}
+      * A column the spec does not mention is left alone, so one spec can serve a family of tables.
+      */
+    inline def style[Spec <: AnyNamedTuple]: CC[NamedTuple[K, Styled[K, V, Spec]]] =
+      checkSpecNames[K, V, Names[Spec], "style"]
+      checkStyleTags[K, V, Names[Spec], DropNames[Spec]]
+      nt.asInstanceOf[CC[NamedTuple[K, Styled[K, V, Spec]]]]
+    end style
+
+    /** Force the types of several columns at once, as [[forceColumnType]] does for one. See the `Iterator` overload for the spec's shape. */
+    inline def retype[Spec <: AnyNamedTuple]: CC[NamedTuple[K, Retyped[K, V, Spec]]] =
+      checkSpecNames[K, V, Names[Spec], "retype"]
+      nt.asInstanceOf[CC[NamedTuple[K, Retyped[K, V, Spec]]]]
+    end retype
+
+    /** Map several columns at once, as [[mapColumn]] does for one. See the `Iterator` overload for the spec's shape. */
+    inline def mapColumns[Spec <: AnyNamedTuple](spec: Spec)(using
+        bf: BuildFrom[CC[NamedTuple[K, V]], NamedTuple[K, MappedCols[K, V, Spec]], CC[NamedTuple[K, MappedCols[K, V, Spec]]]]
+    ): CC[NamedTuple[K, MappedCols[K, V, Spec]]] =
+      checkSpecNames[K, V, Names[Spec], "mapColumns"]
+      checkMapFns[K, V, Names[Spec], DropNames[Spec]]
+      val plan = specPlan[K, Spec](spec)
+      bf.fromSpecific(nt)(nt.view.map(row => applyPlan(plan, row).withNames[K].asInstanceOf[NamedTuple[K, MappedCols[K, V, Spec]]]))
+    end mapColumns
 
     def renameColumn[From <: String, To <: String](using
         ev: IsColumn[From, K] =:= true,

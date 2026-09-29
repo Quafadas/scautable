@@ -118,6 +118,42 @@ colmanipuluation.columns[("col4_renamed", "col1")].consoleFormatNt(fansi = false
 
 ```
 
+### Several columns at once
+
+`mapColumn` takes one column at a time, which gets repetitive on a wide table - a
+spreadsheet where a dozen columns all arrived as `String` needs a dozen calls. `mapColumns`
+takes a *spec* instead: a named tuple whose names are columns and whose values are the
+functions to apply.
+
+```scala mdoc
+val parsed = asList.mapColumns((
+  col1 = (i: Int) => i.toDouble,
+  col2 = (i: Int) => i > 3
+))
+
+parsed.consoleFormatNt(fansi = false)
+```
+
+Each column's new type is its function's result type. Columns the spec doesn't mention are
+untouched, and the order of the spec is irrelevant. Note that the lambdas need their
+parameter types written out - the spec's type is being inferred *from* the lambdas, so there
+is no expected type to infer them from.
+
+The errors are the same shape as `mapColumn`'s, and name the offending column:
+
+```scala mdoc:fail sc:nocompile
+asList.mapColumns((not_col1 = (i: Int) => i.toDouble))
+```
+
+```scala mdoc:fail sc:nocompile
+asList.mapColumns((col1 = (s: String) => s.toDouble))
+```
+
+`retype` is the same idea for `forceColumnType` - it forces several column types in one
+call. Like `forceColumnType` it is an unchecked cast, so see
+[Displaying Tables](displayingTables.md#tag-late), where stripping display tags back off is
+the use that is always sound.
+
 ### Accumulating, slicing etc
 
 We can delegate all such concerns, to the standard library in the usual way - as we have everything in side the type system!
