@@ -59,8 +59,8 @@ class StyleSuite extends FunSuite:
 
   /** The fold underneath `style` is not specific to formatting - only its `Step` is.
     *
-    * With `Step = Tagged` it attaches display tags; with `[Old, New] =>> New` the same spec machinery retypes a set of columns, which is
-    * what a named-tuple `forceColumnType` would be built from.
+    * With `Step = Tagged` it attaches display tags; with `[Old, New] =>> New` the same spec machinery retypes a set of columns, which is what a named-tuple `forceColumnType` would
+    * be built from.
     */
   test("FoldSpec generalises past formatting - the same spec retypes columns") {
     type K = ("a", "b", "c")
@@ -104,7 +104,14 @@ class SpecOpsSuite extends FunSuite:
 
   test("mapColumns keeps a LazyList lazy") {
     var forced = 0
-    val raw = LazyList.from(1).take(5).map(i => (a = { forced += 1; i.toString }))
+    val raw = LazyList
+      .from(1)
+      .take(5)
+      .map(i =>
+        (a =
+          forced += 1; i.toString
+        )
+      )
     val out = raw.mapColumns((a = (s: String) => s.toInt))
     assertEquals(forced, 0)
     assertEquals(out.head.a, 1)
