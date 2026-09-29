@@ -24,6 +24,13 @@ object Excel:
   transparent inline def absolutePath[K](filePath: String, sheetName: String, range: String = "", inline typeInferrer: TypeInferrer = TypeInferrer.StringType) =
     ${ readExcelAbsolutePath('filePath, 'sheetName, 'range, 'typeInferrer) }
 
+  /** Read Excel file from an absolute path, configured with an [[ExcelOpts]].
+    *
+    * Use this when you need an option the positional overloads do not expose, such as `skipFooter`.
+    */
+  transparent inline def absolutePath[K](inline filePath: String, inline sheetName: String, inline opts: ExcelOpts) =
+    ${ readExcelAbsolutePathOpts('filePath, 'sheetName, 'opts) }
+
   /** Read Excel file from the classpath with compile-time type inference
     *
     * @param filePath
@@ -46,6 +53,22 @@ object Excel:
 
   transparent inline def resource[K](filePath: String, sheetName: String) =
     ${ readExcelResource('filePath, 'sheetName, '{ "" }, '{ TypeInferrer.FromAllRows }) }
+
+  /** Read Excel file from the classpath, configured with an [[ExcelOpts]].
+    *
+    * Use this when you need an option the positional overloads do not expose, such as `skipFooter`.
+    *
+    * @param filePath
+    *   Path to the Excel file in the classpath
+    * @param sheetName
+    *   Name of the Excel sheet to read
+    * @param opts
+    *   Range, type inference and footer handling
+    * @return
+    *   ExcelIterator with inferred types
+    */
+  transparent inline def resource[K](inline filePath: String, inline sheetName: String, inline opts: ExcelOpts) =
+    ${ readExcelResourceOpts('filePath, 'sheetName, 'opts) }
 
   /** Read an Excel file at a path relative to the source file this is called from, with compile-time type inference.
     *
@@ -70,6 +93,13 @@ object Excel:
   transparent inline def relativeToSource[K](filePath: String, sheetName: String, inline typeInferrer: TypeInferrer) =
     ${ readExcelRelativeToSource('filePath, 'sheetName, '{ "" }, 'typeInferrer) }
 
+  /** Read an Excel file relative to the calling source file, configured with an [[ExcelOpts]].
+    *
+    * Use this when you need an option the positional overloads do not expose, such as `skipFooter`.
+    */
+  transparent inline def relativeToSource[K](inline filePath: String, inline sheetName: String, inline opts: ExcelOpts) =
+    ${ readExcelRelativeToSourceOpts('filePath, 'sheetName, 'opts) }
+
   /** Read an Excel file at a path relative to the discovered project root, with compile-time type inference.
     *
     * The root is the first ancestor of the calling source file holding a build marker (`build.mill`, `build.sbt`, `.git`, ...). In a notebook or REPL there is no source file on
@@ -92,6 +122,13 @@ object Excel:
 
   transparent inline def projectRoot[K](filePath: String, sheetName: String, inline typeInferrer: TypeInferrer) =
     ${ readExcelProjectRoot('filePath, 'sheetName, '{ "" }, 'typeInferrer) }
+
+  /** Read an Excel file relative to the discovered project root, configured with an [[ExcelOpts]].
+    *
+    * Use this when you need an option the positional overloads do not expose, such as `skipFooter`.
+    */
+  transparent inline def projectRoot[K](inline filePath: String, inline sheetName: String, inline opts: ExcelOpts) =
+    ${ readExcelProjectRootOpts('filePath, 'sheetName, 'opts) }
 
   /** Cleanup cached workbook resources for a specific file.
     *

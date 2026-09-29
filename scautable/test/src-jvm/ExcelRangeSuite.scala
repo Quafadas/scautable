@@ -64,4 +64,44 @@ class ExcelRangeSuite extends munit.FunSuite:
     intercept[BadTableException](ExcelRange.resolve(sheet("SimpleTable.xlsx"), "A1:%%"))
   }
 
+  test("a pinned range reports that nothing was inferred") {
+    val r = ExcelRange.resolveDetailed(sheet("SimpleTable.xlsx"), "A1:C4")
+    assertEquals(r.range, "A1:C4")
+    assertEquals(r.colEdge, ExcelRange.EdgeOrigin.Pinned)
+    assertEquals(r.rowEdge, ExcelRange.EdgeOrigin.Pinned)
+    assert(!r.wasInferred)
+    // Nothing was inferred, so there is nothing to explain beyond the headline.
+    assert(!r.describe.contains("walking"), r.describe)
+  }
+
+  test("an anchor reports both edges as walked, with dimensions") {
+    val r = ExcelRange.resolveDetailed(sheet("SimpleTable.xlsx"), "A1")
+    assertEquals(r.range, "A1:C4")
+    assertEquals(r.colEdge, ExcelRange.EdgeOrigin.Walked)
+    assertEquals(r.rowEdge, ExcelRange.EdgeOrigin.Walked)
+    assert(r.wasInferred)
+    assertEquals(r.columns, 3)
+    assertEquals(r.dataRows, 3) // 4 rows in the range, one of which is the header
+  }
+
+  test("a half pinned range only reports the edge it actually inferred") {
+    val cols = ExcelRange.resolveDetailed(sheet("Offset.xlsx"), "E3:F")
+    assertEquals(cols.colEdge, ExcelRange.EdgeOrigin.Pinned)
+    assertEquals(cols.rowEdge, ExcelRange.EdgeOrigin.Walked)
+
+    val rows = ExcelRange.resolveDetailed(sheet("Offset.xlsx"), "E3:5")
+    assertEquals(rows.colEdge, ExcelRange.EdgeOrigin.Walked)
+    assertEquals(rows.rowEdge, ExcelRange.EdgeOrigin.Pinned)
+  }
+
+  test("describe names the spec, the sheet, the resolved range and how each edge was found") {
+    val d = ExcelRange.resolveDetailed(sheet("Bands.xlsx"), "B6").describe
+    assert(d.contains("\"B6\""), d)
+    assert(d.contains("\"B6:G11\""), d)
+    assert(d.contains("Sheet1"), d)
+    assert(d.contains("6 columns x 5 data rows"), d)
+    assert(d.contains("last column found by walking right along header row 6"), d)
+    assert(d.contains("last row found by walking down to the last row with content across B..G"), d)
+  }
+
 end ExcelRangeSuite
