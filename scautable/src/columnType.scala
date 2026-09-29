@@ -1,5 +1,6 @@
 package io.github.quafadas.scautable
 
+import scala.NamedTuple.{AnyNamedTuple, DropNames, Names}
 import scala.compiletime.*
 import scala.compiletime.ops.int.*
 
@@ -111,6 +112,76 @@ object ColumnTyped:
   type Tagged[T, Tag] = T match
     case Option[a] => Option[Tag]
     case _         => Tag
+
+  /** Marker returned by [[ColTypeAtName]] when a name is not a column at all. */
+  sealed trait NoSuchColumn
+
+  /** The type of column `Name`, or [[NoSuchColumn]].
+    *
+    * Same job as [[GetTypeAtName]], but `Name` is unbounded and appears as the *pattern* rather than as an argument to `IsMatch`. That is what lets it be driven by a type captured
+    * in a match type or an inline match, where bounds are lost - `Name & String` would be an intersection in pattern position and would never reduce.
+    */
+  type ColTypeAtName[K <: Tuple, V <: Tuple, Name] = (K, V) match
+    case (Name *: ?, v *: ?) => v
+    case (? *: ks, ? *: vs)  => ColTypeAtName[ks, vs, Name]
+    case (EmptyTuple, ?)     => NoSuchColumn
+    case (?, EmptyTuple)     => NoSuchColumn
+
+  /** [[ReplaceOneTypeAtName]] with an unbounded `Name`, for the same reason as [[ColTypeAtName]]. A name that is not a column leaves `V` alone. */
+  type ReplaceTypeAtName[K <: Tuple, V <: Tuple, Name, A] <: Tuple = (K, V) match
+    case (Name *: ?, ? *: vs) => A *: vs
+    case (? *: ks, v *: vs)   => v *: ReplaceTypeAtName[ks, vs, Name, A]
+    case (?, ?)               => V
+
+  /** Whether a display tag may decorate a column of type `ColT`, i.e. whether `Tag <: ColT`.
+    *
+    * Expressed as a match type rather than a `<:<`: the tag reaches this check as a type captured by an inline match, and implicit search would happily unify an unsubstituted
+    * capture with anything, silently accepting every spec.
+    */
+  type TagOk[Tag, ColT] <: Boolean = Tag match
+    case ColT => true
+    case _    => false
+
+  /** Fold a named-tuple spec over the column types of a table.
+    *
+    * A *spec* is a named tuple type whose names pick out columns and whose values say what to do with them; `Step` turns a column's current type and its spec value into its new
+    * type. `Styled` is this fold with `Step = Tagged`; retyping or rewrapping a set of columns is the same fold with a different `Step`, which is the whole point of naming it
+    * separately.
+    *
+    * A spec name that is not a column of `K` leaves `V` untouched here - callers reject it themselves, where they can name it in the error.
+    */
+  type FoldSpec[K <: Tuple, V <: Tuple, SpecNames <: Tuple, SpecVals <: Tuple, Step[_, _]] <: Tuple = (SpecNames, SpecVals) match
+    case (EmptyTuple, ?)    => V
+    case (?, EmptyTuple)    => V
+    case (n *: ns, s *: ss) =>
+      FoldSpec[K, ReplaceTypeAtName[K, V, n, Step[ColTypeAtName[K, V, n], s]], ns, ss, Step]
+
+  /** The column types of a table with a whole style spec applied.
+    *
+    * `Spec` is a named tuple *type* whose names are column names and whose values are display tags, e.g. `(bid: Decimals[2], el: Percent[1])`. Each binding lands exactly where the
+    * equivalent `formatColumn` would, so a spec is indistinguishable from the corresponding chain - including at runtime, where both are casts.
+    */
+  type Styled[K <: Tuple, V <: Tuple, Spec <: AnyNamedTuple] =
+    FoldSpec[K, V, Names[Spec], DropNames[Spec], Tagged]
+
+  /** The column types of a table with a set of columns forcibly retyped.
+    *
+    * The fold's `Step` simply discards the old type, since a `retype` spec says what each column should become outright.
+    */
+  type Retyped[K <: Tuple, V <: Tuple, Spec <: AnyNamedTuple] =
+    FoldSpec[K, V, Names[Spec], DropNames[Spec], [Old, New] =>> New]
+
+  /** The argument type of the function a `mapColumns` spec gives for a column, used to check it against the column's own type. */
+  type FnArg[Fn] = Fn match
+    case Function1[a, ?] => a
+
+  /** The result type of that function - the column's type after the map. `Old` is unused; the fold's `Step` is arity two. */
+  type FnResult[Old, Fn] = Fn match
+    case Function1[?, r] => r
+
+  /** The column types of a table with a set of columns mapped by a spec of functions. */
+  type MappedCols[K <: Tuple, V <: Tuple, Spec <: AnyNamedTuple] =
+    FoldSpec[K, V, Names[Spec], DropNames[Spec], FnResult]
 
   type IsNumeric[T] <: Boolean = T match
     case Option[a] => IsNumeric[a]

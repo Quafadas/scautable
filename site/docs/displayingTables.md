@@ -50,6 +50,59 @@ csv.toSeq
 
 The same tags drive `html` and `desktopShowNt`, so the browser and the terminal agree.
 
+### Styling many columns at once
+
+`formatColumn` takes one column at a time. `style` takes a *spec* - a named tuple type whose
+names are columns and whose values are tags - and applies the lot in one call:
+
+```scala
+import io.github.quafadas.table.*
+
+type Report = (price: Currency["$", 2], margin: Percent[2])
+
+def csv = CSV.fromString("product,price,margin\nwidget,1234.5678,0.0425\ngizmo,99.5,0.113")
+
+csv.toSeq.style[Report].ptbln
+```
+
+```
++---------+-----------+--------+
+| product | price     | margin |
++---------+-----------+--------+
+| widget  | $1,234.57 | 4.25%  |
+| gizmo   | $99.50    | 11.30% |
++---------+-----------+--------+
+```
+
+Identical to the `formatColumn` chain above - including at runtime, where both are casts.
+What the spec buys you is that it is a *type*: it can be named, reused across every table
+that has those columns, and kept next to the code that displays the data rather than the
+code that builds it.
+
+Columns the spec doesn't mention are left alone, so one spec can serve a family of tables,
+and the order of the spec is irrelevant.
+
+Spreadsheet columns often have spaces in their names, which backticks handle:
+
+```scala
+type PriceSheet = (
+    `Bid Spread`: Decimals[2],
+    `Offer Spread`: Decimals[2],
+    `Change`: Decimals[4],
+    EL: Percent[1]
+)
+
+brokerInfo.style[PriceSheet].ptbln
+```
+
+A spec that names a column which isn't there, or hands a column a tag it can't carry, is a
+compile error that names the column:
+
+```
+style: no column named prise
+style: the tag given for column product is not compatible with its type
+```
+
 ### Built-in tags
 
 `N` is always the number of decimal places to round to.
@@ -119,11 +172,17 @@ anything that needs an *invariant* typeclass on that exact type - `Numeric`, `Cl
 CSV `Decoder` - will no longer resolve for it. Match-type machinery (`numericCols`,
 `columns`, `dropColumn`, `summary`) is unaffected.
 
-`forceColumnType` is the escape hatch if you need to strip a tag back off:
+`forceColumnType` is the escape hatch if you need to strip a tag back off, and `retype`
+does it for several columns at once:
 
 ```scala
 tagged.forceColumnType["price", Double]
+
+tagged.retype[(price: Double, margin: Double)]
 ```
+
+Both are unchecked casts, but stripping a display tag is the case where that is always
+sound - a tag erases to the type underneath it, so nothing about the data changes.
 
 
 ## In browser (currently untested with named tuples)
