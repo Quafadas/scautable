@@ -98,6 +98,74 @@ class ExcelSuite extends munit.FunSuite:
 
   }
 
+  /** "Missing.xlsx" spans A1:C4. Its blanks are staggered, one row apart, which is what makes it a usable probe for how far `FirstN` actually samples:
+    *
+    * Column 1 Column 2 Column 3 Row 1, Col 1 Row 1, Col 2 Row 1, Col 3 Row 2, Col 1 <blank> Row 2, Col 3 Row 3, Col 1 Row 3, Col 2 <blank>
+    *
+    * So the second column only becomes optional once two data rows have been read, and the third only once three have. The type ascriptions below are the assertion - a regression
+    * here is a compile error, not a failed `assertEquals`.
+    */
+  test("an anchored range is resolved at compile time and readable off the iterator") {
+    // The macro bakes the *resolved* range into the generated iterator, so `getColRange` is how you
+    // see what an anchor turned into without recompiling under SCAUTABLE_RANGE.
+    def anchored = Excel.resource("Missing.xlsx", "Sheet1", "A1", TypeInferrer.StringType)
+    assertEquals(anchored.getColRange, Some("A1:C4"))
+
+    // A pinned range is passed through untouched.
+    def pinned = Excel.resource("Missing.xlsx", "Sheet1", "A1:C4", TypeInferrer.StringType)
+    assertEquals(pinned.getColRange, Some("A1:C4"))
+
+    // No range at all resolves to None rather than Some(""), and the iterator reads the whole sheet.
+    def whole = Excel.resource("Missing.xlsx", "Sheet1", TypeInferrer.StringType)
+    assertEquals(whole.getColRange, None)
+  }
+
+  test("excel TypeInferrer.FirstN stops sampling at N rows when a range is given") {
+    // `def`, not `val` - an ExcelIterator is an Iterator, so each use needs a fresh one.
+
+    // One data row read, none of it blank, so nothing is optional.
+    def one: ExcelIterator[("Column 1", "Column 2", "Column 3"), (String, String, String)] =
+      Excel.resource("Missing.xlsx", "Sheet1", "A1:C4", TypeInferrer.FirstN(1))
+
+    // Two data rows read, which reaches the blank in column 2 but not the one in column 3.
+    def two: ExcelIterator[("Column 1", "Column 2", "Column 3"), (String, Option[String], String)] =
+      Excel.resource("Missing.xlsx", "Sheet1", "A1:C4", TypeInferrer.FirstN(2))
+
+    // All three data rows read, so both blanks are seen.
+    def three: ExcelIterator[("Column 1", "Column 2", "Column 3"), (String, Option[String], Option[String])] =
+      Excel.resource("Missing.xlsx", "Sheet1", "A1:C4", TypeInferrer.FirstN(3))
+
+    // Sampling more rows than the range holds is not an error, it just saturates.
+    def more: ExcelIterator[("Column 1", "Column 2", "Column 3"), (String, Option[String], Option[String])] =
+      Excel.resource("Missing.xlsx", "Sheet1", "A1:C4", TypeInferrer.FirstN(1000))
+
+    // FromAllRows arrives at the macro as FirstN(Int.MaxValue) - the row cap must not overflow.
+    def all: ExcelIterator[("Column 1", "Column 2", "Column 3"), (String, Option[String], Option[String])] =
+      Excel.resource("Missing.xlsx", "Sheet1", "A1:C4", TypeInferrer.FromAllRows)
+
+    // FirstRow is FirstN(1), and must agree with it.
+    def first: ExcelIterator[("Column 1", "Column 2", "Column 3"), (String, String, String)] =
+      Excel.resource("Missing.xlsx", "Sheet1", "A1:C4", TypeInferrer.FirstRow)
+
+    // Narrow sampling only narrows the *types* - every row of the range is still read back.
+    assertEquals(one.size, 3)
+    assertEquals(two.size, 3)
+    assertEquals(three.size, 3)
+
+    // The staggered blanks, read back under each inferred type. An optional column decodes a blank
+    // to None; a column that was not sampled far enough to become optional decodes it to "".
+    assertEquals(two.column["Column 2"].toList(1), None)
+    assertEquals(two.column["Column 3"].toList(2), "")
+    assertEquals(three.column["Column 3"].toList(2), None)
+    assertEquals(all.column["Column 3"].toList(2), None)
+    assertEquals(more.column["Column 2"].toList(1), None)
+    assertEquals(first.column["Column 2"].toList(1), "")
+
+    // Populated cells are unaffected by how far the sampling went.
+    assertEquals(two.column["Column 2"].toList(0), Some("Row 1, Col 2"))
+    assertEquals(one.column["Column 2"].toList(0), "Row 1, Col 2")
+  }
+
   test("excel provider with FromTuple TypeInferrer enforces specific types") {
     // Force specific types using FromTuple - all columns are actually strings in SimpleTable.xlsx
     def csv = Excel.resource("SimpleTable.xlsx", "Sheet1", "", TypeInferrer.FromTuple[(String, String, String)]())

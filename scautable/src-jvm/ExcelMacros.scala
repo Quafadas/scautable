@@ -74,15 +74,141 @@ object ExcelMacros:
     processExcelFile(fPath, sheetName.valueOrAbort, colRangeExpr.value, typeInferrerExpr, fPath)
   end readExcelProjectRoot
 
+  /** Pulls the three fields out of an `ExcelOpts` expression at compile time.
+    *
+    * Handles the shapes the compiler can produce for it:
+    *   1. The full 3-argument case class constructor, matched by a quoted pattern
+    *   2. `ExcelOpts.default` and the single argument companion `apply`
+    *   3. Named and/or defaulted arguments, e.g. `ExcelOpts(range = "A5", skipFooter = 1)`, which the compiler wraps in a `Block` of default-value `ValDef`s followed by a 3-arg
+    *      `Apply`. That needs a term level walk, identifying each argument by its name and falling back to its type.
+    *
+    * Mirrors `CSV.extractCsvOptsField`, but returns all three fields at once rather than re-walking the term per field.
+    */
+  private def extractExcelOpts(optsExpr: Expr[ExcelOpts])(using Quotes): (Expr[String], Expr[TypeInferrer], Expr[Int]) =
+    import quotes.reflect.*
+
+    val defaultRange: Expr[String] = '{ "" }
+    val defaultInferrer: Expr[TypeInferrer] = '{ TypeInferrer.FromAllRows }
+    val defaultSkip: Expr[Int] = '{ 0 }
+
+    optsExpr match
+      case '{ ExcelOpts($r, $t, $s) }             => (r, t, s)
+      case '{ new ExcelOpts($r, $t, $s) }         => (r, t, s)
+      case '{ ExcelOpts.default }                 => (defaultRange, defaultInferrer, defaultSkip)
+      case '{ ExcelOpts.apply($t: TypeInferrer) } => (defaultRange, t, defaultSkip)
+      case _                                      =>
+        def unwrapInlined(term: Term): Term = term match
+          case Inlined(_, _, body) => unwrapInlined(body)
+          case other               => other
+
+        val rawTerm = unwrapInlined(optsExpr.asTerm)
+
+        // Defaulted arguments arrive as Idents pointing at ValDefs the compiler lifted out ahead of the call.
+        val (bindings, innerTerm) = rawTerm match
+          case Block(stats, expr) =>
+            (stats.collect { case vd: ValDef => (vd.name, vd.rhs) }.toMap, unwrapInlined(expr))
+          case other => (Map.empty[String, Option[Term]], other)
+
+        def resolveDefault(arg: Term): Term =
+          val unwrapped = arg match
+            case NamedArg(_, value) => value
+            case other              => other
+          unwrapInlined(unwrapped) match
+            case Ident(name) if bindings.contains(name) =>
+              bindings(name).map(rhs => resolveDefault(unwrapInlined(rhs))).getOrElse(unwrapped)
+            case other => other
+          end match
+        end resolveDefault
+
+        def isDefaultRef(t: Term): Boolean = unwrapInlined(t) match
+          case Select(_, name) if name.contains("$default$") => true
+          case _                                             => false
+
+        innerTerm match
+          case Apply(_, args) =>
+            var rExpr = defaultRange
+            var tExpr = defaultInferrer
+            var sExpr = defaultSkip
+
+            for arg <- args do
+              val (name, rawValue) = arg match
+                case NamedArg(n, v) => (Some(n), v)
+                case v              => (None, v)
+
+              val resolved = resolveDefault(rawValue)
+
+              if isDefaultRef(resolved) then () // leave the default in place
+              else
+                name match
+                  case Some("range")        => rExpr = resolved.asExprOf[String]
+                  case Some("typeInferrer") => tExpr = resolved.asExprOf[TypeInferrer]
+                  case Some("skipFooter")   => sExpr = resolved.asExprOf[Int]
+                  case _                    =>
+                    if resolved.tpe <:< TypeRepr.of[TypeInferrer] then tExpr = resolved.asExprOf[TypeInferrer]
+                    else if resolved.tpe <:< TypeRepr.of[String] then rExpr = resolved.asExprOf[String]
+                    else if resolved.tpe <:< TypeRepr.of[Int] then sExpr = resolved.asExprOf[Int]
+              end if
+            end for
+
+            (rExpr, tExpr, sExpr)
+          case _ =>
+            report.throwError(s"Could not read the ExcelOpts given here: ${optsExpr.show}")
+        end match
+    end match
+  end extractExcelOpts
+
+  /** `skipFooter` is only meaningful as a compile time constant, because it changes the range the types are inferred from. */
+  private def skipFooterValue(skipExpr: Expr[Int])(using Quotes): Int =
+    import quotes.reflect.*
+    skipExpr.value.getOrElse(
+      report.throwError(s"skipFooter must be a compile time constant, but was ${skipExpr.show}.")
+    )
+  end skipFooterValue
+
+  /** Macro implementation for reading Excel files from the classpath, configured with an `ExcelOpts` */
+  def readExcelResourceOpts(pathExpr: Expr[String], sheetName: Expr[String], optsExpr: Expr[ExcelOpts])(using Quotes) =
+    import quotes.reflect.*
+    val (rangeExpr, inferrerExpr, skipExpr) = extractExcelOpts(optsExpr)
+    val path = pathExpr.valueOrAbort
+    val resourcePath = this.getClass.getClassLoader.getResource(path)
+    if resourcePath == null then report.throwError(s"Resource not found: $path")
+    end if
+    val validatedPath = resourcePath.toURI.getPath
+    processExcelFile(validatedPath, sheetName.valueOrAbort, rangeExpr.value, inferrerExpr, validatedPath, skipFooterValue(skipExpr))
+  end readExcelResourceOpts
+
+  /** Macro implementation for reading Excel files from an absolute path, configured with an `ExcelOpts` */
+  def readExcelAbsolutePathOpts(pathExpr: Expr[String], sheetName: Expr[String], optsExpr: Expr[ExcelOpts])(using Quotes) =
+    val (rangeExpr, inferrerExpr, skipExpr) = extractExcelOpts(optsExpr)
+    val fPath = pathExpr.valueOrAbort
+    processExcelFile(fPath, sheetName.valueOrAbort, rangeExpr.value, inferrerExpr, fPath, skipFooterValue(skipExpr))
+  end readExcelAbsolutePathOpts
+
+  /** Macro implementation for reading Excel files relative to the calling source file, configured with an `ExcelOpts` */
+  def readExcelRelativeToSourceOpts(pathExpr: Expr[String], sheetName: Expr[String], optsExpr: Expr[ExcelOpts])(using Quotes) =
+    val (rangeExpr, inferrerExpr, skipExpr) = extractExcelOpts(optsExpr)
+    val fPath = SourceAnchor.relativeToSource(pathExpr.valueOrAbort).absolutePath.toString
+    processExcelFile(fPath, sheetName.valueOrAbort, rangeExpr.value, inferrerExpr, fPath, skipFooterValue(skipExpr))
+  end readExcelRelativeToSourceOpts
+
+  /** Macro implementation for reading Excel files relative to the project root, configured with an `ExcelOpts` */
+  def readExcelProjectRootOpts(pathExpr: Expr[String], sheetName: Expr[String], optsExpr: Expr[ExcelOpts])(using Quotes) =
+    val (rangeExpr, inferrerExpr, skipExpr) = extractExcelOpts(optsExpr)
+    val fPath = SourceAnchor.projectRoot(pathExpr.valueOrAbort).absolutePath.toString
+    processExcelFile(fPath, sheetName.valueOrAbort, rangeExpr.value, inferrerExpr, fPath, skipFooterValue(skipExpr))
+  end readExcelProjectRootOpts
+
   /** Common processing logic for both resource and absolute path Excel reading
     */
-  private def processExcelFile(filePath: String, sheetName: String, rawColRange: Option[String], typeInferrerExpr: Expr[TypeInferrer], outputPath: String)(using Quotes) =
+  private def processExcelFile(filePath: String, sheetName: String, rawColRange: Option[String], typeInferrerExpr: Expr[TypeInferrer], outputPath: String, skipFooter: Int = 0)(
+      using Quotes
+  ) =
     import quotes.reflect.*
 
     try
       // Resolve any open ended range (e.g. "B5") to a fully specified one (e.g. "B5:Q55") here, at compile time,
       // so that the generated iterator never has to discover the table's extent itself.
-      val colRange = resolveRange(filePath, sheetName, rawColRange)
+      val colRange = resolveRange(filePath, sheetName, rawColRange, skipFooter)
 
       // Extract headers at compile time
       val headers = extractHeaders(filePath, sheetName, colRange)
@@ -151,8 +277,15 @@ object ExcelMacros:
     * A fully specified range (e.g. "B5:Q55") is returned untouched. An anchor with open ends (e.g. "B5", "B5:Q" or "B5:55") has its missing edges discovered by walking the sheet,
     * the way `ctrl-right` and `ctrl-down` walk it in Excel.
     */
-  private def resolveRange(filePath: String, sheetName: String, colRange: Option[String]): Option[String] =
-    colRange.map(_.trim).filter(_.nonEmpty).map { spec =>
+  private def resolveRange(filePath: String, sheetName: String, colRange: Option[String], skipFooter: Int)(using Quotes): Option[String] =
+    import quotes.reflect.*
+    val spec0 = colRange.map(_.trim).filter(_.nonEmpty)
+    if skipFooter != 0 && spec0.isEmpty then
+      report.throwError(
+        "skipFooter needs a range to trim - give one, or an anchor such as \"A1\" for the compiler to resolve. Without a range the sheet has no bottom edge to count back from."
+      )
+    end if
+    spec0.map { spec =>
       val workbook = ExcelWorkbookCache
         .getOrCreate(filePath)
         .getOrElse(
@@ -161,9 +294,27 @@ object ExcelMacros:
       val sheet = Option(workbook.getSheet(sheetName)).getOrElse(
         throw new BadTableException(s"Sheet not found: $sheetName in $filePath")
       )
-      ExcelRange.resolve(sheet, spec)
+      val resolved = ExcelRange.resolveDetailed(sheet, spec).dropFooterRows(skipFooter)
+      if (resolved.wasInferred || resolved.footerRowsSkipped > 0) && rangeDiagnosticEnabled then report.info(s"scautable: ${resolved.describe}")
+      end if
+      resolved.range
     }
   end resolveRange
+
+  /** An open ended range is resolved silently, at compile time, so a table whose extent was inferred wrongly is invisible at the call site - the only symptom is a column type that
+    * is more pessimistic than the data deserves. Set `SCAUTABLE_RANGE=1` in the environment, or the `scautable.range` system property on the compiler, to have every anchored range
+    * report what it actually resolved to, and how.
+    *
+    * The environment variable is the one to reach for from a shell, e.g. `SCAUTABLE_RANGE=1 ./mill scautable.jvm.compile`; the system property suits a build that wants it on
+    * permanently. `-Xmacro-settings` would be the idiomatic channel, but reading it requires `@experimental`, which would spread to everything that calls these macros.
+    *
+    * Reported with `report.info` rather than `report.warning`, because an anchored range is a supported way to ask, not a smell, and a diagnostic should never be able to fail a
+    * build under `-Xfatal-warnings`.
+    */
+  private def rangeDiagnosticEnabled: Boolean =
+    def isOn(v: String) = v.nonEmpty && !v.equalsIgnoreCase("false") && v != "0"
+    sys.env.get("SCAUTABLE_RANGE").exists(isOn) || sys.props.get("scautable.range").exists(isOn)
+  end rangeDiagnosticEnabled
 
   /** Extracts headers from an Excel sheet, either from a specific range or the first row
     */
@@ -257,8 +408,12 @@ object ExcelMacros:
         val firstCol = cellRange.getFirstColumn
         val lastCol = cellRange.getLastColumn
 
-        // Read only the specific rows from the range (including headers)
-        val targetRows = (firstRow to lastRow).map(sheet.getRow).filter(_ != null).toList
+        // Read the header row plus at most `numRows` data rows from the range. Lazy, so that a
+        // small `FirstN` on a large table does not walk the whole thing, and `+ 1` for the header
+        // row that is dropped further down. Capped rather than added to, because `FromAllRows`
+        // arrives here as `Int.MaxValue` and would otherwise overflow.
+        val rowLimit = math.min(numRows.toLong + 1L, Int.MaxValue.toLong).toInt
+        val targetRows = (firstRow to lastRow).iterator.map(sheet.getRow).filter(_ != null).take(rowLimit).toList
 
         targetRows.map { row =>
           (firstCol to lastCol).map { i =>
