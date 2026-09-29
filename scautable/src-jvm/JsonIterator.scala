@@ -35,9 +35,9 @@ class JsonIterator[K <: Tuple, V <: Tuple] @publicInBinary private[json] (
 
   type Col[N <: Int] = Tuple.Elem[K, N]
 
-  inline override def hasNext: Boolean = objects.hasNext
+  override def hasNext: Boolean = objects.hasNext
 
-  inline override def next() =
+  override def next(): NamedTuple[K, V] =
     val obj = objects.next()
     // Extract values in header order, converting JsonValue to String
     val values = headers.map { header =>
@@ -52,10 +52,10 @@ class JsonIterator[K <: Tuple, V <: Tuple] @publicInBinary private[json] (
       .getOrElse(
         throw new Exception(s"Failed to decode JSON object: $values")
       )
-    NamedTuple.build[K & Tuple]()(tuple)
+    tuple.asInstanceOf[NamedTuple[K, V]]
   end next
 
-  private inline def valueToString(value: JsonValue): String = value match
+  private def valueToString(value: JsonValue): String = value match
     case JsonNull      => ""
     case JsonBool(b)   => b.toString
     case JsonNumber(n) =>
@@ -65,7 +65,7 @@ class JsonIterator[K <: Tuple, V <: Tuple] @publicInBinary private[json] (
     case JsonObject(fields) => fields.toString
   end valueToString
 
-  inline def headerIndex(s: String) =
+  def headerIndex(s: String) =
     headers.zipWithIndex.find(_._1 == s).get._2
 
   inline def headerIndex[S <: String & Singleton] =

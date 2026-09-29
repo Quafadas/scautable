@@ -23,7 +23,7 @@ object ExcelUtils:
     * @return
     *   List of header strings
     */
-  inline def extractHeaders(filePath: String, sheetName: String, colRange: Option[String]): List[String] =
+  def extractHeaders(filePath: String, sheetName: String, colRange: Option[String]): List[String] =
     val workbook = ExcelWorkbookCache
       .getOrCreate(filePath)
       .getOrElse(
@@ -52,7 +52,7 @@ object ExcelUtils:
     * @throws BadTableException
     *   if duplicate headers are found
     */
-  inline def validateUniqueHeaders(headers: List[String]): Unit =
+  def validateUniqueHeaders(headers: List[String]): Unit =
     val headerSet = scala.collection.mutable.Set[String]()
     headers.foreach { header =>
       if headerSet.contains(header) then throw new BadTableException(s"Duplicate header found: $header, which will not work.")
@@ -67,7 +67,7 @@ object ExcelUtils:
     * @return
     *   Tuple of (firstRow, lastRow, firstColumn, lastColumn)
     */
-  inline def parseRange(range: String): (Int, Int, Int, Int) =
+  def parseRange(range: String): (Int, Int, Int, Int) =
     val cellRange = CellRangeAddress.valueOf(range)
     (cellRange.getFirstRow, cellRange.getLastRow, cellRange.getFirstColumn, cellRange.getLastColumn)
   end parseRange

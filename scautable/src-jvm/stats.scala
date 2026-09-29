@@ -18,7 +18,7 @@ object Stats:
   type NonNumericStatsContext[T] = (uniqueValues: Set[String], counts: scala.collection.mutable.Map[String, Int])
 
   // Alternative approach: Use a helper function with context bound and call it from the context function
-  private inline def processNumericValue[T: Numeric](value: T): Double =
+  private def processNumericValue[T: Numeric](value: T): Double =
     summon[Numeric[T]].toDouble(value)
 
   extension [K <: Tuple, V <: Tuple](nt: Iterator[NamedTuple[K, V]])

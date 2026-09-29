@@ -11,7 +11,7 @@ end ColumnDecoder
 private[scautable] object ColumnDecoder:
   import scala.collection.mutable.ArrayBuffer
 
-  inline given intDecoder: ColumnDecoder[Int] with
+  given intDecoder: ColumnDecoder[Int] with
     def decodeColumn(values: ArrayBuffer[String]): Array[Int] =
       val arr = new Array[Int](values.length)
       var i = 0
@@ -23,7 +23,7 @@ private[scautable] object ColumnDecoder:
     end decodeColumn
   end intDecoder
 
-  inline given longDecoder: ColumnDecoder[Long] with
+  given longDecoder: ColumnDecoder[Long] with
     def decodeColumn(values: ArrayBuffer[String]): Array[Long] =
       val arr = new Array[Long](values.length)
       var i = 0
@@ -35,7 +35,7 @@ private[scautable] object ColumnDecoder:
     end decodeColumn
   end longDecoder
 
-  inline given doubleDecoder: ColumnDecoder[Double] with
+  given doubleDecoder: ColumnDecoder[Double] with
     def decodeColumn(values: ArrayBuffer[String]): Array[Double] =
       val arr = new Array[Double](values.length)
       var i = 0
@@ -47,7 +47,7 @@ private[scautable] object ColumnDecoder:
     end decodeColumn
   end doubleDecoder
 
-  inline given booleanDecoder: ColumnDecoder[Boolean] with
+  given booleanDecoder: ColumnDecoder[Boolean] with
     def decodeColumn(values: ArrayBuffer[String]): Array[Boolean] =
       val arr = new Array[Boolean](values.length)
       var i = 0
@@ -60,12 +60,12 @@ private[scautable] object ColumnDecoder:
     end decodeColumn
   end booleanDecoder
 
-  inline given stringDecoder: ColumnDecoder[String] with
+  given stringDecoder: ColumnDecoder[String] with
     def decodeColumn(values: ArrayBuffer[String]): Array[String] =
       values.toArray
   end stringDecoder
 
-  inline given optionDecoder[T](using d: ColumnDecoder[T], ct: ClassTag[Option[T]]): ColumnDecoder[Option[T]] with
+  given optionDecoder[T](using d: ColumnDecoder[T], ct: ClassTag[Option[T]]): ColumnDecoder[Option[T]] with
     def decodeColumn(values: ArrayBuffer[String]): Array[Option[T]] =
       // For Option types, we need to handle empty strings specially
       val nonEmpty = ArrayBuffer[String]()

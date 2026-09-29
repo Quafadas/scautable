@@ -9,11 +9,11 @@ import fansi.Str
 object ConsoleFormat:
 
   extension [C <: IterableOnce[Product]](s: C)
-    inline def consoleFormat(fancy: Boolean): String =
+    def consoleFormat(fancy: Boolean): String =
       if fancy then consoleFormat
       else consoleFormat_(s.iterator.toSeq, false)
 
-    inline def consoleFormat: String =
+    def consoleFormat: String =
       val materialise = s.iterator.toSeq
       val headers = if materialise.isEmpty then Seq.empty else (0 until materialise.head.productArity).map(i => s"col${i + 1}")
       TerminalTable.render(
@@ -21,7 +21,7 @@ object ConsoleFormat:
         materialise.map(row => TableRow(row.productIterator.toSeq.map(_.toString))).toSeq
       )
     end consoleFormat
-    inline def ptbl: Unit = println(consoleFormat)
+    def ptbl: Unit = println(consoleFormat)
   end extension
 
   private val colours: List[EscapeAttr] = List(
@@ -37,7 +37,7 @@ object ConsoleFormat:
     fansi.Color.White
   )
 
-  extension [A](a: A)(using numA: Numeric[A]) inline def formatAsPercentage: String = CellFormat.percentage(numA.toDouble(a), 2)
+  extension [A](a: A)(using numA: Numeric[A]) def formatAsPercentage: String = CellFormat.percentage(numA.toDouble(a), 2)
   end extension
 
   extension [K <: Tuple, V <: Tuple, C <: IterableOnce[NamedTuple[K, V]]](nt: C)
@@ -73,17 +73,17 @@ object ConsoleFormat:
   private inline def formatProducts[V <: Tuple](rows: Seq[Product]): Seq[Product] =
     formatRows[V](rows).map(r => Tuple.fromArray(r.cells.toArray))
 
-  private inline def makeFancy(s: String, i: Int): Str =
+  private def makeFancy(s: String, i: Int): Str =
     val idx = i % colours.length
     colours(idx)(s)
   end makeFancy
 
-  inline def printlnConsole_(table: Seq[Product], fancy: Boolean = false) = println(consoleFormat_(table, fancy))
+  def printlnConsole_(table: Seq[Product], fancy: Boolean = false) = println(consoleFormat_(table, fancy))
 
-  inline def consoleFormat_(table: Seq[Product], fancy: Boolean = true): String =
+  def consoleFormat_(table: Seq[Product], fancy: Boolean = true): String =
     consoleFormat_(table, fancy, table.head.productElementNames.toList)
 
-  inline def consoleFormat_(table: Seq[Product], fancy: Boolean, headers: List[String]): String = table match
+  def consoleFormat_(table: Seq[Product], fancy: Boolean, headers: List[String]): String = table match
     case Seq() => ""
     case _     =>
       val indexLen = table.length.toString.length
@@ -108,13 +108,13 @@ object ConsoleFormat:
       else formatHeader("" +: headers, colSizesWithIndex) ++ formatRows(rowSeparator(colSizesWithIndex), rows)
       end if
 
-  inline private def formatRows(rowSeparator: String, rows: Seq[String]): String = (rowSeparator ::
+  private def formatRows(rowSeparator: String, rows: Seq[String]): String = (rowSeparator ::
     rows.head ::
     rows.tail.toList :::
     rowSeparator ::
     List()).mkString("\n")
 
-  inline private def formatFancyRows(rowSeparator: Str, rows: Seq[String]): String = (rowSeparator ::
+  private def formatFancyRows(rowSeparator: Str, rows: Seq[String]): String = (rowSeparator ::
     rows.head ::
     rows.tail.toList :::
     rowSeparator ::
@@ -126,7 +126,7 @@ object ConsoleFormat:
     cells.mkString("|", "|", "|")
   end formatRow
 
-  inline private def formatFancyRow(row: Seq[(Any, Int)], colSizes: Seq[Int]) =
+  private def formatFancyRow(row: Seq[(Any, Int)], colSizes: Seq[Int]) =
     val cells = (for (item, size) <- row.zip(colSizes) yield
       val raw = if size == 0 then "" else ("%" + size + "s").format(item._1)
       makeFancy(raw, item._2)
@@ -135,7 +135,7 @@ object ConsoleFormat:
     cells.mkString("|", "|", "|")
   end formatFancyRow
 
-  inline private def formatFancyHeader(row: Seq[(Str, Int)], colSizes: Seq[Int]) =
+  private def formatFancyHeader(row: Seq[(Str, Int)], colSizes: Seq[Int]) =
     val cells = (for (item, size) <- row.zip(colSizes) yield
       val raw = if size == 0 then "" else ("%" + size + "s").format(item._1)
       makeFancy(raw, item._2)
@@ -144,12 +144,12 @@ object ConsoleFormat:
     cells.mkString("|", "|", "|") + "\n"
   end formatFancyHeader
 
-  inline private def formatHeader(row: Seq[String], colSizes: Seq[Int]) =
+  private def formatHeader(row: Seq[String], colSizes: Seq[Int]) =
     val cells =
       (for (item, size) <- row.zip(colSizes) yield if size == 0 then "" else ("%" + size + "s").format(item))
     cells.mkString("|", "|", "|") + "\n"
   end formatHeader
 
-  inline private def rowSeparator(colSizes: Seq[Int]) = colSizes map { "-" * _ } mkString ("|", "|", "|")
+  private def rowSeparator(colSizes: Seq[Int]) = colSizes map { "-" * _ } mkString ("|", "|", "|")
 
 end ConsoleFormat

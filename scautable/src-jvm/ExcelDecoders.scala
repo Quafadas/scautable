@@ -8,7 +8,7 @@ object ExcelDecoders:
   /** Decoder for Int that can handle Excel's numeric formatting Attempts to parse as Double first, then converts to Int if it's a whole number Falls back to regular Int parsing if
     * Double parsing fails
     */
-  inline given excelIntDecoder: Decoder[Int] with
+  given excelIntDecoder: Decoder[Int] with
     def decode(str: String): Option[Int] =
       str.toDoubleOption
         .flatMap { d =>
@@ -21,7 +21,7 @@ object ExcelDecoders:
   /** Decoder for Long that can handle Excel's numeric formatting Attempts to parse as Double first, then converts to Long if it's a whole number Falls back to regular Long parsing
     * if Double parsing fails
     */
-  inline given excelLongDecoder: Decoder[Long] with
+  given excelLongDecoder: Decoder[Long] with
     def decode(str: String): Option[Long] =
       str.toDoubleOption
         .flatMap { d =>

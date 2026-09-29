@@ -184,7 +184,7 @@ class TypeInferrerSuite extends munit.FunSuite:
       case Active, Inactive
     end Status
 
-    inline given Decoder[Status] with
+    given Decoder[Status] with
       def decode(str: String): Option[Status] =
         str match
           case "Active"   => Some(Status.Active)

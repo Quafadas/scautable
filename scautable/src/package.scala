@@ -90,7 +90,7 @@ object table:
       *
       * Equivalent to `HeaderOptions.FromRows(merge = 1, dropFirst = 0)`.
       */
-    inline def Default: HeaderOptions = HeaderOptions.FromRows(merge = 1, dropFirst = 0)
+    def Default: HeaderOptions = HeaderOptions.FromRows(merge = 1, dropFirst = 0)
 
     given FromExpr[HeaderOptions] with
       def unapply(x: Expr[HeaderOptions])(using Quotes): Option[HeaderOptions] =

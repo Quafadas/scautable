@@ -149,20 +149,20 @@ private[json] object StreamingJsonParser:
     * @return
     *   Iterator of JSON objects
     */
-  inline def parseArrayStream(input: InputStream, maxObjects: Int = Int.MaxValue): Iterator[JsonObject] =
+  def parseArrayStream(input: InputStream, maxObjects: Int = Int.MaxValue): Iterator[JsonObject] =
     val parser = Json.createParser(new InputStreamReader(input, "UTF-8"))
     createIterator(parser, maxObjects)
   end parseArrayStream
 
   /** Parse JSON from a Source (for compile-time use) */
-  inline def parseArrayFromSource(source: Source, maxObjects: Int = Int.MaxValue): Iterator[JsonObject] =
+  def parseArrayFromSource(source: Source, maxObjects: Int = Int.MaxValue): Iterator[JsonObject] =
     val content = source.mkString
     val input = new java.io.ByteArrayInputStream(content.getBytes("UTF-8"))
     parseArrayStream(input, maxObjects)
   end parseArrayFromSource
 
   /** Parse JSON from a string */
-  inline def parseArrayFromString(json: String, maxObjects: Int = Int.MaxValue): Iterator[JsonObject] =
+  def parseArrayFromString(json: String, maxObjects: Int = Int.MaxValue): Iterator[JsonObject] =
     val parser = Json.createParser(new StringReader(json))
     createIterator(parser, maxObjects)
   end parseArrayFromString

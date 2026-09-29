@@ -93,7 +93,7 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
 
   /** Extract headers from a specified cell range This accesses the header row directly by index
     */
-  private inline def extractHeadersFromRange(range: String): List[String] =
+  private def extractHeadersFromRange(range: String): List[String] =
     val (firstRow, _, firstCol, lastCol) = parseRange(range)
     val workbook = ExcelWorkbookCache
       .getOrCreate(filePath)
@@ -110,14 +110,14 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
 
   /** Extract headers from the first row of the sheet This consumes the header row from the sheet iterator
     */
-  private inline def extractHeadersFromFirstRow(): List[String] =
+  private def extractHeadersFromFirstRow(): List[String] =
     if sheetIterator.hasNext then sheetIterator.next().cellIterator().asScala.toList.map(_.toString)
     else throw new BadTableException("No headers found in the first row of the sheet, and no range specified.")
   end extractHeadersFromFirstRow
 
   /** Extract cell values from a row based on the column range
     */
-  private inline def extractCellValues(row: org.apache.poi.ss.usermodel.Row): List[String] =
+  private def extractCellValues(row: org.apache.poi.ss.usermodel.Row): List[String] =
     colRange match
       case Some(range) if range.nonEmpty =>
         val (_, _, firstCol, lastCol) = parseRange(range)

@@ -385,9 +385,8 @@ object CSV:
     end if
   end openSourceWithFallback
 
-  private transparent inline def readHeaderlineAsCsv(pathChain: RuntimePathChain, optsExpr: Expr[CsvOpts])(using q: Quotes) =
+  private def readHeaderlineAsCsv(pathChain: RuntimePathChain, optsExpr: Expr[CsvOpts])(using q: Quotes) =
     import q.reflect.*
-    import io.github.quafadas.table.HeaderOptions.*
 
     val csvHeadersExpr = extractHeaderOptions(optsExpr)
     val typeInferrerExpr = extractTypeInferrer(optsExpr)
@@ -989,7 +988,7 @@ object CSV:
     * @return
     *   A function that takes an os.Path and returns a CsvIterator with the specified types
     */
-  private inline def fromTyped[K <: Tuple, V <: Tuple](inline headers: HeaderOptions): PlatformPath => CsvIterator[K, V] =
+  private inline def fromTyped[K <: Tuple, V <: Tuple](headers: HeaderOptions): PlatformPath => CsvIterator[K, V] =
     (path: PlatformPath) =>
       val lines = scala.io.Source.fromFile(path.platformPathString).getLines()
       val (hdrs, iterator) = lines.headers(headers)
