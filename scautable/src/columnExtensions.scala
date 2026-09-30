@@ -62,6 +62,91 @@ object NamedTupleIteratorExtensions:
     Tuple.fromArray(cells)
   end applyPlan
 
+  /** Fail compilation if any name appears on both sides of a join. `Who` is the calling method, as in [[checkSpecNames]].
+    *
+    * `Tuple.Disjoint[Left, Right] =:= true` would also reject these, but it cannot say *which* column is at fault, and that is the whole of the message's value.
+    */
+  private inline def checkNoSharedNames[Left <: Tuple, Right <: Tuple, Who <: String]: Unit =
+    inline erasedValue[Right] match
+      case _: EmptyTuple  => ()
+      case _: (n *: rest) =>
+        inline erasedValue[NameIn[Left, n]] match
+          case _: true => error(constValue[Who] + ": column " + constValue[n & String] + " exists on both sides - rename or drop it first")
+          case _       => checkNoSharedNames[Left, rest, Who]
+
+  /** Drop the cell at `idx`. The `EmptyTuple` case is not redundant - it is what a right hand table consisting of nothing but the join key hits. */
+  private def removeAt(t: Tuple, idx: Int): Tuple =
+    val (head, tail) = t.splitAt(idx)
+    head match
+      case _: EmptyTuple => tail.tail
+      case _             => head ++ tail.tail
+    end match
+  end removeAt
+
+  /** Runtime counterpart of [[ColumnTyped.Optional]]: wrap each cell in `Some` unless it already is an `Option`.
+    *
+    * The two must agree. Wrapping unconditionally would hand back `Some(None)` where the static type says `None`.
+    */
+  private def optionalise(t: Tuple): Tuple =
+    Tuple.fromArray(t.toArray.map {
+      case o: Option[?] => o
+      case x            => Some(x)
+    })
+
+  /** Hash join. The left side streams; the right is materialised, but not until the result is first pulled - so building a join does not drain its argument.
+    *
+    * `rightArity` is the number of right hand columns *after* the key has been dropped, and is only used to shape the all-`None` row a left join emits for a left row that matched
+    * nothing.
+    */
+  private def hashJoin(
+      left: Iterator[Tuple],
+      lIdx: Int,
+      right: => IterableOnce[Tuple],
+      rIdx: Int,
+      leftOuter: Boolean,
+      rightArity: Int
+  ): Iterator[Tuple] =
+    // groupMap keeps right hand rows in encounter order within a key, so the output order is deterministic.
+    // `Map` alone would resolve to `NamedTuple.Map`, courtesy of the wildcard import at the top of this file.
+    lazy val index: scala.collection.immutable.Map[Any, Seq[Tuple]] =
+      right.iterator
+        .map { t =>
+          val rest = removeAt(t, rIdx)
+          t.productElement(rIdx) -> (if leftOuter then optionalise(rest) else rest)
+        }
+        .toSeq
+        .groupMap(_._1)(_._2)
+
+    lazy val nones: Tuple = Tuple.fromArray(Array.fill[Object](rightArity)(None))
+
+    left.flatMap { lt =>
+      val matches = index.getOrElse(lt.productElement(lIdx), Nil)
+      if matches.nonEmpty then matches.iterator.map(rt => lt ++ rt)
+      else if leftOuter then Iterator.single(lt ++ nones)
+      else Iterator.empty
+      end if
+    }
+  end hashJoin
+
+  /** The shared body of every join: resolve both key positions, join, and re-attach the output names. Callers own the compile time checks, so that errors name *their* method. */
+  private inline def joinCore[K <: Tuple, V <: Tuple, K2 <: Tuple, V2 <: Tuple, OutK <: Tuple, OutV <: Tuple](
+      itr: Iterator[NamedTuple[K, V]],
+      that: IterableOnce[NamedTuple[K2, V2]],
+      leftKey: String,
+      rightKey: String,
+      leftOuter: Boolean
+  ): Iterator[NamedTuple[OutK, OutV]] =
+    val rightHeaders = constValueTuple[K2].toList.map(_.toString())
+    hashJoin(
+      itr.map(_.toTuple),
+      constValueTuple[K].toList.map(_.toString()).indexOf(leftKey),
+      that.iterator.map(_.toTuple),
+      rightHeaders.indexOf(rightKey),
+      leftOuter,
+      rightHeaders.size - 1
+    ).map(_.withNames[OutK].asInstanceOf[NamedTuple[OutK, OutV]])
+  end joinCore
+
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 
     def sample(frac: Double, deterministic: Boolean = false): Iterator[NamedTuple[K, V]] =
@@ -252,6 +337,84 @@ object NamedTupleIteratorExtensions:
         end match
       }
     end dropColumn
+
+    /** Inner join on a column of the same name in both tables.
+      *
+      * The key is given *after* the right hand table, because the compiler infers that table's shape from the argument and only the key needs writing out:
+      * {{{
+      * orders.join(customers)["custId"]
+      * }}}
+      * The output is every column of the left table, then every column of the right except the key. The left side streams; the right is read into a hash index the first time the
+      * result is pulled, so the right table is the one that has to fit in memory.
+      *
+      * A column name on both sides is a compile error - rename or drop it first. Keys are matched with `==`, so an `Option` key column matches `None` to `None`.
+      */
+    inline def join[K2 <: Tuple, V2 <: Tuple](that: IterableOnce[NamedTuple[K2, V2]])[Key <: String](using
+        @implicitNotFound("join: no column named ${Key} on the left")
+        evL: IsColumn[Key, K] =:= true,
+        @implicitNotFound("join: no column named ${Key} on the right")
+        evR: IsColumn[Key, K2] =:= true,
+        @implicitNotFound("join: column ${Key} has a different type on each side")
+        evT: GetTypeAtName[K, Key, V] =:= GetTypeAtName[K2, Key, V2],
+        key: ValueOf[Key]
+    ): Iterator[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]]] =
+      checkNoSharedNames[K, DropOneName[K2, Key], "join"]
+      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]](itr, that, key.value, key.value, false)
+    end join
+
+    /** Inner join where the key is named differently on each side. See [[join]] for everything else.
+      * {{{
+      * orders.joinOn(customers)["customer_id", "id"]
+      * }}}
+      * The output keeps the *left* key's name; the right key column is dropped, since the left table's columns are carried over whole.
+      */
+    inline def joinOn[K2 <: Tuple, V2 <: Tuple](that: IterableOnce[NamedTuple[K2, V2]])[LeftKey <: String, RightKey <: String](using
+        @implicitNotFound("joinOn: no column named ${LeftKey} on the left")
+        evL: IsColumn[LeftKey, K] =:= true,
+        @implicitNotFound("joinOn: no column named ${RightKey} on the right")
+        evR: IsColumn[RightKey, K2] =:= true,
+        @implicitNotFound("joinOn: key ${LeftKey} and key ${RightKey} have different types")
+        evT: GetTypeAtName[K, LeftKey, V] =:= GetTypeAtName[K2, RightKey, V2],
+        lk: ValueOf[LeftKey],
+        rk: ValueOf[RightKey]
+    ): Iterator[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]]] =
+      checkNoSharedNames[K, DropOneName[K2, RightKey], "joinOn"]
+      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]](itr, that, lk.value, rk.value, false)
+    end joinOn
+
+    /** Left outer join on a column of the same name in both tables - every left row survives, and the right hand columns become `Option`.
+      * {{{
+      * orders.leftJoin(customers)["custId"]  // (custId: Int, qty: Int, name: Option[String])
+      * }}}
+      * A right hand column that is *already* an `Option` stays as it is rather than nesting, which does mean an unmatched row and a matched row holding `None` look the same.
+      */
+    inline def leftJoin[K2 <: Tuple, V2 <: Tuple](that: IterableOnce[NamedTuple[K2, V2]])[Key <: String](using
+        @implicitNotFound("leftJoin: no column named ${Key} on the left")
+        evL: IsColumn[Key, K] =:= true,
+        @implicitNotFound("leftJoin: no column named ${Key} on the right")
+        evR: IsColumn[Key, K2] =:= true,
+        @implicitNotFound("leftJoin: column ${Key} has a different type on each side")
+        evT: GetTypeAtName[K, Key, V] =:= GetTypeAtName[K2, Key, V2],
+        key: ValueOf[Key]
+    ): Iterator[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]]] =
+      checkNoSharedNames[K, DropOneName[K2, Key], "leftJoin"]
+      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]](itr, that, key.value, key.value, true)
+    end leftJoin
+
+    /** Left outer join where the key is named differently on each side. See [[leftJoin]] and [[joinOn]]. */
+    inline def leftJoinOn[K2 <: Tuple, V2 <: Tuple](that: IterableOnce[NamedTuple[K2, V2]])[LeftKey <: String, RightKey <: String](using
+        @implicitNotFound("leftJoinOn: no column named ${LeftKey} on the left")
+        evL: IsColumn[LeftKey, K] =:= true,
+        @implicitNotFound("leftJoinOn: no column named ${RightKey} on the right")
+        evR: IsColumn[RightKey, K2] =:= true,
+        @implicitNotFound("leftJoinOn: key ${LeftKey} and key ${RightKey} have different types")
+        evT: GetTypeAtName[K, LeftKey, V] =:= GetTypeAtName[K2, RightKey, V2],
+        lk: ValueOf[LeftKey],
+        rk: ValueOf[RightKey]
+    ): Iterator[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, RightKey, V2]]]]] =
+      checkNoSharedNames[K, DropOneName[K2, RightKey], "leftJoinOn"]
+      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, RightKey, V2]]]](itr, that, lk.value, rk.value, true)
+    end leftJoinOn
   end extension
 
   extension [CC[X] <: Iterable[X], K <: Tuple, V <: Tuple](nt: CC[NamedTuple[K, V]])
@@ -501,6 +664,102 @@ object NamedTupleIteratorExtensions:
         bf: BuildFrom[CC[NamedTuple[K, V]], NamedTuple[ReplaceOneName[K, From, To], V], CC[NamedTuple[ReplaceOneName[K, From, To], V]]]
     ): CC[NamedTuple[ReplaceOneName[K, From, To], V]] =
       bf.fromSpecific(nt)(nt.view.map(_.withNames[ReplaceOneName[K, From, To]].asInstanceOf[NamedTuple[ReplaceOneName[K, From, To], V]]))
+
+    /** Inner join on a column of the same name in both tables, preserving the collection type. See the `Iterator` overload for the semantics.
+      * {{{
+      * orders.join(customers)["custId"]
+      * }}}
+      */
+    inline def join[K2 <: Tuple, V2 <: Tuple](that: IterableOnce[NamedTuple[K2, V2]])[Key <: String](using
+        @implicitNotFound("join: no column named ${Key} on the left")
+        evL: IsColumn[Key, K] =:= true,
+        @implicitNotFound("join: no column named ${Key} on the right")
+        evR: IsColumn[Key, K2] =:= true,
+        @implicitNotFound("join: column ${Key} has a different type on each side")
+        evT: GetTypeAtName[K, Key, V] =:= GetTypeAtName[K2, Key, V2],
+        key: ValueOf[Key],
+        bf: BuildFrom[
+          CC[NamedTuple[K, V]],
+          NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]],
+          CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]]]
+        ]
+    ): CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]]] =
+      checkNoSharedNames[K, DropOneName[K2, Key], "join"]
+      bf.fromSpecific(nt)(
+        joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]](nt.iterator, that, key.value, key.value, false)
+      )
+    end join
+
+    /** Inner join where the key is named differently on each side, preserving the collection type. See the `Iterator` overload. */
+    inline def joinOn[K2 <: Tuple, V2 <: Tuple](that: IterableOnce[NamedTuple[K2, V2]])[LeftKey <: String, RightKey <: String](using
+        @implicitNotFound("joinOn: no column named ${LeftKey} on the left")
+        evL: IsColumn[LeftKey, K] =:= true,
+        @implicitNotFound("joinOn: no column named ${RightKey} on the right")
+        evR: IsColumn[RightKey, K2] =:= true,
+        @implicitNotFound("joinOn: key ${LeftKey} and key ${RightKey} have different types")
+        evT: GetTypeAtName[K, LeftKey, V] =:= GetTypeAtName[K2, RightKey, V2],
+        lk: ValueOf[LeftKey],
+        rk: ValueOf[RightKey],
+        bf: BuildFrom[
+          CC[NamedTuple[K, V]],
+          NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]],
+          CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]]]
+        ]
+    ): CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]]] =
+      checkNoSharedNames[K, DropOneName[K2, RightKey], "joinOn"]
+      bf.fromSpecific(nt)(
+        joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]](nt.iterator, that, lk.value, rk.value, false)
+      )
+    end joinOn
+
+    /** Left outer join on a column of the same name in both tables, preserving the collection type. See the `Iterator` overload. */
+    inline def leftJoin[K2 <: Tuple, V2 <: Tuple](that: IterableOnce[NamedTuple[K2, V2]])[Key <: String](using
+        @implicitNotFound("leftJoin: no column named ${Key} on the left")
+        evL: IsColumn[Key, K] =:= true,
+        @implicitNotFound("leftJoin: no column named ${Key} on the right")
+        evR: IsColumn[Key, K2] =:= true,
+        @implicitNotFound("leftJoin: column ${Key} has a different type on each side")
+        evT: GetTypeAtName[K, Key, V] =:= GetTypeAtName[K2, Key, V2],
+        key: ValueOf[Key],
+        bf: BuildFrom[
+          CC[NamedTuple[K, V]],
+          NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]],
+          CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]]]
+        ]
+    ): CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]]] =
+      checkNoSharedNames[K, DropOneName[K2, Key], "leftJoin"]
+      bf.fromSpecific(nt)(
+        joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]](nt.iterator, that, key.value, key.value, true)
+      )
+    end leftJoin
+
+    /** Left outer join where the key is named differently on each side, preserving the collection type. See the `Iterator` overload. */
+    inline def leftJoinOn[K2 <: Tuple, V2 <: Tuple](that: IterableOnce[NamedTuple[K2, V2]])[LeftKey <: String, RightKey <: String](using
+        @implicitNotFound("leftJoinOn: no column named ${LeftKey} on the left")
+        evL: IsColumn[LeftKey, K] =:= true,
+        @implicitNotFound("leftJoinOn: no column named ${RightKey} on the right")
+        evR: IsColumn[RightKey, K2] =:= true,
+        @implicitNotFound("leftJoinOn: key ${LeftKey} and key ${RightKey} have different types")
+        evT: GetTypeAtName[K, LeftKey, V] =:= GetTypeAtName[K2, RightKey, V2],
+        lk: ValueOf[LeftKey],
+        rk: ValueOf[RightKey],
+        bf: BuildFrom[
+          CC[NamedTuple[K, V]],
+          NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, RightKey, V2]]]],
+          CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, RightKey, V2]]]]]
+        ]
+    ): CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, RightKey, V2]]]]] =
+      checkNoSharedNames[K, DropOneName[K2, RightKey], "leftJoinOn"]
+      bf.fromSpecific(nt)(
+        joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, RightKey, V2]]]](
+          nt.iterator,
+          that,
+          lk.value,
+          rk.value,
+          true
+        )
+      )
+    end leftJoinOn
 
   end extension
 end NamedTupleIteratorExtensions
