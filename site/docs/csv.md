@@ -225,6 +225,9 @@ Worth knowing:
 
 - The left side streams; the right is read into a hash index the first time the result is pulled.
   The right table is therefore the one that has to fit in memory - put the smaller table there.
+- An inner join *narrows* an optional key. A `None` key cannot have matched, so `join` on a
+  `custId: Option[Int]` hands back `custId: Int` - no `.get` that could never have thrown. A
+  `leftJoin` leaves the key alone, because an unmatched row survives still holding its `None`.
 - A `None` key never matches anything - as in SQL, where `NULL = NULL` is never true, and pandas,
   which drops missing keys from a merge. `leftJoin` still keeps such a row, with its right hand
   columns all `None`. Were `None` to match `None` instead, missing data would square itself: three

@@ -93,6 +93,23 @@ object NamedTupleIteratorExtensions:
       case x            => Some(x)
     })
 
+  /** Whether the join key is optional, so that the runtime unwrap happens exactly where [[ColumnTyped.NarrowKey]] drops the `Option` and nowhere else. */
+  private inline def isOptionKey[T]: Boolean =
+    inline erasedValue[T] match
+      case _: Option[?] => true
+      case _            => false
+
+  /** Strip the `Option` off the cell at `idx`, the runtime half of [[ColumnTyped.NarrowKey]]. Only ever called on an inner join's key, which the `None` filter has already made a
+    * `Some`.
+    */
+  private def unwrapAt(t: Tuple, idx: Int): Tuple =
+    val cells = t.toArray
+    cells(idx) = cells(idx) match
+      case Some(v) => v.asInstanceOf[Object]
+      case other   => other
+    Tuple.fromArray(cells)
+  end unwrapAt
+
   /** A `None` key means "unknown", and two unknowns are not a match.
     *
     * This is what SQL does - `NULL = NULL` is never true - and what pandas does, dropping missing keys from a merge. Treating `None` as an ordinary value would also quietly square
@@ -113,7 +130,8 @@ object NamedTupleIteratorExtensions:
       right: => IterableOnce[Tuple],
       rIdx: Int,
       leftOuter: Boolean,
-      rightArity: Int
+      rightArity: Int,
+      unwrapKey: Boolean
   ): Iterator[Tuple] =
     // groupMap keeps right hand rows in encounter order within a key, so the output order is deterministic.
     // `Map` alone would resolve to `NamedTuple.Map`, courtesy of the wildcard import at the top of this file.
@@ -132,7 +150,8 @@ object NamedTupleIteratorExtensions:
     left.flatMap { lt =>
       val key = lt.productElement(lIdx)
       val matches = if isMissingKey(key) then Nil else index.getOrElse(key, Nil)
-      if matches.nonEmpty then matches.iterator.map(rt => lt ++ rt)
+      lazy val outLeft = if unwrapKey then unwrapAt(lt, lIdx) else lt
+      if matches.nonEmpty then matches.iterator.map(rt => outLeft ++ rt)
       else if leftOuter then Iterator.single(lt ++ nones)
       else Iterator.empty
       end if
@@ -145,7 +164,8 @@ object NamedTupleIteratorExtensions:
       that: IterableOnce[NamedTuple[K2, V2]],
       leftKey: String,
       rightKey: String,
-      leftOuter: Boolean
+      leftOuter: Boolean,
+      unwrapKey: Boolean
   ): Iterator[NamedTuple[OutK, OutV]] =
     val rightHeaders = constValueTuple[K2].toList.map(_.toString())
     hashJoin(
@@ -154,7 +174,8 @@ object NamedTupleIteratorExtensions:
       that.iterator.map(_.toTuple),
       rightHeaders.indexOf(rightKey),
       leftOuter,
-      rightHeaders.size - 1
+      rightHeaders.size - 1,
+      unwrapKey
     ).map(_.withNames[OutK].asInstanceOf[NamedTuple[OutK, OutV]])
   end joinCore
 
@@ -368,9 +389,16 @@ object NamedTupleIteratorExtensions:
         @implicitNotFound("join: column ${Key} has a different type on each side")
         evT: GetTypeAtName[K, Key, V] =:= GetTypeAtName[K2, Key, V2],
         key: ValueOf[Key]
-    ): Iterator[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]]] =
+    ): Iterator[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[NarrowKey[K, V, Key], DropOneTypeAtName[K2, Key, V2]]]] =
       checkNoSharedNames[K, DropOneName[K2, Key], "join"]
-      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]](itr, that, key.value, key.value, false)
+      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[NarrowKey[K, V, Key], DropOneTypeAtName[K2, Key, V2]]](
+        itr,
+        that,
+        key.value,
+        key.value,
+        false,
+        isOptionKey[GetTypeAtName[K, Key, V]]
+      )
     end join
 
     /** Inner join where the key is named differently on each side. See [[join]] for everything else.
@@ -388,9 +416,16 @@ object NamedTupleIteratorExtensions:
         evT: GetTypeAtName[K, LeftKey, V] =:= GetTypeAtName[K2, RightKey, V2],
         lk: ValueOf[LeftKey],
         rk: ValueOf[RightKey]
-    ): Iterator[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]]] =
+    ): Iterator[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[NarrowKey[K, V, LeftKey], DropOneTypeAtName[K2, RightKey, V2]]]] =
       checkNoSharedNames[K, DropOneName[K2, RightKey], "joinOn"]
-      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]](itr, that, lk.value, rk.value, false)
+      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[NarrowKey[K, V, LeftKey], DropOneTypeAtName[K2, RightKey, V2]]](
+        itr,
+        that,
+        lk.value,
+        rk.value,
+        false,
+        isOptionKey[GetTypeAtName[K, LeftKey, V]]
+      )
     end joinOn
 
     /** Left outer join on a column of the same name in both tables - every left row survives, and the right hand columns become `Option`.
@@ -409,7 +444,7 @@ object NamedTupleIteratorExtensions:
         key: ValueOf[Key]
     ): Iterator[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]]] =
       checkNoSharedNames[K, DropOneName[K2, Key], "leftJoin"]
-      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]](itr, that, key.value, key.value, true)
+      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]](itr, that, key.value, key.value, true, false)
     end leftJoin
 
     /** Left outer join where the key is named differently on each side. See [[leftJoin]] and [[joinOn]]. */
@@ -424,7 +459,14 @@ object NamedTupleIteratorExtensions:
         rk: ValueOf[RightKey]
     ): Iterator[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, RightKey, V2]]]]] =
       checkNoSharedNames[K, DropOneName[K2, RightKey], "leftJoinOn"]
-      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, RightKey, V2]]]](itr, that, lk.value, rk.value, true)
+      joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, RightKey, V2]]]](
+        itr,
+        that,
+        lk.value,
+        rk.value,
+        true,
+        false
+      )
     end leftJoinOn
   end extension
 
@@ -691,13 +733,20 @@ object NamedTupleIteratorExtensions:
         key: ValueOf[Key],
         bf: BuildFrom[
           CC[NamedTuple[K, V]],
-          NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]],
-          CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]]]
+          NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[NarrowKey[K, V, Key], DropOneTypeAtName[K2, Key, V2]]],
+          CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[NarrowKey[K, V, Key], DropOneTypeAtName[K2, Key, V2]]]]
         ]
-    ): CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]]] =
+    ): CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[NarrowKey[K, V, Key], DropOneTypeAtName[K2, Key, V2]]]] =
       checkNoSharedNames[K, DropOneName[K2, Key], "join"]
       bf.fromSpecific(nt)(
-        joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, DropOneTypeAtName[K2, Key, V2]]](nt.iterator, that, key.value, key.value, false)
+        joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[NarrowKey[K, V, Key], DropOneTypeAtName[K2, Key, V2]]](
+          nt.iterator,
+          that,
+          key.value,
+          key.value,
+          false,
+          isOptionKey[GetTypeAtName[K, Key, V]]
+        )
       )
     end join
 
@@ -713,13 +762,20 @@ object NamedTupleIteratorExtensions:
         rk: ValueOf[RightKey],
         bf: BuildFrom[
           CC[NamedTuple[K, V]],
-          NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]],
-          CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]]]
+          NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[NarrowKey[K, V, LeftKey], DropOneTypeAtName[K2, RightKey, V2]]],
+          CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[NarrowKey[K, V, LeftKey], DropOneTypeAtName[K2, RightKey, V2]]]]
         ]
-    ): CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]]] =
+    ): CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[NarrowKey[K, V, LeftKey], DropOneTypeAtName[K2, RightKey, V2]]]] =
       checkNoSharedNames[K, DropOneName[K2, RightKey], "joinOn"]
       bf.fromSpecific(nt)(
-        joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[V, DropOneTypeAtName[K2, RightKey, V2]]](nt.iterator, that, lk.value, rk.value, false)
+        joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, RightKey]], Tuple.Concat[NarrowKey[K, V, LeftKey], DropOneTypeAtName[K2, RightKey, V2]]](
+          nt.iterator,
+          that,
+          lk.value,
+          rk.value,
+          false,
+          isOptionKey[GetTypeAtName[K, LeftKey, V]]
+        )
       )
     end joinOn
 
@@ -740,7 +796,14 @@ object NamedTupleIteratorExtensions:
     ): CC[NamedTuple[Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]]] =
       checkNoSharedNames[K, DropOneName[K2, Key], "leftJoin"]
       bf.fromSpecific(nt)(
-        joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]](nt.iterator, that, key.value, key.value, true)
+        joinCore[K, V, K2, V2, Tuple.Concat[K, DropOneName[K2, Key]], Tuple.Concat[V, Optionalize[DropOneTypeAtName[K2, Key, V2]]]](
+          nt.iterator,
+          that,
+          key.value,
+          key.value,
+          true,
+          false
+        )
       )
     end leftJoin
 
@@ -767,7 +830,8 @@ object NamedTupleIteratorExtensions:
           that,
           lk.value,
           rk.value,
-          true
+          true,
+          false
         )
       )
     end leftJoinOn

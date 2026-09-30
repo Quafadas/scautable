@@ -122,6 +122,17 @@ object ColumnTyped:
     case Option[a] => Option[a]
     case _         => Option[T]
 
+  /** The left table's value types with its join key narrowed.
+    *
+    * An inner join emits a row only where the keys matched, and a `None` key never matches - so after one, an `Option` key is provably present and the `Option` is noise. Dropping
+    * it spares callers a `.get` that could never have thrown.
+    *
+    * [[Unwrapped]] is the identity on a key that is not optional, so this is a no-op for the ordinary case. A *left* join must not use this: an unmatched left row survives, still
+    * holding its `None`.
+    */
+  type NarrowKey[K <: Tuple, V <: Tuple, Key <: String] =
+    ReplaceOneTypeAtName[K, Key, V, Unwrapped[GetTypeAtName[K, Key, V]]]
+
   /** [[Optional]] applied to every element - the value types of the right hand table of a left join. */
   type Optionalize[T <: Tuple] <: Tuple = T match
     case EmptyTuple   => EmptyTuple

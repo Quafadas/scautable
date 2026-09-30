@@ -299,6 +299,13 @@ class NamedTupleTypeTest extends munit.FunSuite:
     // a right table that is nothing but the key contributes no columns at all
     summon[Tuple.Concat[LeftK, ColumnTyped.DropOneName["id" *: EmptyTuple, "id"]] =:= LeftK]
 
+    // an inner join narrows an optional key; a left join leaves it alone
+    type OptK = ("custId", "qty")
+    type OptV = (Option[Int], Int)
+    summon[ColumnTyped.NarrowKey[OptK, OptV, "custId"] =:= (Int, Int)]
+    // identity where the key was never optional
+    summon[ColumnTyped.NarrowKey[LeftK, LeftV, "custId"] =:= LeftV]
+
   }
 
 end NamedTupleTypeTest

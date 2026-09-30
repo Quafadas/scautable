@@ -88,6 +88,39 @@ class JoinSuite extends munit.FunSuite:
     assertEquals(out, Vector((custId = 1, qty = 5, name = "ada")))
   }
 
+  test("an inner join narrows an Option key, which cannot be None once it has matched") {
+    val orders = Seq((orderId = 1, custId = Option(10), qty = 5), (orderId = 2, custId = Option.empty[Int], qty = 3))
+    val customers = Seq((custId = Option(10), name = "ada"))
+
+    val out = orders.join(customers)["custId"]
+    summon[out.type <:< Seq[NamedTuple[("orderId", "custId", "qty", "name"), (Int, Int, Int, String)]]]
+    // no .get needed - the key is an Int now
+    assertEquals(out.toList.map(r => r.custId + 1), List(11))
+  }
+
+  test("joinOn narrows the left key, not the dropped right one") {
+    val orders = Seq((orderId = 1, custId = Option(10), qty = 5))
+    val people = Seq((id = Option(10), name = "ada"))
+    val out = orders.joinOn(people)["custId", "id"]
+    summon[out.type <:< Seq[NamedTuple[("orderId", "custId", "qty", "name"), (Int, Int, Int, String)]]]
+    assertEquals(out.toList.map(_.custId), List(10))
+  }
+
+  test("narrowing is a no-op for a key that was never optional") {
+    val out = Seq((custId = 1, qty = 5)).join(Seq((custId = 1, name = "ada")))["custId"]
+    summon[out.type <:< Seq[NamedTuple[("custId", "qty", "name"), (Int, Int, String)]]]
+    assertEquals(out.toList.map(_.custId), List(1))
+  }
+
+  test("a left join does NOT narrow the key - an unmatched row keeps its None") {
+    val orders = Seq((orderId = 1, custId = Option(10), qty = 5), (orderId = 2, custId = Option.empty[Int], qty = 3))
+    val customers = Seq((custId = Option(10), name = "ada"))
+
+    val out = orders.leftJoin(customers)["custId"]
+    summon[out.type <:< Seq[NamedTuple[("orderId", "custId", "qty", "name"), (Int, Option[Int], Int, Option[String])]]]
+    assertEquals(out.toList.map(r => (r.custId, r.name)), List((Some(10), Some("ada")), (None, None)))
+  }
+
   test("a None key never matches, as in SQL and pandas") {
     val left = Seq((k = Option(1), a = 1), (k = Option.empty[Int], a = 2))
     val right = Seq((k = Option(1), b = 10), (k = Option.empty[Int], b = 20))
