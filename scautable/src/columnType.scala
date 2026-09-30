@@ -113,6 +113,31 @@ object ColumnTyped:
     case Option[a] => Option[Tag]
     case _         => Tag
 
+  /** `Option[T]`, idempotently - a column that is already optional does not become `Option[Option[_]]`.
+    *
+    * Treats `Option` the same way [[Unwrapped]] and [[Tagged]] do. `optionalise` in `NamedTupleIteratorExtensions` is the runtime counterpart and must agree with it: a left join
+    * would otherwise hand back values whose shape does not match their static type.
+    */
+  type Optional[T] = T match
+    case Option[a] => Option[a]
+    case _         => Option[T]
+
+  /** The left table's value types with its join key narrowed.
+    *
+    * An inner join emits a row only where the keys matched, and a `None` key never matches - so after one, an `Option` key is provably present and the `Option` is noise. Dropping
+    * it spares callers a `.get` that could never have thrown.
+    *
+    * [[Unwrapped]] is the identity on a key that is not optional, so this is a no-op for the ordinary case. A *left* join must not use this: an unmatched left row survives, still
+    * holding its `None`.
+    */
+  type NarrowKey[K <: Tuple, V <: Tuple, Key <: String] =
+    ReplaceOneTypeAtName[K, Key, V, Unwrapped[GetTypeAtName[K, Key, V]]]
+
+  /** [[Optional]] applied to every element - the value types of the right hand table of a left join. */
+  type Optionalize[T <: Tuple] <: Tuple = T match
+    case EmptyTuple   => EmptyTuple
+    case head *: tail => Optional[head] *: Optionalize[tail]
+
   /** Marker returned by [[ColTypeAtName]] when a name is not a column at all. */
   sealed trait NoSuchColumn
 
@@ -126,6 +151,16 @@ object ColumnTyped:
     case (? *: ks, ? *: vs)  => ColTypeAtName[ks, vs, Name]
     case (EmptyTuple, ?)     => NoSuchColumn
     case (?, EmptyTuple)     => NoSuchColumn
+
+  /** Whether `Name` is one of `Names`.
+    *
+    * Same job as [[IsColumn]], but `Name` is unbounded and appears as the *pattern*, for the reason given on [[ColTypeAtName]] - which is what lets it be driven by a name captured
+    * by an inline match, where the `<: String` bound is lost.
+    */
+  type NameIn[Names <: Tuple, Name] <: Boolean = Names match
+    case Name *: ?  => true
+    case ? *: rest  => NameIn[rest, Name]
+    case EmptyTuple => false
 
   /** [[ReplaceOneTypeAtName]] with an unbounded `Name`, for the same reason as [[ColTypeAtName]]. A name that is not a column leaves `V` alone. */
   type ReplaceTypeAtName[K <: Tuple, V <: Tuple, Name, A] <: Tuple = (K, V) match

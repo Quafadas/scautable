@@ -260,4 +260,52 @@ class NamedTupleTypeTest extends munit.FunSuite:
 
   }
 
+  test("NameIn") {
+
+    type Cols = "a" *: "b" *: "c" *: EmptyTuple
+
+    summon[ColumnTyped.NameIn[Cols, "a"] =:= true]
+    summon[ColumnTyped.NameIn[Cols, "c"] =:= true]
+    summon[ColumnTyped.NameIn[Cols, "f"] =:= false]
+    summon[ColumnTyped.NameIn[EmptyTuple, "a"] =:= false]
+
+  }
+
+  test("Optionalize is idempotent over already optional columns") {
+
+    summon[ColumnTyped.Optional[String] =:= Option[String]]
+    summon[ColumnTyped.Optional[Option[String]] =:= Option[String]]
+    summon[ColumnTyped.Optionalize[(Int, Option[String])] =:= (Option[Int], Option[String])]
+    summon[ColumnTyped.Optionalize[EmptyTuple] =:= EmptyTuple]
+
+  }
+
+  test("the shape of a join result") {
+
+    type LeftK = ("custId", "qty")
+    type LeftV = (Int, Int)
+    type RightK = ("id", "name")
+    type RightV = (Int, String)
+
+    // inner: every left column, then every right column but the key
+    summon[Tuple.Concat[LeftK, ColumnTyped.DropOneName[RightK, "id"]] =:= ("custId", "qty", "name")]
+    summon[Tuple.Concat[LeftV, ColumnTyped.DropOneTypeAtName[RightK, "id", RightV]] =:= (Int, Int, String)]
+
+    // left outer: the right hand types become optional
+    summon[
+      Tuple.Concat[LeftV, ColumnTyped.Optionalize[ColumnTyped.DropOneTypeAtName[RightK, "id", RightV]]] =:= (Int, Int, Option[String])
+    ]
+
+    // a right table that is nothing but the key contributes no columns at all
+    summon[Tuple.Concat[LeftK, ColumnTyped.DropOneName["id" *: EmptyTuple, "id"]] =:= LeftK]
+
+    // an inner join narrows an optional key; a left join leaves it alone
+    type OptK = ("custId", "qty")
+    type OptV = (Option[Int], Int)
+    summon[ColumnTyped.NarrowKey[OptK, OptV, "custId"] =:= (Int, Int)]
+    // identity where the key was never optional
+    summon[ColumnTyped.NarrowKey[LeftK, LeftV, "custId"] =:= LeftV]
+
+  }
+
 end NamedTupleTypeTest

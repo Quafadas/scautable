@@ -33,6 +33,25 @@ e.g. `val data : Seq[(col1 : String, col2 : Int, col3 : Double)] = ???`
 | format one column | `data.formatColumn["col3", Decimals[2]].ptbln` |
 
 
+## Joining
+
+Assuming two `Iterator` / `Iterable` of named tuples. The key goes *after* the right hand table.
+
+| Want | Hints |
+|-|-|
+| inner join, same key name | `orders.join(customers)["custId"]` |
+| inner join, different key names | `orders.joinOn(people)["custId", "id"]` |
+| left join, right columns become `Option` | `orders.leftJoin(customers)["custId"]` |
+| left join, different key names | `orders.leftJoinOn(people)["custId", "id"]` |
+| right join | swap the tables and use `leftJoin` |
+| a name is on both sides | compile error - `renameColumn` or `dropColumn` first |
+| key column is `Option` | `None` never matches, as in SQL / pandas |
+| key column is `Option`, after `join` | narrowed - `Option[Int]` becomes `Int` |
+| key column is `Option`, after `leftJoin` | left alone - the `None` rows are still there |
+| really want `None` to match | `mapColumn["k", Int](_.getOrElse(-1))` first |
+
+The right hand table is read into memory; the left streams. Put the smaller table on the right.
+
 ## Excel Operations (JVM only)
 
 TBD

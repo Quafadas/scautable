@@ -162,3 +162,80 @@ We can delegate all such concerns, to the standard library in the usual way - as
 colmanipuluation.filter(_.col4_renamed > 20).groupMapReduce(_.col1)(_.col4_renamed)(_ + _)
 
 ```
+
+### Joining
+
+Joining is the one relational operation the standard library cannot do for us. It can group and
+fold rows perfectly well, but it has no way to work out the *type* of two named tuples stitched
+together on a key - so `join` is a first class operation here.
+
+```scala mdoc
+val orders = Seq(
+  (custId = 1, qty = 5),
+  (custId = 2, qty = 7),
+  (custId = 1, qty = 9)
+)
+
+val customers = Seq(
+  (custId = 1, name = "ada"),
+  (custId = 2, name = "bob")
+)
+
+orders.join(customers)["custId"].consoleFormatNt(fansi = false)
+```
+
+The key is written *after* the right hand table, because the compiler works that table's shape out
+from the argument and only the key needs spelling out. The result is every column of the left
+table, then every column of the right one except the key.
+
+Where the key is named differently on each side, use `joinOn`. The output keeps the *left* name.
+
+```scala mdoc
+val people = Seq((id = 1, name = "ada"), (id = 2, name = "bob"))
+
+orders.joinOn(people)["custId", "id"].consoleFormatNt(fansi = false)
+```
+
+`leftJoin` and `leftJoinOn` keep every left row, and the right hand columns become `Option`:
+
+```scala mdoc
+val sparse = Seq((custId = 1, name = "ada"))
+
+orders.leftJoin(sparse)["custId"].consoleFormatNt(fansi = false)
+```
+
+A right hand column that is *already* an `Option` is left as it is rather than nesting into
+`Option[Option[_]]` - which does mean an unmatched row and a matched row holding `None` look
+alike.
+
+A column name that appears on both sides is a compile error naming the offender, rather than a
+silently duplicated or overwritten column. Rename or drop it first.
+
+```scala mdoc:fail sc:nocompile
+Seq((custId = 1, name = "x")).join(customers)["custId"]
+```
+
+Unknown keys, and keys whose types disagree, are caught in the same way:
+
+```scala mdoc:fail sc:nocompile
+orders.joinOn(people)["custId", "nope"]
+```
+
+Worth knowing:
+
+- The left side streams; the right is read into a hash index the first time the result is pulled.
+  The right table is therefore the one that has to fit in memory - put the smaller table there.
+- An inner join *narrows* an optional key. A `None` key cannot have matched, so `join` on a
+  `custId: Option[Int]` hands back `custId: Int` - no `.get` that could never have thrown. A
+  `leftJoin` leaves the key alone, because an unmatched row survives still holding its `None`.
+- A `None` key never matches anything - as in SQL, where `NULL = NULL` is never true, and pandas,
+  which drops missing keys from a merge. `leftJoin` still keeps such a row, with its right hand
+  columns all `None`. Were `None` to match `None` instead, missing data would square itself: three
+  missing keys on each side would be nine output rows carrying no information. To match missing to
+  missing deliberately, map the key to a sentinel first -
+  `mapColumn["custId", Int](_.getOrElse(-1))`.
+- Left order is preserved, and a left row matching several right rows emits them in the right
+  table's own order.
+- Key types must agree exactly. A column carrying a display tag from `formatColumn` will not match
+  an untagged one - join first, format afterwards.
+- Only inner and left joins are built in. A right join is a left join with the tables swapped.
