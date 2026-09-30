@@ -225,8 +225,12 @@ Worth knowing:
 
 - The left side streams; the right is read into a hash index the first time the result is pulled.
   The right table is therefore the one that has to fit in memory - put the smaller table there.
-- Keys are compared with `==`, so an `Option` key column matches `None` to `None`. Pandas would
-  drop those rows; scautable does not.
+- A `None` key never matches anything - as in SQL, where `NULL = NULL` is never true, and pandas,
+  which drops missing keys from a merge. `leftJoin` still keeps such a row, with its right hand
+  columns all `None`. Were `None` to match `None` instead, missing data would square itself: three
+  missing keys on each side would be nine output rows carrying no information. To match missing to
+  missing deliberately, map the key to a sentinel first -
+  `mapColumn["custId", Int](_.getOrElse(-1))`.
 - Left order is preserved, and a left row matching several right rows emits them in the right
   table's own order.
 - Key types must agree exactly. A column carrying a display tag from `formatColumn` will not match

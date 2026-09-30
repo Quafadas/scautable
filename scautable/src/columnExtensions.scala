@@ -93,6 +93,15 @@ object NamedTupleIteratorExtensions:
       case x            => Some(x)
     })
 
+  /** A `None` key means "unknown", and two unknowns are not a match.
+    *
+    * This is what SQL does - `NULL = NULL` is never true - and what pandas does, dropping missing keys from a merge. Treating `None` as an ordinary value would also quietly square
+    * the missing rows: three `None` keys on each side is nine output rows carrying no information. A left join still keeps such a row, with its right hand columns all `None`.
+    *
+    * To match missing to missing deliberately, map the key to a sentinel first: `mapColumn["k", Int](_.getOrElse(-1))`.
+    */
+  private def isMissingKey(key: Any): Boolean = key == None
+
   /** Hash join. The left side streams; the right is materialised, but not until the result is first pulled - so building a join does not drain its argument.
     *
     * `rightArity` is the number of right hand columns *after* the key has been dropped, and is only used to shape the all-`None` row a left join emits for a left row that matched
@@ -110,6 +119,7 @@ object NamedTupleIteratorExtensions:
     // `Map` alone would resolve to `NamedTuple.Map`, courtesy of the wildcard import at the top of this file.
     lazy val index: scala.collection.immutable.Map[Any, Seq[Tuple]] =
       right.iterator
+        .filterNot(t => isMissingKey(t.productElement(rIdx)))
         .map { t =>
           val rest = removeAt(t, rIdx)
           t.productElement(rIdx) -> (if leftOuter then optionalise(rest) else rest)
@@ -120,7 +130,8 @@ object NamedTupleIteratorExtensions:
     lazy val nones: Tuple = Tuple.fromArray(Array.fill[Object](rightArity)(None))
 
     left.flatMap { lt =>
-      val matches = index.getOrElse(lt.productElement(lIdx), Nil)
+      val key = lt.productElement(lIdx)
+      val matches = if isMissingKey(key) then Nil else index.getOrElse(key, Nil)
       if matches.nonEmpty then matches.iterator.map(rt => lt ++ rt)
       else if leftOuter then Iterator.single(lt ++ nones)
       else Iterator.empty

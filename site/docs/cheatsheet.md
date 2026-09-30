@@ -45,6 +45,8 @@ Assuming two `Iterator` / `Iterable` of named tuples. The key goes *after* the r
 | left join, different key names | `orders.leftJoinOn(people)["custId", "id"]` |
 | right join | swap the tables and use `leftJoin` |
 | a name is on both sides | compile error - `renameColumn` or `dropColumn` first |
+| key column is `Option` | `None` never matches, as in SQL / pandas |
+| really want `None` to match | `mapColumn["k", Int](_.getOrElse(-1))` first |
 
 The right hand table is read into memory; the left streams. Put the smaller table on the right.
 

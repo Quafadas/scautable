@@ -88,9 +88,29 @@ class JoinSuite extends munit.FunSuite:
     assertEquals(out, Vector((custId = 1, qty = 5, name = "ada")))
   }
 
-  test("keys are matched with ==, so None matches None") {
-    val left = Seq((k = Option.empty[Int], a = 1))
-    val right = Seq((k = Option.empty[Int], b = 2))
+  test("a None key never matches, as in SQL and pandas") {
+    val left = Seq((k = Option(1), a = 1), (k = Option.empty[Int], a = 2))
+    val right = Seq((k = Option(1), b = 10), (k = Option.empty[Int], b = 20))
+    assertEquals(left.join(right)["k"].toList.map(r => (r.a, r.b)), List((1, 10)))
+  }
+
+  test("None keys do not multiply out into a cartesian block") {
+    val left = Seq.tabulate(4)(i => (k = Option.empty[Int], a = i))
+    val right = Seq.tabulate(3)(i => (k = Option.empty[Int], b = i))
+    // were None to match None this would be 4 * 3
+    assertEquals(left.join(right)["k"].size, 0)
+  }
+
+  test("leftJoin keeps a None keyed row, with the right hand side all None") {
+    val left = Seq((k = Option(1), a = 1), (k = Option.empty[Int], a = 2))
+    val right = Seq((k = Option(1), b = 10), (k = Option.empty[Int], b = 20))
+    val out = left.leftJoin(right)["k"].toList
+    assertEquals(out.map(r => (r.a, r.b)), List((1, Some(10)), (2, None)))
+  }
+
+  test("a None key can be matched deliberately by mapping it to a sentinel") {
+    val left = Seq((k = Option.empty[Int], a = 1)).mapColumn["k", Int](_.getOrElse(-1))
+    val right = Seq((k = Option.empty[Int], b = 2)).mapColumn["k", Int](_.getOrElse(-1))
     assertEquals(left.join(right)["k"].toList.map(_.b), List(2))
   }
 
