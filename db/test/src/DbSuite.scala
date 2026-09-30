@@ -162,6 +162,91 @@ class JdbcDecoderSuite extends H2Fixture:
     }
   }
 
+  /** A NULL in a column mapped to `Option[T]` must reach the caller as `None`, whatever `T` is.
+    *
+    * The reference types are the ones that used to fail here. Their strict decoders inspect `rs.wasNull()` themselves and throw, so an `Option` wrapper built as "decode, then ask
+    * whether it was null" never got to ask - it inherited the throw, and told the user to do the very thing they had already done.
+    */
+  test("decode Option[T] - None for NULL, for every supported T") {
+    withConn { conn =>
+      def nullOf[T](sqlType: String)(using d: JdbcDecoder[Option[T]]): Option[T] =
+        val rs = conn.createStatement().executeQuery(s"SELECT CAST(NULL AS $sqlType)")
+        rs.next()
+        d.decode(rs, 1)
+      end nullOf
+
+      assertEquals(nullOf[Int]("INT"), None)
+      assertEquals(nullOf[Long]("BIGINT"), None)
+      assertEquals(nullOf[Double]("DOUBLE"), None)
+      assertEquals(nullOf[Boolean]("BOOLEAN"), None)
+      assertEquals(nullOf[String]("VARCHAR(10)"), None)
+      assertEquals(nullOf[BigDecimal]("DECIMAL(10,3)"), None)
+      assertEquals(nullOf[Array[Byte]]("VARBINARY(10)"), None)
+      assertEquals(nullOf[java.time.LocalDate]("DATE"), None)
+      assertEquals(nullOf[java.time.LocalDateTime]("TIMESTAMP"), None)
+      assertEquals(nullOf[java.time.Instant]("TIMESTAMP"), None)
+      assertEquals(nullOf[java.util.UUID]("UUID"), None)
+    }
+  }
+
+  test("decode Option[T] - Some for a present value, for every supported T") {
+    withConn { conn =>
+      def someOf[T](expr: String)(using d: JdbcDecoder[Option[T]]): Option[T] =
+        val rs = conn.createStatement().executeQuery(s"SELECT $expr")
+        rs.next()
+        d.decode(rs, 1)
+      end someOf
+
+      assertEquals(someOf[String]("'hello'"), Some("hello"))
+      assertEquals(someOf[BigDecimal]("CAST(123.456 AS DECIMAL(10,3))"), Some(BigDecimal("123.456")))
+      assertEquals(someOf[java.time.LocalDate]("DATE '2024-03-01'"), Some(java.time.LocalDate.of(2024, 3, 1)))
+      assertEquals(someOf[Int]("42"), Some(42))
+      // Array[Byte] has no useful equals, so compare the contents
+      assertEquals(someOf[Array[Byte]]("CAST(X'01ff' AS VARBINARY(10))").map(_.toList), Some(List[Byte](1, -1)))
+    }
+  }
+
+  /** The other half of the contract: a NULL in a column mapped to a bare `T` is a schema disagreement, and is reported as one rather than decoded to a sentinel.
+    *
+    * This matters most for the primitives, where JDBC hands back `0` / `false` for a NULL and the mistake would otherwise be invisible - a summed column quietly short by however
+    * many rows were NULL.
+    */
+  test("decode T - a NULL in a non-Option column names the column and the fix") {
+    withConn { conn =>
+      def strictNull[T](sqlType: String)(using d: JdbcDecoder[T]): Unit =
+        val rs = conn.createStatement().executeQuery(s"SELECT CAST(NULL AS $sqlType) AS the_column")
+        rs.next()
+        val e = intercept[java.sql.SQLDataException](d.decode(rs, 1))
+        // H2 upper cases unquoted identifiers, so compare case insensitively
+        assert(e.getMessage.toLowerCase.contains("the_column"), e.getMessage)
+        assert(e.getMessage.contains("Use Option["), e.getMessage)
+      end strictNull
+
+      strictNull[Int]("INT")
+      strictNull[Long]("BIGINT")
+      strictNull[Double]("DOUBLE")
+      strictNull[Boolean]("BOOLEAN")
+      strictNull[String]("VARCHAR(10)")
+      strictNull[BigDecimal]("DECIMAL(10,3)")
+      strictNull[Array[Byte]]("VARBINARY(10)")
+      strictNull[java.time.LocalDate]("DATE")
+      strictNull[java.time.Instant]("TIMESTAMP")
+      strictNull[java.util.UUID]("UUID")
+    }
+  }
+
+  /** A whole row of NULLs, decoded positionally, is the shape the bug actually reached users in. */
+  test("a row of nullable reference columns decodes to all None") {
+    withConn { conn =>
+      val rs = conn
+        .createStatement()
+        .executeQuery("SELECT CAST(NULL AS VARCHAR(10)), CAST(NULL AS DECIMAL(10,3)), CAST(NULL AS DATE), CAST(NULL AS BIGINT)")
+      rs.next()
+      type Row = (Option[String], Option[BigDecimal], Option[java.time.LocalDate], Option[Long])
+      assertEquals(summon[JdbcRowDecoder[Row]].decodeRow(rs), (None, None, None, None))
+    }
+  }
+
 end JdbcDecoderSuite
 
 class JdbcRowDecoderSuite extends H2Fixture:
