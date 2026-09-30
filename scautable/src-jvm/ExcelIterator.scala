@@ -40,6 +40,9 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     (cellRange.getFirstRow, cellRange.getLastRow, cellRange.getFirstColumn, cellRange.getLastColumn)
   end parseRange
 
+  /** The range's corners, parsed once. `CellRangeAddress.valueOf` is string parsing, and this sits on the per-row path. */
+  private lazy val parsedRange: Option[(Int, Int, Int, Int)] = colRange.filter(_.nonEmpty).map(parseRange)
+
   /** Validates that headers are unique (no duplicates)
     */
   private def validateUniqueHeaders(headers: List[String]): Unit =
@@ -59,32 +62,28 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
       )
     val sheet = workbook.getSheet(sheetName)
     // Create an iterator that gives us rows by index for the specified range
-    colRange match
-      case Some(range) if range.nonEmpty =>
-        val (firstRow, lastRow, _, _) = parseRange(range)
+    parsedRange match
+      case Some((firstRow, lastRow, _, _)) =>
         val dataStartRow = firstRow + 1
         val dataRowIndices = (dataStartRow to lastRow).toIterator
         dataRowIndices.map(rowIndex => sheet.getRow(rowIndex)).filter(_ != null)
-      case _ =>
+      case None =>
         sheet.iterator().asScala // For no range, use default iterator
     end match
   end sheetIterator
 
-  // Track current row number for error reporting - starts where data begins
-  private var currentRowIndex: Int = colRange match
-    case None                          => 0
-    case Some(range) if range.nonEmpty =>
-      val (firstRow, _, _, _) = parseRange(range)
-      firstRow + 1 // Skip the header row - data starts at firstRow + 1
-    case _ => 0
+  /** The spreadsheet row number (1 based, as Excel shows it) of the row last returned by `next()`, for error reporting.
+    *
+    * Taken from the row itself rather than counted, because the iterator skips rows POI reports as absent - a counter would drift from the sheet the moment it met one, and name
+    * the wrong row in an error.
+    */
+  private var currentRowIndex: Int = 0
 
   // Extract headers from the first row or specified range
   private val headers: List[String] =
-    colRange match
-      case Some(range) if range.nonEmpty =>
-        extractHeadersFromRange(range)
-      case _ =>
-        extractHeadersFromFirstRow()
+    parsedRange match
+      case Some(_) => extractHeadersFromRange()
+      case None    => extractHeadersFromFirstRow()
 
   private lazy val numCellsPerRow = headers.size
 
@@ -93,8 +92,8 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
 
   /** Extract headers from a specified cell range This accesses the header row directly by index
     */
-  private def extractHeadersFromRange(range: String): List[String] =
-    val (firstRow, _, firstCol, lastCol) = parseRange(range)
+  private def extractHeadersFromRange(): List[String] =
+    val (firstRow, _, firstCol, lastCol) = parsedRange.get
     val workbook = ExcelWorkbookCache
       .getOrCreate(filePath)
       .getOrElse(
@@ -118,14 +117,13 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
   /** Extract cell values from a row based on the column range
     */
   private def extractCellValues(row: org.apache.poi.ss.usermodel.Row): List[String] =
-    colRange match
-      case Some(range) if range.nonEmpty =>
-        val (_, _, firstCol, lastCol) = parseRange(range)
+    parsedRange match
+      case Some((_, _, firstCol, lastCol)) =>
         val cells =
           for i <- firstCol.to(lastCol)
           yield row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
         cells.toList
-      case _ =>
+      case None =>
         row.cellIterator().asScala.toList.map(_.toString)
   end extractCellValues
 
@@ -134,6 +132,7 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     end if
 
     val row = sheetIterator.next()
+    currentRowIndex = row.getRowNum + 1
     val cellValues = extractCellValues(row)
 
     // Validate row has expected number of cells
@@ -152,17 +151,18 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
         )
       )
 
-    currentRowIndex += 1
     NamedTuple.build[K]()(decodedTuple)
   end next
 
-  override def hasNext: Boolean =
-    colRange match
-      case Some(range) if range.nonEmpty =>
-        val (_, lastRow, _, _) = parseRange(range)
-        currentRowIndex <= lastRow
-      case _ =>
-        sheetIterator.hasNext
-  end hasNext
+  /** Whether another row is actually available.
+    *
+    * Asks the row iterator, rather than comparing a counter against the range's last row. The two are not the same: `sheetIterator` drops rows POI reports as absent, which is what
+    * an entirely blank row inside the range is - a visual separator between groups, say. Counting row numbers therefore promised more rows than existed, and `next()` fell off the
+    * end of the underlying iterator with a bare `NoSuchElementException`.
+    *
+    * The range still bounds the iteration, because `sheetIterator` is built from `firstRow + 1 to lastRow`. Skipping blank rows also keeps reading consistent with compile time
+    * type inference, which walks the range the same way.
+    */
+  override def hasNext: Boolean = sheetIterator.hasNext
 
 end ExcelIterator
