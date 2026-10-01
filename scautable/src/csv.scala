@@ -423,233 +423,252 @@ object CSV:
           s"scautable: could not read a CSV at '${pathChain.absolutePath}' while compiling. The file has to exist at compile time so its columns can be typed.${pathChain.anchorHint}"
         )
       )
-    val lineIterator: Iterator[String] = source.getLines()
-    val (headers, iter) = lineIterator.headers(csvHeaders, delimiter)
+    // Everything that touches the file lives inside this `try`, header line included.
+    //
+    // `HeaderOptions.Auto` takes `buffered.head`, which throws on an empty CSV, and `CSVParser.parseLine` can throw on a malformed one - both before any inference starts. The
+    // handle has to be released on those paths too, and they are exactly the paths a build hits repeatedly while someone is still getting the file right.
+    //
+    // `finally` also covers the `report.throwError` exits below: those abort the expansion by throwing, so a close at the end of the happy path alone would be skipped.
+    try
+      val lineIterator: Iterator[String] = source.getLines()
+      val (headers, iter) = lineIterator.headers(csvHeaders, delimiter)
 
-    if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
-    end if
+      if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
+      end if
 
-    val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+      val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
 
-    def constructRowIterator[Hdrs <: Tuple: Type, Data <: Tuple: Type]: Expr[CsvIterator[Hdrs, Data]] =
-      val absolutePathExpr = Expr(pathChain.absolutePath)
-      val rootRelativeExpr = Expr(pathChain.rootRelativePath)
-      val resourceNameExpr = Expr(pathChain.resourceName)
-      val useFallbackExpr = Expr(pathChain.useFallback)
-      '{
-        val lines = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr).getLines()
-        val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
-        new CsvIterator[Hdrs, Data](iterator, headers, $delimiterExpr)
-      }
-    end constructRowIterator
-
-    def constructColumnArrays[Hdrs <: Tuple: Type, ArrayData <: Tuple: Type]: Expr[NamedTuple[Hdrs, ArrayData]] =
-      val absolutePathExpr = Expr(pathChain.absolutePath)
-      val rootRelativeExpr = Expr(pathChain.rootRelativePath)
-      val resourceNameExpr = Expr(pathChain.resourceName)
-      val useFallbackExpr = Expr(pathChain.useFallback)
-      '{
-        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
-        val lines = source.getLines()
-        val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
-
-        val numCols = headers.length
-        val buffers = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-
-        iterator.foreach { line =>
-          val parsed = CSVParser.parseLine(line, $delimiterExpr)
-          var i = 0
-          while i < parsed.length && i < numCols do
-            buffers(i) += parsed(i)
-            i += 1
-          end while
+      def constructRowIterator[Hdrs <: Tuple: Type, Data <: Tuple: Type]: Expr[CsvIterator[Hdrs, Data]] =
+        val absolutePathExpr = Expr(pathChain.absolutePath)
+        val rootRelativeExpr = Expr(pathChain.rootRelativePath)
+        val resourceNameExpr = Expr(pathChain.resourceName)
+        val useFallbackExpr = Expr(pathChain.useFallback)
+        '{
+          val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
+          val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
+          // Handed to the iterator rather than dropped, so that draining it - or closing it early - releases the file handle.
+          new CsvIterator[Hdrs, Data](iterator, headers, $delimiterExpr, Some(source))
         }
+      end constructRowIterator
 
-        source.close()
+      def constructColumnArrays[Hdrs <: Tuple: Type, ArrayData <: Tuple: Type]: Expr[NamedTuple[Hdrs, ArrayData]] =
+        val absolutePathExpr = Expr(pathChain.absolutePath)
+        val rootRelativeExpr = Expr(pathChain.rootRelativePath)
+        val resourceNameExpr = Expr(pathChain.resourceName)
+        val useFallbackExpr = Expr(pathChain.useFallback)
+        '{
+          val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
+          // `finally`, because a malformed line makes `parseLine` throw, and the handle would otherwise be stranded.
+          val buffers =
+            try
+              val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
+              val numCols = headers.length
+              val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
+              iterator.foreach { line =>
+                val parsed = CSVParser.parseLine(line, $delimiterExpr)
+                var i = 0
+                while i < parsed.length && i < numCols do
+                  bufs(i) += parsed(i)
+                  i += 1
+                end while
+              }
+              bufs
+            finally source.close()
+            end try
+          end buffers
 
-        val typedColumns = ColumnsDecoder.decodeAllColumns[ArrayData](buffers)
-        NamedTuple.build[Hdrs & Tuple]()(typedColumns)
-      }
-    end constructColumnArrays
-
-    def constructDenseArrayColMajor[T: Type](using
-        ct: Expr[scala.reflect.ClassTag[T]]
-    ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
-      val absolutePathExpr = Expr(pathChain.absolutePath)
-      val rootRelativeExpr = Expr(pathChain.rootRelativePath)
-      val resourceNameExpr = Expr(pathChain.resourceName)
-      val useFallbackExpr = Expr(pathChain.useFallback)
-      // Summon the decoder at compile-time
-      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
-        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
-      }
-      val buffersExpr = '{
-        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
-        val lines = source.getLines()
-        val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
-
-        val numCols = headers.length
-        val buffers = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-
-        iterator.foreach { line =>
-          val parsed = CSVParser.parseLine(line, $delimiterExpr)
-          var i = 0
-          while i < parsed.length && i < numCols do
-            buffers(i) += parsed(i)
-            i += 1
-          end while
+          val typedColumns = ColumnsDecoder.decodeAllColumns[ArrayData](buffers)
+          NamedTuple.build[Hdrs & Tuple]()(typedColumns)
         }
+      end constructColumnArrays
 
-        source.close()
-        buffers
-      }
-      CSV.buildDenseArrayColMajor[T](buffersExpr, decoderExpr, ct)
-    end constructDenseArrayColMajor
-
-    def constructDenseArrayRowMajor[T: Type](using
-        ct: Expr[scala.reflect.ClassTag[T]]
-    ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
-      val absolutePathExpr = Expr(pathChain.absolutePath)
-      val rootRelativeExpr = Expr(pathChain.rootRelativePath)
-      val resourceNameExpr = Expr(pathChain.resourceName)
-      val useFallbackExpr = Expr(pathChain.useFallback)
-      // Summon the decoder at compile-time
-      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
-        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
-      }
-      val buffersExpr = '{
-        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
-        val lines = source.getLines()
-        val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
-
-        val numCols = headers.length
-        val buffers = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-
-        iterator.foreach { line =>
-          val parsed = CSVParser.parseLine(line, $delimiterExpr)
-          var i = 0
-          while i < parsed.length && i < numCols do
-            buffers(i) += parsed(i)
-            i += 1
-          end while
+      def constructDenseArrayColMajor[T: Type](using
+          ct: Expr[scala.reflect.ClassTag[T]]
+      ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+        val absolutePathExpr = Expr(pathChain.absolutePath)
+        val rootRelativeExpr = Expr(pathChain.rootRelativePath)
+        val resourceNameExpr = Expr(pathChain.resourceName)
+        val useFallbackExpr = Expr(pathChain.useFallback)
+        // Summon the decoder at compile-time
+        val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+          report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
         }
+        val buffersExpr = '{
+          val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
+          // `finally`, because a malformed line makes `parseLine` throw, and the handle would otherwise be stranded.
+          val buffers =
+            try
+              val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
+              val numCols = headers.length
+              val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
+              iterator.foreach { line =>
+                val parsed = CSVParser.parseLine(line, $delimiterExpr)
+                var i = 0
+                while i < parsed.length && i < numCols do
+                  bufs(i) += parsed(i)
+                  i += 1
+                end while
+              }
+              bufs
+            finally source.close()
+            end try
+          end buffers
+          buffers
+        }
+        CSV.buildDenseArrayColMajor[T](buffersExpr, decoderExpr, ct)
+      end constructDenseArrayColMajor
 
-        source.close()
-        buffers
-      }
-      CSV.buildDenseArrayRowMajor[T](buffersExpr, decoderExpr, ct)
-    end constructDenseArrayRowMajor
+      def constructDenseArrayRowMajor[T: Type](using
+          ct: Expr[scala.reflect.ClassTag[T]]
+      ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+        val absolutePathExpr = Expr(pathChain.absolutePath)
+        val rootRelativeExpr = Expr(pathChain.rootRelativePath)
+        val resourceNameExpr = Expr(pathChain.resourceName)
+        val useFallbackExpr = Expr(pathChain.useFallback)
+        // Summon the decoder at compile-time
+        val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+          report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+        }
+        val buffersExpr = '{
+          val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
+          // `finally`, because a malformed line makes `parseLine` throw, and the handle would otherwise be stranded.
+          val buffers =
+            try
+              val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
+              val numCols = headers.length
+              val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
+              iterator.foreach { line =>
+                val parsed = CSVParser.parseLine(line, $delimiterExpr)
+                var i = 0
+                while i < parsed.length && i < numCols do
+                  bufs(i) += parsed(i)
+                  i += 1
+                end while
+              }
+              bufs
+            finally source.close()
+            end try
+          end buffers
+          buffers
+        }
+        CSV.buildDenseArrayRowMajor[T](buffersExpr, decoderExpr, ct)
+      end constructDenseArrayRowMajor
 
-    // Handle dense array modes first
-    denseColMajorType match
-      case Some(elemType) =>
-        elemType.asType match
-          case '[t] =>
-            given Expr[scala.reflect.ClassTag[t]] = Expr.summon[scala.reflect.ClassTag[t]].getOrElse {
-              report.throwError(s"ClassTag not found for type ${elemType.show}")
-            }
-            constructDenseArrayColMajor[t]
-      case None =>
-        denseRowMajorType match
-          case Some(elemType) =>
-            elemType.asType match
-              case '[t] =>
-                given Expr[scala.reflect.ClassTag[t]] = Expr.summon[scala.reflect.ClassTag[t]].getOrElse {
-                  report.throwError(s"ClassTag not found for type ${elemType.show}")
-                }
-                constructDenseArrayRowMajor[t]
-          case None =>
-            // Handle rows or columns mode
-            if !isColumnMode then
-              headerTupleExpr match
-                case '{ $tup: hdrs } =>
-                  typeInferrerExpr match
+      // Handle dense array modes first.
+      //
+      // Wrapped so the *compiler's* handle on the CSV is released however this expansion ends, including the `report.throwError` paths, which unwind through here. Left open it
+      // leaks one descriptor per expansion for the lifetime of a build daemon - which is measured in days, across every call site in every project that daemon serves.
+      denseColMajorType match
+        case Some(elemType) =>
+          elemType.asType match
+            case '[t] =>
+              given Expr[scala.reflect.ClassTag[t]] = Expr.summon[scala.reflect.ClassTag[t]].getOrElse {
+                report.throwError(s"ClassTag not found for type ${elemType.show}")
+              }
+              constructDenseArrayColMajor[t]
+        case None =>
+          denseRowMajorType match
+            case Some(elemType) =>
+              elemType.asType match
+                case '[t] =>
+                  given Expr[scala.reflect.ClassTag[t]] = Expr.summon[scala.reflect.ClassTag[t]].getOrElse {
+                    report.throwError(s"ClassTag not found for type ${elemType.show}")
+                  }
+                  constructDenseArrayRowMajor[t]
+            case None =>
+              // Handle rows or columns mode
+              if !isColumnMode then
+                headerTupleExpr match
+                  case '{ $tup: hdrs } =>
+                    typeInferrerExpr match
 
-                    case '{ TypeInferrer.FromTuple[t]() } =>
-                      constructRowIterator[hdrs & Tuple, t & Tuple]
+                      case '{ TypeInferrer.FromTuple[t]() } =>
+                        constructRowIterator[hdrs & Tuple, t & Tuple]
 
-                    case '{ TypeInferrer.StringType } =>
-                      constructRowIterator[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
+                      case '{ TypeInferrer.StringType } =>
+                        constructRowIterator[hdrs & Tuple, StringyTuple[hdrs & Tuple] & Tuple]
 
-                    case '{ TypeInferrer.FirstRow } =>
-                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
-                      inferredTypeRepr.asType match
-                        case '[v] =>
-                          constructRowIterator[hdrs & Tuple, v & Tuple]
-                      end match
+                      case '{ TypeInferrer.FirstRow } =>
+                        val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
+                        inferredTypeRepr.asType match
+                          case '[v] =>
+                            constructRowIterator[hdrs & Tuple, v & Tuple]
+                        end match
 
-                    case '{ TypeInferrer.FromAllRows } =>
-                      val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
-                      inferredTypeRepr.asType match
-                        case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
-                      end match
+                      case '{ TypeInferrer.FromAllRows } =>
+                        val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
+                        inferredTypeRepr.asType match
+                          case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                        end match
 
-                    case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
-                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
-                      inferredTypeRepr.asType match
-                        case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
-                      end match
+                      case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
+                        val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
+                        inferredTypeRepr.asType match
+                          case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                        end match
 
-                    case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
-                      val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
-                      inferredTypeRepr.asType match
-                        case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
-                      end match
+                      case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
+                        val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
+                        inferredTypeRepr.asType match
+                          case '[v] => constructRowIterator[hdrs & Tuple, v & Tuple]
+                        end match
 
-                case _ =>
-                  report.throwError("Could not infer literal header tuple.")
-              end match
-            else // isColumnMode
-              headerTupleExpr match
-                case '{ $tup: hdrs } =>
-                  typeInferrerExpr match
+                  case _ =>
+                    report.throwError("Could not infer literal header tuple.")
+                end match
+              else // isColumnMode
+                headerTupleExpr match
+                  case '{ $tup: hdrs } =>
+                    typeInferrerExpr match
 
-                    case '{ TypeInferrer.FromTuple[t]() } =>
-                      val arrayTypeRepr = toArrayTupleType(TypeRepr.of[t])
-                      arrayTypeRepr.asType match
-                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-                      end match
+                      case '{ TypeInferrer.FromTuple[t]() } =>
+                        val arrayTypeRepr = toArrayTupleType(TypeRepr.of[t])
+                        arrayTypeRepr.asType match
+                          case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                        end match
 
-                    case '{ TypeInferrer.StringType } =>
-                      val stringyType = TypeRepr.of[StringyTuple[hdrs & Tuple]]
-                      val arrayTypeRepr = toArrayTupleType(stringyType)
-                      arrayTypeRepr.asType match
-                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-                      end match
+                      case '{ TypeInferrer.StringType } =>
+                        val stringyType = TypeRepr.of[StringyTuple[hdrs & Tuple]]
+                        val arrayTypeRepr = toArrayTupleType(stringyType)
+                        arrayTypeRepr.asType match
+                          case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                        end match
 
-                    case '{ TypeInferrer.FirstRow } =>
-                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
-                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-                      arrayTypeRepr.asType match
-                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-                      end match
+                      case '{ TypeInferrer.FirstRow } =>
+                        val inferredTypeRepr = InferrerOps.inferrer(iter, true, delimiter = delimiter)
+                        val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                        arrayTypeRepr.asType match
+                          case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                        end match
 
-                    case '{ TypeInferrer.FromAllRows } =>
-                      val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
-                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-                      arrayTypeRepr.asType match
-                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-                      end match
+                      case '{ TypeInferrer.FromAllRows } =>
+                        val inferredTypeRepr = InferrerOps.inferrer(iter, false, Int.MaxValue, delimiter)
+                        val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                        arrayTypeRepr.asType match
+                          case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                        end match
 
-                    case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
-                      val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
-                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-                      arrayTypeRepr.asType match
-                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-                      end match
+                      case '{ TypeInferrer.FirstN(${ Expr(n) }) } =>
+                        val inferredTypeRepr = InferrerOps.inferrer(iter, true, n, delimiter)
+                        val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                        arrayTypeRepr.asType match
+                          case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                        end match
 
-                    case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
-                      val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
-                      val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
-                      arrayTypeRepr.asType match
-                        case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
-                      end match
+                      case '{ TypeInferrer.FirstN(${ Expr(n) }, ${ Expr(preferIntToBoolean) }) } =>
+                        val inferredTypeRepr = InferrerOps.inferrer(iter, preferIntToBoolean, n, delimiter)
+                        val arrayTypeRepr = toArrayTupleType(inferredTypeRepr)
+                        arrayTypeRepr.asType match
+                          case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
+                        end match
 
-                case _ =>
-                  report.throwError("Could not infer literal header tuple.")
-              end match
-            end if
-    end match
+                  case _ =>
+                    report.throwError("Could not infer literal header tuple.")
+                end match
+              end if
+      end match
+    finally source.close()
+    end try
 
   end readHeaderlineAsCsv
 
@@ -990,25 +1009,32 @@ object CSV:
     */
   private inline def fromTyped[K <: Tuple, V <: Tuple](headers: HeaderOptions): PlatformPath => CsvIterator[K, V] =
     (path: PlatformPath) =>
-      val lines = scala.io.Source.fromFile(path.platformPathString).getLines()
-      val (hdrs, iterator) = lines.headers(headers)
-      val expectedHeaders = scala.compiletime.constValueTuple[K].toArray.toSeq.asInstanceOf[Seq[String]]
-      hdrs.zip(expectedHeaders).zipWithIndex.foreach { case ((a, b), idx) =>
-        if a != b then
-          throw new IllegalStateException(
-            s"CSV headers do not match expected headers. Expected: $expectedHeaders, Got: $hdrs. Header mismatch at index $idx: expected '$b', got '$a'"
-          )
-      }
+      val source = scala.io.Source.fromFile(path.platformPathString)
+      // Every check below can throw, and each one used to strand the handle it had just opened.
+      try
+        val (hdrs, iterator) = source.getLines().headers(headers)
+        val expectedHeaders = scala.compiletime.constValueTuple[K].toArray.toSeq.asInstanceOf[Seq[String]]
+        hdrs.zip(expectedHeaders).zipWithIndex.foreach { case ((a, b), idx) =>
+          if a != b then
+            throw new IllegalStateException(
+              s"CSV headers do not match expected headers. Expected: $expectedHeaders, Got: $hdrs. Header mismatch at index $idx: expected '$b', got '$a'"
+            )
+        }
 
-      if hdrs.length != expectedHeaders.length then
-        throw new IllegalStateException(s"You provided: ${expectedHeaders.size} but ${hdrs.size} headers were found in the file at ${path.platformPathString}.")
-      end if
+        if hdrs.length != expectedHeaders.length then
+          throw new IllegalStateException(s"You provided: ${expectedHeaders.size} but ${hdrs.size} headers were found in the file at ${path.platformPathString}.")
+        end if
 
-      val sizeOfV = scala.compiletime.constValue[Tuple.Size[V]]
-      if hdrs.length != sizeOfV then
-        throw new IllegalStateException(s"Number of headers in CSV (${hdrs.length}) does not match number (${sizeOfV}) of types provided for decoding.")
-      end if
+        val sizeOfV = scala.compiletime.constValue[Tuple.Size[V]]
+        if hdrs.length != sizeOfV then
+          throw new IllegalStateException(s"Number of headers in CSV (${hdrs.length}) does not match number (${sizeOfV}) of types provided for decoding.")
+        end if
 
-      new CsvIterator[K, V](iterator, hdrs)
+        new CsvIterator[K, V](iterator, hdrs, ',', Some(source))
+      catch
+        case e: Throwable =>
+          source.close()
+          throw e
+      end try
 
 end CSV

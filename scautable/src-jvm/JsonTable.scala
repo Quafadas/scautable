@@ -285,14 +285,15 @@ object JsonTable:
           end if
           val inputStream = resourceUrl.openStream()
           val objects = StreamingJsonParser.parseArrayStream(inputStream)
-          new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq)
+          // Handed to the iterator rather than dropped, so that draining it - or closing it early - releases the stream.
+          new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq, Some(inputStream))
         }
       else
         '{
           val path = $pathExpr
           val inputStream = new java.io.FileInputStream(path)
           val objects = StreamingJsonParser.parseArrayStream(inputStream)
-          new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq)
+          new JsonIterator[Hdrs, Data](objects, ${ Expr.ofSeq(headers.map(Expr(_))) }.toSeq, Some(inputStream))
         }
     end constructIterator
 
@@ -364,30 +365,37 @@ object JsonTable:
   inline def fromTyped[K <: Tuple, V <: Tuple](using decoder: RowDecoder[V]): os.Path => JsonIterator[K, V] =
     (path: os.Path) =>
       val inputStream = new java.io.FileInputStream(path.toIO)
-      val objects = StreamingJsonParser.parseArrayStream(inputStream)
+      // Every check below can throw, and each one used to strand the stream it had just opened.
+      try
+        val objects = StreamingJsonParser.parseArrayStream(inputStream)
 
-      // Peek at first object to validate headers match expected
-      val bufferedObjects = objects.buffered
-      if !bufferedObjects.hasNext then throw new IllegalStateException(s"JSON file at ${path.toString} contains no objects")
-      end if
+        // Peek at first object to validate headers match expected
+        val bufferedObjects = objects.buffered
+        if !bufferedObjects.hasNext then throw new IllegalStateException(s"JSON file at ${path.toString} contains no objects")
+        end if
 
-      val firstObj = bufferedObjects.head
-      val actualHeaders = firstObj.fields.keys.toSeq
-      val expectedHeaders = scala.compiletime.constValueTuple[K].toArray.toSeq.asInstanceOf[Seq[String]]
+        val firstObj = bufferedObjects.head
+        val actualHeaders = firstObj.fields.keys.toSeq
+        val expectedHeaders = scala.compiletime.constValueTuple[K].toArray.toSeq.asInstanceOf[Seq[String]]
 
-      // Validate headers match (order doesn't need to match for JSON, but all expected fields must be present)
-      val missingHeaders = expectedHeaders.filterNot(actualHeaders.contains)
-      if missingHeaders.nonEmpty then
-        throw new IllegalStateException(
-          s"JSON object missing expected fields. Expected: $expectedHeaders, Got: $actualHeaders. Missing: $missingHeaders"
-        )
-      end if
+        // Validate headers match (order doesn't need to match for JSON, but all expected fields must be present)
+        val missingHeaders = expectedHeaders.filterNot(actualHeaders.contains)
+        if missingHeaders.nonEmpty then
+          throw new IllegalStateException(
+            s"JSON object missing expected fields. Expected: $expectedHeaders, Got: $actualHeaders. Missing: $missingHeaders"
+          )
+        end if
 
-      val sizeOfV = scala.compiletime.constValue[Tuple.Size[V]]
-      if expectedHeaders.length != sizeOfV then
-        throw new IllegalStateException(s"Number of expected headers (${expectedHeaders.length}) does not match number (${sizeOfV}) of types provided for decoding.")
-      end if
+        val sizeOfV = scala.compiletime.constValue[Tuple.Size[V]]
+        if expectedHeaders.length != sizeOfV then
+          throw new IllegalStateException(s"Number of expected headers (${expectedHeaders.length}) does not match number (${sizeOfV}) of types provided for decoding.")
+        end if
 
-      new JsonIterator[K, V](bufferedObjects, expectedHeaders)
+        new JsonIterator[K, V](bufferedObjects, expectedHeaders, Some(inputStream))
+      catch
+        case e: Throwable =>
+          inputStream.close()
+          throw e
+      end try
 
 end JsonTable

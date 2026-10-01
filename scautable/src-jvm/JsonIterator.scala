@@ -27,17 +27,48 @@ import io.github.quafadas.scautable.json.StreamingJsonParser.*
   */
 class JsonIterator[K <: Tuple, V <: Tuple] @publicInBinary private[json] (
     private val objects: Iterator[JsonObject],
-    val headers: Seq[String]
+    val headers: Seq[String],
+    private val source: Option[AutoCloseable] = None
 )(using decoder: RowDecoder[V])
-    extends Iterator[NamedTuple[K, V]]:
+    extends Iterator[NamedTuple[K, V]]
+    with AutoCloseable:
 
   type COLUMNS = K
 
   type Col[N <: Int] = Tuple.Elem[K, N]
 
-  override def hasNext: Boolean = objects.hasNext
+  private var closed = false
+
+  /** Release the stream behind this iterator.
+    *
+    * Idempotent, and safe to call at any point - a closed iterator simply reports no more rows. Draining the iterator calls this for you, so `.toSeq` and friends need nothing.
+    * Reach for it when you stop reading early, or let `scala.util.Using` do it.
+    */
+  override def close(): Unit =
+    if !closed then
+      closed = true
+      source.foreach { s =>
+        try s.close()
+        catch case _: Exception => () // a handle we cannot release is not worth failing a read over
+      }
+    end if
+  end close
+
+  /** Closes the underlying stream as soon as the objects run out, so that reading a whole file needs no cleanup. */
+  override def hasNext: Boolean =
+    if closed then false
+    else
+      val more = objects.hasNext
+      if !more then close()
+      end if
+      more
+    end if
+  end hasNext
 
   override def next(): NamedTuple[K, V] =
+    // Past a close the underlying stream is gone, so reading on would hand back whatever happened to be buffered, or fail deep inside the parser.
+    if closed then throw new NoSuchElementException("This JsonIterator has been closed, so there are no more rows to read.")
+    end if
     val obj = objects.next()
     // Extract values in header order, converting JsonValue to String
     val values = headers.map { header =>

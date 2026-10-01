@@ -35,28 +35,37 @@ object ExcelWorkbookCache:
 
       // Try to get existing workbook from cache
       val cachedRef = cache.get(normalizedPath)
-      val existingWorkbook = Option(cachedRef).flatMap(ref => Option(ref.get()))
+      val existingWorkbook = Option(cachedRef).flatMap(ref => Option(ref.get())).filter(isUsable)
 
       existingWorkbook match
-        case Some(workbook) =>
-          // Validate that the workbook is still usable (not closed)
-          try
-            // Simple validation - try to access the number of sheets
-            workbook.getNumberOfSheets
-            workbook
-          catch
-            case _: Exception =>
-              // Workbook is no longer valid, remove from cache and create new one
-              cache.remove(normalizedPath)
-              WorkbookFactory.create(new File(normalizedPath), null, true)
-        case None =>
-          // No cached workbook or it was garbage collected
-          val workbook = WorkbookFactory.create(new File(normalizedPath), null, true)
-          cache.put(normalizedPath, new WeakReference(workbook))
-          workbook
+        case Some(workbook) => workbook
+        case None           =>
+          // Either nothing cached, or what was cached has been garbage collected or closed underneath us.
+          //
+          // `compute` rather than get-then-put: the whole point of the cache is that one file yields one workbook, and a plain check-then-act lets two threads each open one, with
+          // whichever loses the race left open and unreferenced. Each open holds an OS file handle, so losing that race leaks one.
+          cache
+            .compute(
+              normalizedPath,
+              (_, existing) =>
+                val live = Option(existing).flatMap(ref => Option(ref.get())).filter(isUsable)
+                live match
+                  case Some(_) => existing // another thread got there first; keep its workbook
+                  case None    => new WeakReference(WorkbookFactory.create(new File(normalizedPath), null, true))
+                end match
+            )
+            .get()
       end match
     }
   end getOrCreate
+
+  /** Whether a cached workbook can still be read from. A workbook closed behind the cache's back throws from any access, and has to be replaced rather than handed out. */
+  private def isUsable(workbook: Workbook): Boolean =
+    try
+      workbook.getNumberOfSheets
+      true
+    catch case _: Exception => false
+  end isUsable
 
   /** Explicitly close and remove a workbook from the cache.
     *

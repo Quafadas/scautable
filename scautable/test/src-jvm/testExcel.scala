@@ -166,6 +166,48 @@ class ExcelSuite extends munit.FunSuite:
     assertEquals(one.column["Column 2"].toList(0), "Row 1, Col 2")
   }
 
+  /** A row POI reports as absent - one that was never given a cell, which is what a blank separator row between groups of data is - used to desynchronise reading from counting.
+    *
+    * `sheetIterator` skips such rows; `hasNext` used to compare a counter against the range's last row and so promised one result per row *number*. On a range spanning a blank
+    * row, `next()` therefore ran off the end of the underlying iterator and threw a bare `NoSuchElementException: next on empty iterator`.
+    */
+  test("a blank row inside a pinned range does not derail the iterator") {
+    val dir = os.temp.dir()
+    val path = (dir / "gappy.xlsx").toString
+    val wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook()
+    val sheet = wb.createSheet("Sheet1")
+    def put(rowIdx: Int, a: String, b: String): Unit =
+      val row = sheet.createRow(rowIdx)
+      row.createCell(0).setCellValue(a)
+      row.createCell(1).setCellValue(b)
+    end put
+    put(0, "ca", "cb") // header
+    put(1, "1", "2")
+    put(2, "3", "4")
+    // row index 3 is deliberately never created, so POI reports it as absent
+    put(4, "5", "6")
+    put(5, "7", "8")
+    val out = new java.io.FileOutputStream(path)
+    wb.write(out)
+    out.close()
+    wb.close()
+
+    val itr = new ExcelIterator[("ca", "cb"), (String, String)](path, "Sheet1", Some("A1:B6"))
+    val rows = itr.toList
+    assertEquals(rows.map(r => (r.ca, r.cb)), List(("1", "2"), ("3", "4"), ("5", "6"), ("7", "8")))
+
+    // and the iterator agrees with itself about when it is done
+    val second = new ExcelIterator[("ca", "cb"), (String, String)](path, "Sheet1", Some("A1:B6"))
+    var count = 0
+    while second.hasNext do
+      second.next()
+      count += 1
+    end while
+    assertEquals(count, 4)
+    assert(!second.hasNext)
+    intercept[NoSuchElementException](second.next())
+  }
+
   test("excel provider with FromTuple TypeInferrer enforces specific types") {
     // Force specific types using FromTuple - all columns are actually strings in SimpleTable.xlsx
     def csv = Excel.resource("SimpleTable.xlsx", "Sheet1", "", TypeInferrer.FromTuple[(String, String, String)]())
