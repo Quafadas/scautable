@@ -42,6 +42,30 @@ val csv_root = CSV.projectRoot("data/file.csv", opts)
 
 For customisation options look at `CsvOpts`, and supply that as a second argument to any of the above methods.
 
+### Closing the file
+
+A `CsvIterator` holds the file handle it reads from, and releases it as soon as the rows run
+out. The usual shapes therefore need nothing from you:
+
+```scala sc:nocompile
+CSV.resource("simple.csv").toSeq          // drained, so closed
+CSV.resource("simple.csv").foreach(println) // likewise
+```
+
+If you stop reading early, the handle stays open until the JVM notices the iterator is
+unreachable - which is tied to garbage collection rather than to your reading, so enough
+abandoned reads in a row can exhaust the process's file descriptors. Say so explicitly, or
+let `Using` do it:
+
+```scala sc:nocompile
+val head = Using(CSV.absolutePath("big.csv"))(_.take(10).toList).get
+```
+
+Note that `.take(10)` hands back a *new* iterator, which has no way to tell the original it is
+finished - that is why the `Using` wraps the `CsvIterator` itself rather than the slice. The
+same applies to `JsonTable`; `Excel` shares one cached workbook per file instead, which
+`ExcelResourceManager.cleanup` releases.
+
 ## Columnar Reading
 
 By default, CSV data is read as an iterator of rows (`CsvIterator`). For analytical workloads, you can read CSV data directly into a columnar format using `ReadAs.Columns`:
