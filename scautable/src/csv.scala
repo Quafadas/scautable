@@ -423,135 +423,141 @@ object CSV:
           s"scautable: could not read a CSV at '${pathChain.absolutePath}' while compiling. The file has to exist at compile time so its columns can be typed.${pathChain.anchorHint}"
         )
       )
-    val lineIterator: Iterator[String] = source.getLines()
-    val (headers, iter) = lineIterator.headers(csvHeaders, delimiter)
-
-    if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
-    end if
-
-    val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
-
-    def constructRowIterator[Hdrs <: Tuple: Type, Data <: Tuple: Type]: Expr[CsvIterator[Hdrs, Data]] =
-      val absolutePathExpr = Expr(pathChain.absolutePath)
-      val rootRelativeExpr = Expr(pathChain.rootRelativePath)
-      val resourceNameExpr = Expr(pathChain.resourceName)
-      val useFallbackExpr = Expr(pathChain.useFallback)
-      '{
-        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
-        val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
-        // Handed to the iterator rather than dropped, so that draining it - or closing it early - releases the file handle.
-        new CsvIterator[Hdrs, Data](iterator, headers, $delimiterExpr, Some(source))
-      }
-    end constructRowIterator
-
-    def constructColumnArrays[Hdrs <: Tuple: Type, ArrayData <: Tuple: Type]: Expr[NamedTuple[Hdrs, ArrayData]] =
-      val absolutePathExpr = Expr(pathChain.absolutePath)
-      val rootRelativeExpr = Expr(pathChain.rootRelativePath)
-      val resourceNameExpr = Expr(pathChain.resourceName)
-      val useFallbackExpr = Expr(pathChain.useFallback)
-      '{
-        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
-        // `finally`, because a malformed line makes `parseLine` throw, and the handle would otherwise be stranded.
-        val buffers =
-          try
-            val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
-            val numCols = headers.length
-            val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-            iterator.foreach { line =>
-              val parsed = CSVParser.parseLine(line, $delimiterExpr)
-              var i = 0
-              while i < parsed.length && i < numCols do
-                bufs(i) += parsed(i)
-                i += 1
-              end while
-            }
-            bufs
-          finally source.close()
-          end try
-        end buffers
-
-        val typedColumns = ColumnsDecoder.decodeAllColumns[ArrayData](buffers)
-        NamedTuple.build[Hdrs & Tuple]()(typedColumns)
-      }
-    end constructColumnArrays
-
-    def constructDenseArrayColMajor[T: Type](using
-        ct: Expr[scala.reflect.ClassTag[T]]
-    ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
-      val absolutePathExpr = Expr(pathChain.absolutePath)
-      val rootRelativeExpr = Expr(pathChain.rootRelativePath)
-      val resourceNameExpr = Expr(pathChain.resourceName)
-      val useFallbackExpr = Expr(pathChain.useFallback)
-      // Summon the decoder at compile-time
-      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
-        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
-      }
-      val buffersExpr = '{
-        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
-        // `finally`, because a malformed line makes `parseLine` throw, and the handle would otherwise be stranded.
-        val buffers =
-          try
-            val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
-            val numCols = headers.length
-            val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-            iterator.foreach { line =>
-              val parsed = CSVParser.parseLine(line, $delimiterExpr)
-              var i = 0
-              while i < parsed.length && i < numCols do
-                bufs(i) += parsed(i)
-                i += 1
-              end while
-            }
-            bufs
-          finally source.close()
-          end try
-        end buffers
-        buffers
-      }
-      CSV.buildDenseArrayColMajor[T](buffersExpr, decoderExpr, ct)
-    end constructDenseArrayColMajor
-
-    def constructDenseArrayRowMajor[T: Type](using
-        ct: Expr[scala.reflect.ClassTag[T]]
-    ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
-      val absolutePathExpr = Expr(pathChain.absolutePath)
-      val rootRelativeExpr = Expr(pathChain.rootRelativePath)
-      val resourceNameExpr = Expr(pathChain.resourceName)
-      val useFallbackExpr = Expr(pathChain.useFallback)
-      // Summon the decoder at compile-time
-      val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
-        report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
-      }
-      val buffersExpr = '{
-        val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
-        // `finally`, because a malformed line makes `parseLine` throw, and the handle would otherwise be stranded.
-        val buffers =
-          try
-            val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
-            val numCols = headers.length
-            val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-            iterator.foreach { line =>
-              val parsed = CSVParser.parseLine(line, $delimiterExpr)
-              var i = 0
-              while i < parsed.length && i < numCols do
-                bufs(i) += parsed(i)
-                i += 1
-              end while
-            }
-            bufs
-          finally source.close()
-          end try
-        end buffers
-        buffers
-      }
-      CSV.buildDenseArrayRowMajor[T](buffersExpr, decoderExpr, ct)
-    end constructDenseArrayRowMajor
-
-    // Handle dense array modes first.
+    // Everything that touches the file lives inside this `try`, header line included.
     //
-    // Wrapped so the *compiler's* handle on the CSV is released however this expansion ends, including the `report.throwError` paths, which unwind through here. Left open it
-    // leaks one descriptor per expansion for the lifetime of a build daemon - which is measured in days, across every call site in every project that daemon serves.
+    // `HeaderOptions.Auto` takes `buffered.head`, which throws on an empty CSV, and `CSVParser.parseLine` can throw on a malformed one - both before any inference starts. The
+    // handle has to be released on those paths too, and they are exactly the paths a build hits repeatedly while someone is still getting the file right.
+    //
+    // `finally` also covers the `report.throwError` exits below: those abort the expansion by throwing, so a close at the end of the happy path alone would be skipped.
     try
+      val lineIterator: Iterator[String] = source.getLines()
+      val (headers, iter) = lineIterator.headers(csvHeaders, delimiter)
+
+      if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
+      end if
+
+      val headerTupleExpr = Expr.ofTupleFromSeq(headers.map(Expr(_)))
+
+      def constructRowIterator[Hdrs <: Tuple: Type, Data <: Tuple: Type]: Expr[CsvIterator[Hdrs, Data]] =
+        val absolutePathExpr = Expr(pathChain.absolutePath)
+        val rootRelativeExpr = Expr(pathChain.rootRelativePath)
+        val resourceNameExpr = Expr(pathChain.resourceName)
+        val useFallbackExpr = Expr(pathChain.useFallback)
+        '{
+          val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
+          val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
+          // Handed to the iterator rather than dropped, so that draining it - or closing it early - releases the file handle.
+          new CsvIterator[Hdrs, Data](iterator, headers, $delimiterExpr, Some(source))
+        }
+      end constructRowIterator
+
+      def constructColumnArrays[Hdrs <: Tuple: Type, ArrayData <: Tuple: Type]: Expr[NamedTuple[Hdrs, ArrayData]] =
+        val absolutePathExpr = Expr(pathChain.absolutePath)
+        val rootRelativeExpr = Expr(pathChain.rootRelativePath)
+        val resourceNameExpr = Expr(pathChain.resourceName)
+        val useFallbackExpr = Expr(pathChain.useFallback)
+        '{
+          val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
+          // `finally`, because a malformed line makes `parseLine` throw, and the handle would otherwise be stranded.
+          val buffers =
+            try
+              val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
+              val numCols = headers.length
+              val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
+              iterator.foreach { line =>
+                val parsed = CSVParser.parseLine(line, $delimiterExpr)
+                var i = 0
+                while i < parsed.length && i < numCols do
+                  bufs(i) += parsed(i)
+                  i += 1
+                end while
+              }
+              bufs
+            finally source.close()
+            end try
+          end buffers
+
+          val typedColumns = ColumnsDecoder.decodeAllColumns[ArrayData](buffers)
+          NamedTuple.build[Hdrs & Tuple]()(typedColumns)
+        }
+      end constructColumnArrays
+
+      def constructDenseArrayColMajor[T: Type](using
+          ct: Expr[scala.reflect.ClassTag[T]]
+      ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+        val absolutePathExpr = Expr(pathChain.absolutePath)
+        val rootRelativeExpr = Expr(pathChain.rootRelativePath)
+        val resourceNameExpr = Expr(pathChain.resourceName)
+        val useFallbackExpr = Expr(pathChain.useFallback)
+        // Summon the decoder at compile-time
+        val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+          report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+        }
+        val buffersExpr = '{
+          val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
+          // `finally`, because a malformed line makes `parseLine` throw, and the handle would otherwise be stranded.
+          val buffers =
+            try
+              val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
+              val numCols = headers.length
+              val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
+              iterator.foreach { line =>
+                val parsed = CSVParser.parseLine(line, $delimiterExpr)
+                var i = 0
+                while i < parsed.length && i < numCols do
+                  bufs(i) += parsed(i)
+                  i += 1
+                end while
+              }
+              bufs
+            finally source.close()
+            end try
+          end buffers
+          buffers
+        }
+        CSV.buildDenseArrayColMajor[T](buffersExpr, decoderExpr, ct)
+      end constructDenseArrayColMajor
+
+      def constructDenseArrayRowMajor[T: Type](using
+          ct: Expr[scala.reflect.ClassTag[T]]
+      ): Expr[NamedTuple[("data", "rowStride", "colStride", "rows", "cols"), (Array[T], Int, Int, Int, Int)]] =
+        val absolutePathExpr = Expr(pathChain.absolutePath)
+        val rootRelativeExpr = Expr(pathChain.rootRelativePath)
+        val resourceNameExpr = Expr(pathChain.resourceName)
+        val useFallbackExpr = Expr(pathChain.useFallback)
+        // Summon the decoder at compile-time
+        val decoderExpr = Expr.summon[ColumnDecoder[T]].getOrElse {
+          report.throwError(s"No ColumnDecoder available for type ${Type.show[T]}")
+        }
+        val buffersExpr = '{
+          val source = CSV.openSourceWithFallback($absolutePathExpr, $rootRelativeExpr, $resourceNameExpr, $useFallbackExpr)
+          // `finally`, because a malformed line makes `parseLine` throw, and the handle would otherwise be stranded.
+          val buffers =
+            try
+              val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
+              val numCols = headers.length
+              val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
+              iterator.foreach { line =>
+                val parsed = CSVParser.parseLine(line, $delimiterExpr)
+                var i = 0
+                while i < parsed.length && i < numCols do
+                  bufs(i) += parsed(i)
+                  i += 1
+                end while
+              }
+              bufs
+            finally source.close()
+            end try
+          end buffers
+          buffers
+        }
+        CSV.buildDenseArrayRowMajor[T](buffersExpr, decoderExpr, ct)
+      end constructDenseArrayRowMajor
+
+      // Handle dense array modes first.
+      //
+      // Wrapped so the *compiler's* handle on the CSV is released however this expansion ends, including the `report.throwError` paths, which unwind through here. Left open it
+      // leaks one descriptor per expansion for the lifetime of a build daemon - which is measured in days, across every call site in every project that daemon serves.
       denseColMajorType match
         case Some(elemType) =>
           elemType.asType match
