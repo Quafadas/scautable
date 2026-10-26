@@ -431,7 +431,8 @@ object CSV:
     // `finally` also covers the `report.throwError` exits below: those abort the expansion by throwing, so a close at the end of the happy path alone would be skipped.
     try
       val lineIterator: Iterator[String] = source.getLines()
-      val (headers, iter) = lineIterator.headers(csvHeaders, delimiter)
+      val (headers, unchecked) = lineIterator.headers(csvHeaders, delimiter)
+      val iter = InferrerOps.validateHeaderWidth(headers, unchecked, delimiter)
 
       if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
       end if
@@ -583,6 +584,7 @@ object CSV:
                     typeInferrerExpr match
 
                       case '{ TypeInferrer.FromTuple[t]() } =>
+                        InferrerOps.validateTupleArity(headers, TypeRepr.of[t])
                         constructRowIterator[hdrs & Tuple, t & Tuple]
 
                       case '{ TypeInferrer.StringType } =>
@@ -622,6 +624,7 @@ object CSV:
                     typeInferrerExpr match
 
                       case '{ TypeInferrer.FromTuple[t]() } =>
+                        InferrerOps.validateTupleArity(headers, TypeRepr.of[t])
                         val arrayTypeRepr = toArrayTupleType(TypeRepr.of[t])
                         arrayTypeRepr.asType match
                           case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
@@ -758,7 +761,8 @@ object CSV:
     end if
 
     val lines = content.linesIterator
-    val (headers, iter) = lines.headers(csvHeaders, delimiter)
+    val (headers, unchecked) = lines.headers(csvHeaders, delimiter)
+    val iter = InferrerOps.validateHeaderWidth(headers, unchecked, delimiter)
 
     if headers.length != headers.distinct.length then report.info("Possible duplicated headers detected.")
 
@@ -880,6 +884,7 @@ object CSV:
                   typeInferrerExpr match
 
                     case '{ TypeInferrer.FromTuple[t]() } =>
+                      InferrerOps.validateTupleArity(headers, TypeRepr.of[t])
                       constructRowIterator[hdrs & Tuple, t & Tuple]
 
                     case '{ TypeInferrer.StringType } =>
@@ -919,6 +924,7 @@ object CSV:
                   typeInferrerExpr match
 
                     case '{ TypeInferrer.FromTuple[t]() } =>
+                      InferrerOps.validateTupleArity(headers, TypeRepr.of[t])
                       val arrayTypeRepr = toArrayTupleType(TypeRepr.of[t])
                       arrayTypeRepr.asType match
                         case '[arrTup] => constructColumnArrays[hdrs & Tuple, arrTup & Tuple]
@@ -1030,7 +1036,12 @@ object CSV:
           throw new IllegalStateException(s"Number of headers in CSV (${hdrs.length}) does not match number (${sizeOfV}) of types provided for decoding.")
         end if
 
-        new CsvIterator[K, V](iterator, hdrs, ',', Some(source))
+        // Matching K and V is not enough: the file's data rows have to be that wide too, or the decoded tuple won't line up with the names.
+        val checkedIterator = HeaderOptionsProcessing.validateDataWidth(hdrs, iterator, ',') match
+          case Left(msg)   => throw new IllegalArgumentException(s"$msg (in ${path.platformPathString})")
+          case Right(rows) => rows
+
+        new CsvIterator[K, V](checkedIterator, hdrs, ',', Some(source))
       catch
         case e: Throwable =>
           source.close()
