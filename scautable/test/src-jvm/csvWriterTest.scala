@@ -141,4 +141,78 @@ class CSVWriterSuite extends munit.FunSuite:
     assertEquals(data.toCsvString(false, ',', '"'), "")
   }
 
+  test("Option columns: Some(x) writes x, None writes an empty field") {
+    val data = List(
+      (id = Option(3), name = Option("Alice")),
+      (id = None, name = None),
+      (id = Some(5), name = Some("Bob"))
+    )
+
+    val expected = """id,name
+3,Alice
+,
+5,Bob"""
+
+    assertNoDiff(data.toCsvString(true, ',', '"'), expected)
+    assertEquals(
+      data.toCsv(true, ',', '"').toSeq,
+      Seq("id,name", "3,Alice", ",", "5,Bob")
+    )
+    assertEquals(
+      data.iterator.toCsv(false, ',', '"').toSeq,
+      Seq("3,Alice", ",", "5,Bob")
+    )
+  }
+
+  test("Option columns: nested options and values needing quotes are unwrapped") {
+    val data = List(
+      (a = Option(Option(1)), b = Option("x,y")),
+      (a = Option(Option.empty[Int]), b = Option.empty[String])
+    )
+    assertEquals(
+      data.toCsv(false, ',', '"').toSeq,
+      Seq("1,\"x,y\"", ",")
+    )
+  }
+
+  test("Option columns round trip through writeCsv and CSV.fromTyped") {
+    val data = List(
+      (id = Option(3), name = Option("Alice"), score = 1.5),
+      (id = Option.empty[Int], name = Option.empty[String], score = 2.5),
+      (id = Option(7), name = Option("Bob"), score = 3.5)
+    )
+    val tmp = os.temp(suffix = ".csv", prefix = "scautable-roundtrip-")
+    data.writeCsv(path = Some(tmp))
+
+    assertEquals(os.read(tmp), "id,name,score\n3,Alice,1.5\n,,2.5\n7,Bob,3.5\n")
+
+    val reader = CSV.fromTyped[("id", "name", "score"), (Option[Int], Option[String], Double)]
+    val rows = reader(tmp).toList
+    assertEquals(rows.map(_.id), List(Some(3), None, Some(7)))
+    assertEquals(rows.map(_.name), List(Some("Alice"), None, Some("Bob")))
+    assertEquals(rows.map(_.score), List(1.5, 2.5, 3.5))
+
+    // The iterator writer behaves the same
+    val tmp2 = os.temp(suffix = ".csv", prefix = "scautable-roundtrip-")
+    data.iterator.writeCsvIterator(path = Some(tmp2))
+    assertEquals(os.read(tmp2), os.read(tmp))
+  }
+
+  test("writeCsv with empty data replaces an existing file") {
+    val tmp = os.temp(contents = "stale,content\n1,2\n", suffix = ".csv")
+    val data: List[(col1: String, col2: String)] = List.empty
+    data.writeCsv(path = Some(tmp), includeHeaders = false)
+    assertEquals(os.read(tmp), "")
+
+    data.writeCsv(path = Some(tmp))
+    assertEquals(os.read(tmp), "col1,col2\n")
+  }
+
+  test("writeCsvIterator with empty data replaces an existing file") {
+    val tmp = os.temp(contents = "stale,content\n1,2\n", suffix = ".csv")
+    val data: Iterator[(col1: String, col2: String)] = Iterator.empty
+    data.writeCsvIterator(path = Some(tmp), includeHeaders = false)
+    assertEquals(os.read(tmp), "")
+  }
+
 end CSVWriterSuite
