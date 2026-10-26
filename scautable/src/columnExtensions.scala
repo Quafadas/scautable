@@ -181,8 +181,24 @@ object NamedTupleIteratorExtensions:
 
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 
+    /** Keeps roughly `frac` of the rows, streaming (the iterator is never materialised).
+      *
+      *   - `deterministic = false` (default): each row is kept independently with probability `frac` (Bernoulli sampling), so the result size varies between runs.
+      *   - `deterministic = true`: row `i` (0-based) is kept when `floor((i + 1) * frac) > floor(i * frac)`. This keeps exactly `floor(n * frac)` of `n` rows, evenly spaced across
+      *     the whole input (e.g. `frac = 0.25` keeps every fourth row, `frac = 0.3` keeps 3 rows in every 10), and gives the same rows on every run.
+      *
+      * `frac` is clamped to `[0, 1]`: `frac <= 0` (or `NaN`) keeps no rows, `frac >= 1` keeps every row.
+      */
     def sample(frac: Double, deterministic: Boolean = false): Iterator[NamedTuple[K, V]] =
-      if deterministic then itr.zipWithIndex.filter { case (_, idx) => idx % (1 / frac) == 0 }.map(_._1)
+      if frac.isNaN || frac <= 0 then Iterator.empty
+      else if frac >= 1 then itr
+      else if deterministic then
+        var idx = 0L
+        itr.filter { _ =>
+          val keep = math.floor((idx + 1) * frac) > math.floor(idx * frac)
+          idx += 1
+          keep
+        }
       else itr.filter(_ => rand.nextDouble() < frac)
 
     def renameColumn[From <: String, To <: String](using
