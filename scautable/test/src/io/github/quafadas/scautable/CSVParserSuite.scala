@@ -165,4 +165,35 @@ class CSVParserSuite extends FunSuite:
     val result = CSVParser.parseLine(line)
     assertEquals(result, List("field1", "field2 with \\z invalid escape", "field3"))
   }
+  // RFC 4180 has no backslash escaping: backslashes inside quoted fields are literal characters.
+  test("parseLine should keep backslashes literal in quoted Windows paths") {
+    val line = "id,\"C:\\new\\path\\to\\file.csv\",\"\\\\server\\share\""
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("id", "C:\\new\\path\\to\\file.csv", "\\\\server\\share"))
+  }
+
+  test("parseLine should keep a literal backslash-n two-char sequence in a quoted field") {
+    val line = "a,\"line1\\nline2\\r\",b"
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("a", "line1\\nline2\\r", "b"))
+    assertEquals(result(1).length, 14)
+  }
+
+  test("parseLine should not collapse doubled backslashes in a quoted field") {
+    val line = "\"a\\\\b\",c"
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("a\\\\b", "c"))
+  }
+
+  test("parseLine should close a quoted field that ends in a backslash") {
+    val line = "\"ends with \\\",next,\"C:\\dir\\\""
+    val result = CSVParser.parseLine(line)
+    assertEquals(result, List("ends with \\", "next", "C:\\dir\\"))
+  }
+
+  test("parseLine should treat backslash before delimiter as literal inside quotes") {
+    val line = "\"a\\,b\";c"
+    val result = CSVParser.parseLine(line, delimiter = ';')
+    assertEquals(result, List("a\\,b", "c"))
+  }
 end CSVParserSuite
