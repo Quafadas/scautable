@@ -32,11 +32,11 @@ class SampleSuite extends munit.FunSuite:
     // Every block of 10 consecutive rows contributes exactly 3 rows
     kept.groupBy(_ / 10).values.foreach(block => assertEquals(block.size, 3))
     // Gaps between kept rows are at most ceil(1 / frac)
-    kept.sliding(2).foreach { case List(a, b) => assert(b - a <= 4, s"gap $a -> $b too wide") }
+    kept.zip(kept.tail).foreach((a, b) => assert(b - a <= 4, s"gap $a -> $b too wide"))
 
   test("deterministic sample with frac 0.25 keeps every fourth row"):
     val kept = detIdx(100, 0.25)
-    assertEquals(kept.sliding(2).map { case List(a, b) => b - a }.toSet, Set(4))
+    assertEquals(kept.zip(kept.tail).map((a, b) => b - a).toSet, Set(4))
 
   test("deterministic sample on an empty iterator is empty"):
     assertEquals(detIdx(0, 0.5), Nil)
