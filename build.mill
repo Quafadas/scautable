@@ -1,4 +1,4 @@
-//| mill-version: 1.3.0-M1
+//| mill-version: 1.3.0
 //| mill-jvm-version: 25
 //| mill-jvm-opts: ["-Xmx1g", "-Xms256m", "-Xss2m"]
 //| mvnDeps:
