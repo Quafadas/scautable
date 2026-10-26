@@ -51,7 +51,9 @@ private[scautable] object HeaderOptionsProcessing:
 
   extension (rawRows: Iterator[String])
     def headers(headers: HeaderOptions, delimiter: Char = ','): (Seq[String], Iterator[String]) =
-      val rows = stripBom(rawRows)
+      // Records, not physical lines: a quoted field may contain line breaks. Done here because every reader - compile time and runtime - comes through `headers`, so type
+      // inference and decoding see the same rows.
+      val rows = CSVParser.records(stripBom(rawRows))
       headers match
         case Manual(seq*) =>
           (seq, rows)
