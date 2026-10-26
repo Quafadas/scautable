@@ -57,6 +57,28 @@ class RaggedRowsSuite extends munit.FunSuite:
     assert(typeChecks("""val c: (a: Array[Int], b: Array[Int]) = CSV.fromString("a,b\n1,2\n\n3,4\n\n", CsvOpts(ReadAs.Columns))"""))
   }
 
+  test("Columns - inferred types with blank lines") {
+    val cols = CSV.fromString("a,b\n1,2\n\n3,4\n\n", CsvOpts(ReadAs.Columns))
+    assertEquals(cols.a.toSeq, Seq(1, 3))
+    assertEquals(cols.b.toSeq, Seq(2, 4))
+  }
+
+  test("Columns - a delimiter-only line is a row of empty cells, not a blank line") {
+    val cols = CSV.fromString("a\tb\n1\t2\n\t\n3\t4", CsvOpts(HeaderOptions.Default, TypeInferrer.StringType, '\t', ReadAs.Columns))
+    assertEquals(cols.a.toSeq, Seq("1", "", "3"))
+    assertEquals(cols.b.toSeq, Seq("2", "", "4"))
+  }
+
+  test("Columns - error reports the exception type and fields") {
+    val e = intercept[CsvRowWidthException](CSV.fromString(shortRow, CsvOpts(TypeInferrer.StringType, ReadAs.Columns)))
+    assertEquals((e.dataLine, e.expected, e.actual), (2, 2, 1))
+  }
+
+  test("Columns - line number counts skipped blank lines") {
+    val e = intercept[CsvRowWidthException](CSV.fromString("a,b\n1,2\n\n3", CsvOpts(TypeInferrer.StringType, ReadAs.Columns)))
+    assertEquals(e.dataLine, 3)
+  }
+
   // ---------- Dense, column major ----------
 
   test("ArrayDenseColMajor - short row throws with line number") {
@@ -134,6 +156,12 @@ class RaggedRowsSuite extends munit.FunSuite:
 
   test("Rows - type inference ignores blank lines") {
     assert(typeChecks("""val r: List[(a: Int, b: Int)] = CSV.fromString("a,b\n1,2\n\n3,4\n\n").toList"""))
+  }
+
+  test("Rows - inferred types with blank lines") {
+    val rows = CSV.fromString("a,b\n1,2\n\n3,4\n\n").toList
+    assertEquals(rows.map(_.a), List(1, 3))
+    assertEquals(rows.map(_.b), List(2, 4))
   }
 
 end RaggedRowsSuite

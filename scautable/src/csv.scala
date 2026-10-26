@@ -462,17 +462,7 @@ object CSV:
           val buffers =
             try
               val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
-              val numCols = headers.length
-              val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-              iterator.foreach { line =>
-                val parsed = CSVParser.parseLine(line, $delimiterExpr)
-                var i = 0
-                while i < parsed.length && i < numCols do
-                  bufs(i) += parsed(i)
-                  i += 1
-                end while
-              }
-              bufs
+              CsvRows.fillColumnBuffers(iterator, headers.length, $delimiterExpr)
             finally source.close()
             end try
           end buffers
@@ -499,17 +489,7 @@ object CSV:
           val buffers =
             try
               val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
-              val numCols = headers.length
-              val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-              iterator.foreach { line =>
-                val parsed = CSVParser.parseLine(line, $delimiterExpr)
-                var i = 0
-                while i < parsed.length && i < numCols do
-                  bufs(i) += parsed(i)
-                  i += 1
-                end while
-              }
-              bufs
+              CsvRows.fillColumnBuffers(iterator, headers.length, $delimiterExpr)
             finally source.close()
             end try
           end buffers
@@ -535,17 +515,7 @@ object CSV:
           val buffers =
             try
               val (headers, iterator) = source.getLines().headers($csvHeadersExpr, $delimiterExpr)
-              val numCols = headers.length
-              val bufs = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-              iterator.foreach { line =>
-                val parsed = CSVParser.parseLine(line, $delimiterExpr)
-                var i = 0
-                while i < parsed.length && i < numCols do
-                  bufs(i) += parsed(i)
-                  i += 1
-                end while
-              }
-              bufs
+              CsvRows.fillColumnBuffers(iterator, headers.length, $delimiterExpr)
             finally source.close()
             end try
           end buffers
@@ -780,17 +750,7 @@ object CSV:
         val lines = content.linesIterator
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
 
-        val numCols = headers.length
-        val buffers = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-
-        iterator.foreach { line =>
-          val parsed = CSVParser.parseLine(line, $delimiterExpr)
-          var i = 0
-          while i < parsed.length && i < numCols do
-            buffers(i) += parsed(i)
-            i += 1
-          end while
-        }
+        val buffers = CsvRows.fillColumnBuffers(iterator, headers.length, $delimiterExpr)
 
         val typedColumns = ColumnsDecoder.decodeAllColumns[ArrayData](buffers)
         NamedTuple.build[Hdrs & Tuple]()(typedColumns)
@@ -808,17 +768,7 @@ object CSV:
         val lines = content.linesIterator
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
 
-        val numCols = headers.length
-        val buffers = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-
-        iterator.foreach { line =>
-          val parsed = CSVParser.parseLine(line, $delimiterExpr)
-          var i = 0
-          while i < parsed.length && i < numCols do
-            buffers(i) += parsed(i)
-            i += 1
-          end while
-        }
+        val buffers = CsvRows.fillColumnBuffers(iterator, headers.length, $delimiterExpr)
 
         buffers
       }
@@ -837,17 +787,7 @@ object CSV:
         val lines = content.linesIterator
         val (headers, iterator) = lines.headers($csvHeadersExpr, $delimiterExpr)
 
-        val numCols = headers.length
-        val buffers = Array.fill(numCols)(scala.collection.mutable.ArrayBuffer[String]())
-
-        iterator.foreach { line =>
-          val parsed = CSVParser.parseLine(line, $delimiterExpr)
-          var i = 0
-          while i < parsed.length && i < numCols do
-            buffers(i) += parsed(i)
-            i += 1
-          end while
-        }
+        val buffers = CsvRows.fillColumnBuffers(iterator, headers.length, $delimiterExpr)
 
         buffers
       }

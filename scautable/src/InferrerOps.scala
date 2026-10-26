@@ -51,9 +51,11 @@ private[scautable] object InferrerOps:
     end if
   end inferMostGeneralType
 
-  def inferrer(using Quotes)(rows: Iterator[String], preferIntToBoolean: Boolean, numRows: Int = 1, delimiter: Char = ',') =
+  def inferrer(using Quotes)(allRows: Iterator[String], preferIntToBoolean: Boolean, numRows: Int = 1, delimiter: Char = ',') =
     import quotes.reflect.*
 
+    // Blank lines are skipped at runtime by every read mode, so they must not take part in inference either.
+    val rows = allRows.filterNot(CsvRows.isBlank(_, delimiter))
     validateInput(rows, numRows)
 
     val sampleRows = rows.take(numRows).toList
