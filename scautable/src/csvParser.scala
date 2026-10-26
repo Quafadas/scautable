@@ -1,6 +1,9 @@
 package io.github.quafadas.scautable
 
-/** According to chatGPT will parse RFC 4180 compliant CSV line.
+/** Parses a single RFC 4180 CSV line.
+  *
+  * The only escape mechanism is the doubled quote (`""` inside a quoted field becomes `"`). Backslashes have no special meaning and are kept literally, so values such as Windows
+  * paths (`"C:\new\path"`) round-trip unchanged.
   */
 private[scautable] object CSVParser:
   def parseLine(line: String, delimiter: Char = ',', quote: Char = '"'): List[String] =
@@ -26,36 +29,6 @@ private[scautable] object CSVParser:
           else
             // End of quoted section
             inQuotes = false
-
-        case '\\' if inQuotes && i + 1 < line.length =>
-          // Handle backslash-escaped characters
-          val nextChar = line.charAt(i + 1)
-          nextChar match
-            case 'n' =>
-              // Escaped linefeed
-              cellBuffer.append('\n')
-              i += 1
-            case 'r' =>
-              // Escaped carriage return
-              cellBuffer.append('\r')
-              i += 1
-            case '\\' =>
-              // Escaped backslash
-              cellBuffer.append('\\')
-              i += 1
-            case `delimiter` =>
-              // Escaped delimiter
-              cellBuffer.append(delimiter)
-              i += 1
-            case `quote` =>
-              // Escaped quote character
-              cellBuffer.append(quote)
-              i += 1
-            case _ =>
-              // Unknown escape sequence - treat backslash literally
-              cellBuffer.append('\\')
-              // Don't increment i, let the next character be processed normally
-          end match
 
         case `delimiter` if !inQuotes =>
           // Delimiter outside quotes ends the current cell

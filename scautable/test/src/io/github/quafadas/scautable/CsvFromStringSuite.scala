@@ -282,4 +282,17 @@ class CsvFromStringSuite extends FunSuite:
     assert(!csvIterator.hasNext)
   }
 
+  test("fromString should keep backslashes literal in quoted fields (RFC 4180)") {
+    inline val csvContent = "id,path,note\n1,\"C:\\new\\path\",\"ends with \\\"\n2,\"a\\\\b\",\"tab\\tliteral\""
+    val rows = CSV.fromString(csvContent, HeaderOptions.Default, TypeInferrer.StringType).toList
+
+    assertEquals(rows.length, 2)
+    assertEquals(rows(0).id, "1")
+    assertEquals(rows(0).path, "C:\\new\\path")
+    assertEquals(rows(0).note, "ends with \\")
+    assertEquals(rows(1).id, "2")
+    assertEquals(rows(1).path, "a\\\\b")
+    assertEquals(rows(1).note, "tab\\tliteral")
+  }
+
 end CsvFromStringSuite
