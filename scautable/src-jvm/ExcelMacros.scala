@@ -325,6 +325,7 @@ object ExcelMacros:
         throw new BadTableException(s"Failed to open Excel file: $filePath")
       )
     val sheet = workbook.getSheet(sheetName)
+    val cellReader = ExcelCells.Reader()
 
     colRange match
       case Some(range) if range.nonEmpty =>
@@ -332,10 +333,10 @@ object ExcelMacros:
         val firstRow = sheet.getRow(cellRange.getFirstRow)
         val cells =
           for i <- cellRange.getFirstColumn to cellRange.getLastColumn
-          yield firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+          yield cellReader.text(firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK))
         cells.toList
       case _ =>
-        if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(_.toString)
+        if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(cellReader.text)
         else throw new BadTableException("No headers found in the first row of the sheet, and no range specified.")
     end match
   end extractHeaders
@@ -465,73 +466,66 @@ object ExcelMacros:
         seenEmpty: Boolean = false
     )
 
+    def notScalar(info: ColumnTypeInfo): ColumnTypeInfo =
+      info.copy(
+        couldBeInt = false,
+        couldBeLong = false,
+        couldBeDouble = false,
+        couldBeBoolean = false
+      )
+
+    def fromString(info: ColumnTypeInfo, str: String): ColumnTypeInfo =
+      if str.isEmpty then info.copy(seenEmpty = true)
+      else
+        info.copy(
+          couldBeInt = info.couldBeInt && str.toIntOption.isDefined,
+          couldBeLong = info.couldBeLong && str.toLongOption.isDefined,
+          couldBeDouble = info.couldBeDouble && str.toDoubleOption.isDefined,
+          couldBeBoolean = info.couldBeBoolean && (str.toBooleanOption.isDefined || str == "0" || str == "1")
+        )
+
+    def fromNumber(info: ColumnTypeInfo, numericValue: Double): ColumnTypeInfo =
+      val isWholeNumber = numericValue == numericValue.toLong && !numericValue.isInfinite && !numericValue.isNaN
+      info.copy(
+        couldBeInt = info.couldBeInt && isWholeNumber && numericValue >= Int.MinValue && numericValue <= Int.MaxValue,
+        couldBeLong = info.couldBeLong && isWholeNumber && numericValue >= Long.MinValue && numericValue <= Long.MaxValue,
+        couldBeDouble = info.couldBeDouble && !numericValue.isInfinite && !numericValue.isNaN, // All finite numeric values can be Double
+        // Be more conservative with Boolean inference for numeric cells - only if it's exactly 0 or 1
+        couldBeBoolean = info.couldBeBoolean && isWholeNumber && (numericValue == 0.0 || numericValue == 1.0)
+      )
+    end fromNumber
+
+    def fromBoolean(info: ColumnTypeInfo): ColumnTypeInfo =
+      info.copy(
+        couldBeInt = false,
+        couldBeLong = false,
+        couldBeDouble = false
+      )
+
+    // One evaluator for the column, so POI's evaluation cache is shared across its cells
+    val reader = ExcelCells.Reader()
+
     def updateTypeInfo(info: ColumnTypeInfo, cell: Cell): ColumnTypeInfo =
       cell.getCellType match
-        case CellType.BLANK =>
-          info.copy(seenEmpty = true)
-        case CellType.STRING =>
-          val str = cell.getStringCellValue
-          if str.isEmpty then info.copy(seenEmpty = true)
-          else
-            info.copy(
-              couldBeInt = info.couldBeInt && str.toIntOption.isDefined,
-              couldBeLong = info.couldBeLong && str.toLongOption.isDefined,
-              couldBeDouble = info.couldBeDouble && str.toDoubleOption.isDefined,
-              couldBeBoolean = info.couldBeBoolean && (str.toBooleanOption.isDefined || str == "0" || str == "1")
-            )
-          end if
+        case CellType.BLANK   => info.copy(seenEmpty = true)
+        case CellType.STRING  => fromString(info, cell.getStringCellValue)
         case CellType.NUMERIC =>
-          if DateUtil.isCellDateFormatted(cell) then
-            // TODO: Dates are represented as strings for consistency with CSV behavior
-            info.copy(
-              couldBeInt = false,
-              couldBeLong = false,
-              couldBeDouble = false,
-              couldBeBoolean = false
-            )
-          else
-            val numericValue = cell.getNumericCellValue
-            val isWholeNumber = numericValue == numericValue.toLong && !numericValue.isInfinite && !numericValue.isNaN
-            info.copy(
-              couldBeInt = info.couldBeInt && isWholeNumber && numericValue >= Int.MinValue && numericValue <= Int.MaxValue,
-              couldBeLong = info.couldBeLong && isWholeNumber && numericValue >= Long.MinValue && numericValue <= Long.MaxValue,
-              couldBeDouble = info.couldBeDouble && !numericValue.isInfinite && !numericValue.isNaN, // All finite numeric values can be Double
-              // Be more conservative with Boolean inference for numeric cells - only if it's exactly 0 or 1
-              couldBeBoolean = info.couldBeBoolean && isWholeNumber && (numericValue == 0.0 || numericValue == 1.0)
-            )
-        case CellType.BOOLEAN =>
-          info.copy(
-            couldBeInt = false,
-            couldBeLong = false,
-            couldBeDouble = false
-          )
+          // TODO: Dates are represented as strings for consistency with CSV behavior
+          if DateUtil.isCellDateFormatted(cell) then notScalar(info)
+          else fromNumber(info, cell.getNumericCellValue)
+        case CellType.BOOLEAN => fromBoolean(info)
         case CellType.FORMULA =>
-          // For formulas, evaluate the result and recurse
-          try
-            val evaluatedCell = cell.getSheet.getWorkbook.getCreationHelper.createFormulaEvaluator().evaluate(cell)
-            if evaluatedCell != null then
-              // Create a temporary cell with the evaluated value to determine type
-              val tempCell = cell.getRow.createCell(cell.getColumnIndex + 1000, evaluatedCell.getCellType)
-              evaluatedCell.getCellType match
-                case CellType.NUMERIC => tempCell.setCellValue(evaluatedCell.getNumberValue)
-                case CellType.STRING  => tempCell.setCellValue(evaluatedCell.getStringValue)
-                case CellType.BOOLEAN => tempCell.setCellValue(evaluatedCell.getBooleanValue)
-                case _                => // Keep current info for other types
-              end match
-              val result = updateTypeInfo(info, tempCell)
-              cell.getRow.removeCell(tempCell) // Clean up
-              result
-            else info
-            end if
-          catch case _ => info // If formula evaluation fails, keep current info
-        case _ =>
-          // For other cell types (ERROR, etc.), treat as string
-          info.copy(
-            couldBeInt = false,
-            couldBeLong = false,
-            couldBeDouble = false,
-            couldBeBoolean = false
-          )
+          // Classify the result the way ExcelCells.text renders it at runtime. A formula with no result reads as "", so it is a missing value.
+          ExcelCells.formulaResult(cell, reader.evaluator(cell)) match
+            case None    => info.copy(seenEmpty = true)
+            case Some(v) =>
+              v.getCellType match
+                case CellType.NUMERIC if ExcelCells.isDate(cell, v.getNumberValue) => notScalar(info)
+                case CellType.NUMERIC                                              => fromNumber(info, v.getNumberValue)
+                case CellType.STRING                                               => fromString(info, v.getStringValue)
+                case CellType.BOOLEAN                                              => fromBoolean(info)
+                case _                                                             => notScalar(info)
+        case _ => notScalar(info) // For other cell types (ERROR, etc.), treat as string
     end updateTypeInfo
 
     val initial = ColumnTypeInfo()
