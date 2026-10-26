@@ -5,8 +5,21 @@ import io.github.quafadas.table.HeaderOptions.*
 
 /** Internal extension methods for processing raw CSV rows according to HeaderOptions. */
 private[scautable] object HeaderOptionsProcessing:
-  extension (rows: Iterator[String])
+  private val Bom: Char = 0xfeff
+
+  /** Drops a UTF-8 byte order mark from the first line. `scala.io.Source` keeps it, and left in place it sticks to the first header (and stops a quoted header being seen as
+    * quoted). Every reader - compile time and runtime - goes through `headers`, so stripping here keeps the inferred types and the data in agreement.
+    */
+  private def stripBom(rows: Iterator[String]): Iterator[String] =
+    val buffered = rows.buffered
+    if buffered.hasNext && buffered.head.headOption.contains(Bom) then Iterator.single(buffered.next().substring(1)) ++ buffered
+    else buffered
+    end if
+  end stripBom
+
+  extension (rawRows: Iterator[String])
     def headers(headers: HeaderOptions, delimiter: Char = ','): (Seq[String], Iterator[String]) =
+      val rows = stripBom(rawRows)
       headers match
         case Manual(seq*) =>
           (seq, rows)
@@ -37,5 +50,6 @@ private[scautable] object HeaderOptionsProcessing:
           val firstLine = CSVParser.parseLine(buffered.head, delimiter)
           val headers = firstLine.indices.map(i => s"col_$i")
           (headers, buffered)
+      end match
   end extension
 end HeaderOptionsProcessing
