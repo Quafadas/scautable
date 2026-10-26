@@ -782,4 +782,31 @@ class StatsSuite extends munit.FunSuite:
     assertEqualsDouble(s.min, 1.0, 0.0)
     assertEqualsDouble(s.max, 100.0, 0.0)
 
+  // ---- Bounded memory: exact up to QuantileSketch.DefaultExactLimit values, t-digest beyond ----
+
+  test("QuantileSketch is exact at the limit and switches to t-digest one value past it"):
+    val limit = Stats.QuantileSketch.DefaultExactLimit
+    val atLimit = Stats.QuantileSketch()
+    (1 to limit).foreach(i => atLimit.add(i.toDouble))
+    assert(atLimit.isExact)
+    assertEqualsDouble(atLimit.quantile(0.5), (limit + 1) / 2.0, 1e-9)
+
+    val pastLimit = Stats.QuantileSketch()
+    (1 to limit + 1).foreach(i => pastLimit.add(i.toDouble))
+    assert(!pastLimit.isExact)
+    assertEqualsDouble(pastLimit.min, 1.0, 0.0)
+    assertEqualsDouble(pastLimit.max, (limit + 1).toDouble, 0.0)
+
+  test("Iterator numericSummary streams a long column and stays close to exact quantiles"):
+    val n = 200000
+    // A shuffled permutation of 1..n, so the digest sees unsorted input.
+    val values = scala.util.Random(42).shuffle((1 to n).toVector)
+    val s = values.iterator.map(v => (v = v)).numericSummary.head
+    val tolerance = n * 0.005 // 0.5% of the range
+    assertEqualsDouble(s.`0.25`, 0.25 * (n - 1) + 1, tolerance)
+    assertEqualsDouble(s.median, 0.5 * (n - 1) + 1, tolerance)
+    assertEqualsDouble(s.`0.75`, 0.75 * (n - 1) + 1, tolerance)
+    assertEqualsDouble(s.min, 1.0, 0.0)
+    assertEqualsDouble(s.max, n.toDouble, 0.0)
+
 end StatsSuite
