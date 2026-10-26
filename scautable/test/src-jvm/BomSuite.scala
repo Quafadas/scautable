@@ -47,6 +47,26 @@ class BomSuite extends munit.FunSuite:
     assertEquals(rows.map(_.col1), List(1, 3))
   }
 
+  // Read with an explicit UTF-8 codec, so this holds even where the platform default charset is not UTF-8 (Windows on JDK 17 and earlier). Decoded as windows-1252, the BOM
+  // would arrive as "ï»¿" and never be stripped, and the non-ASCII text would be garbled.
+  test("BOM-prefixed CSV with non-ASCII headers and values decodes as UTF-8") {
+    val csv: CsvIterator[("Stadt", "Größe", "Notiz"), (String, Double, String)] = CSV.resource("bom_utf8_non_ascii.csv")
+
+    assertEquals(csv.headers, Seq("Stadt", "Größe", "Notiz"))
+    val rows = csv.toList
+    assertEquals(rows.map(_.Stadt), List("Zürich", "São Paulo"))
+    assertEquals(rows.map(_.Notiz), List("café", "日本語"))
+  }
+
+  test("BOM-prefixed CSV with non-ASCII text via runtime fromTyped") {
+    val reader = CSV.fromTyped[("Stadt", "Größe", "Notiz"), (String, Double, String)]
+    val path = os.Path(this.getClass.getClassLoader.getResource("bom_utf8_non_ascii.csv").getPath)
+
+    val rows = reader(path).toList
+    assertEquals(rows.map(_.Stadt), List("Zürich", "São Paulo"))
+    assertEquals(rows.map(_.Notiz), List("café", "日本語"))
+  }
+
   test("CSV without a BOM is unchanged") {
     val csv: CsvIterator[("col1", "col2", "col3"), (Int, Int, Int)] = CSV.resource("simple.csv")
     assertEquals(csv.headers, Seq("col1", "col2", "col3"))

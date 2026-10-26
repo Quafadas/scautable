@@ -1,5 +1,6 @@
 package io.github.quafadas.scautable.json
 
+import scala.io.Codec
 import scala.io.Source
 import scala.quoted.*
 
@@ -132,7 +133,7 @@ object JsonTable:
     end if
 
     // Use streaming for compile-time type inference
-    val source = Source.fromURL(resourcePath)
+    val source = Source.fromURL(resourcePath)(using Codec.UTF8)
     try
       val objects = StreamingJsonParser.parseArrayFromSource(source)
       processJsonArrayFromFile(objects, pathExpr, typeInferrerExpr, isResource = true)
@@ -145,7 +146,7 @@ object JsonTable:
 
     val path = pathExpr.valueOrAbort
     val source =
-      try Source.fromFile(path)
+      try Source.fromFile(path)(using Codec.UTF8)
       catch
         case e: Exception =>
           report.throwError(s"Failed to read file at path $path: ${e.getMessage}")
@@ -174,7 +175,7 @@ object JsonTable:
       "This method saves the JSON to a local temp file and opens it. There may be performance implications - it is recommended to use one of the other methods where possible."
     )
 
-    val source = Source.fromURL(urlExpr.valueOrAbort)
+    val source = Source.fromURL(urlExpr.valueOrAbort)(using Codec.UTF8)
     val tmpPath = java.nio.file.Files.createTempFile("temp_json_", ".json")
     java.nio.file.Files.writeString(tmpPath, source.mkString)
 
