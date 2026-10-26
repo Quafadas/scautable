@@ -56,8 +56,8 @@ private[scautable] object CSVParser:
     *
     * Line breaks inside a quoted field come back as `\n` whatever the file used (`\r\n` included), since the line iterators have already dropped the original terminator.
     *
-    * The quote tracking mirrors `parseLine` exactly - a doubled quote (`""`) stays inside the field, and so does a backslash-escaped quote or backslash - so that the records found
-    * here are the ones `parseLine` will agree on. Keep the two in step.
+    * The quote tracking mirrors `parseLine` exactly - a doubled quote (`""`) stays inside the field and backslashes are ordinary characters - so that the records found here are
+    * the ones `parseLine` will agree on. Keep the two in step.
     *
     * An unterminated quote swallows the rest of the input into a single record, which is what `parseLine` would do with it anyway.
     */
@@ -90,11 +90,6 @@ private[scautable] object CSVParser:
         if !open then open = true
         else if i + 1 < line.length && line.charAt(i + 1) == quote then i += 1 // RFC 4180 doubled quote
         else open = false
-      else if c == '\\' && open && i + 1 < line.length then
-        val n = line.charAt(i + 1)
-        // `parseLine` consumes the character after the backslash for these; only a quote or backslash can change the quote state.
-        if n == quote || n == '\\' then i += 1
-        end if
       end if
       i += 1
     end while

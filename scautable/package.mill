@@ -10,7 +10,9 @@ object `package` extends Module:
 
   trait SharedModule extends build.Common with PlatformScalaModule
 
-  trait SharedTest extends SharedModule with TestModule.Munit with build.CommonTests
+  trait SharedTest extends SharedModule with TestModule.Munit with build.CommonTests:
+    override def mvnDeps = super.mvnDeps() ++ Seq(build.Config.munitScalacheck)
+  end SharedTest
 
   object jvm extends SharedModule with ScalaModule with build.PublishModule:
     override def mvnDeps = super.mvnDeps() ++ Seq(
