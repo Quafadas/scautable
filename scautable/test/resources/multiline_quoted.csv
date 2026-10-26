@@ -1,0 +1,6 @@
+id,note,score
+1,"line one
+line two",1.5
+2,plain,2.5
+3,"has ""quotes""
+and, a comma",3.5
