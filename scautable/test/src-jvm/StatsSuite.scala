@@ -1,7 +1,5 @@
 package io.github.quafadas.scautable
 
-import com.tdunning.math.stats.TDigest
-
 import io.github.quafadas.table.*
 
 class StatsSuite extends munit.FunSuite:
@@ -26,7 +24,7 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(valueStats.mean, 30.0)
     assertEquals(valueStats.min, 10.0)
     assertEquals(valueStats.max, 50.0)
-    assertEquals(valueStats.median, 30.0, 0.1) // TDigest is approximate
+    assertEquals(valueStats.median, 30.0, 0.1)
 
     // Find the 'id' column statistics
     val idStats = result.find(_.name == "id").get
@@ -85,7 +83,7 @@ class StatsSuite extends munit.FunSuite:
     val result = data.numericSummary
     val valueStats = result.find(_.name == "value").get
 
-    // Check percentiles (allowing for TDigest approximation)
+    // Check percentiles (exact, linear interpolation: 3.25, 5.5, 7.75)
     assert(valueStats.`0.25` >= 2.0 && valueStats.`0.25` <= 4.0, s"25th percentile should be around 2.5-3.5, got ${valueStats.`0.25`}")
     assert(valueStats.median >= 4.5 && valueStats.median <= 6.5, s"Median should be around 5.5, got ${valueStats.median}")
     assert(valueStats.`0.75` >= 6.5 && valueStats.`0.75` <= 8.5, s"75th percentile should be around 7.5-8.5, got ${valueStats.`0.75`}")
@@ -342,7 +340,7 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(valueStats.mean, 30.0)
     assertEquals(valueStats.min, 10.0)
     assertEquals(valueStats.max, 50.0)
-    assertEquals(valueStats.median, 30.0, 0.1) // TDigest is approximate
+    assertEquals(valueStats.median, 30.0, 0.1)
 
     // Find the 'id' column statistics
     val idStats = result.find(_.name == "id").get
@@ -424,7 +422,7 @@ class StatsSuite extends munit.FunSuite:
       assertEqualsDouble(iterable.mean, iterator.mean, 0.0001)
       assertEqualsDouble(iterable.min, iterator.min, 0.0001)
       assertEqualsDouble(iterable.max, iterator.max, 0.0001)
-      assertEqualsDouble(iterable.median, iterator.median, 0.1) // TDigest approximation
+      assertEqualsDouble(iterable.median, iterator.median, 0.1)
       assertEqualsDouble(iterable.`0.25`, iterator.`0.25`, 0.1)
       assertEqualsDouble(iterable.`0.75`, iterator.`0.75`, 0.1)
     end for
@@ -653,7 +651,7 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(valueStats.mean, 3.0, 0.01) // (1.0 + 3.0 + 5.0) / 3 = 3.0
     assertEquals(valueStats.min, 1.0, 0.01)
     assertEquals(valueStats.max, 5.0, 0.01)
-    assertEquals(valueStats.median, 3.0, 0.1) // TDigest approximation
+    assertEquals(valueStats.median, 3.0, 0.1)
 
     // id column should still work normally
     val idStats = result.find(_.name == "id").get
@@ -678,7 +676,7 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(valueStats.mean, 4.0, 0.01) // (2.0 + 4.0 + 6.0) / 3 = 4.0
     assertEquals(valueStats.min, 2.0, 0.01)
     assertEquals(valueStats.max, 6.0, 0.01)
-    assertEquals(valueStats.median, 4.0, 0.1) // TDigest approximation
+    assertEquals(valueStats.median, 4.0, 0.1)
 
     // id column should still work normally
     val idStats = result.find(_.name == "id").get
@@ -691,6 +689,7 @@ class StatsSuite extends munit.FunSuite:
     assertEqualsDouble(q25, eq25, 1e-9, s"$clue: 0.25 quantile")
     assertEqualsDouble(median, emedian, 1e-9, s"$clue: median")
     assertEqualsDouble(q75, eq75, 1e-9, s"$clue: 0.75 quantile")
+  end assertQuantiles
 
   test("Iterable numericSummary quantiles for [1,2,3,4] match numpy linear interpolation"):
     val s = List((v = 1), (v = 2), (v = 3), (v = 4)).numericSummary.head

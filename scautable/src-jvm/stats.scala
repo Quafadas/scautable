@@ -5,15 +5,70 @@ import scala.collection.BuildFrom
 import scala.compiletime.constValueTuple
 import scala.util.Random
 
-import com.tdunning.math.stats.TDigest
-
 import io.github.quafadas.scautable.ColumnFormat.*
 import io.github.quafadas.scautable.ConsoleFormat.ptbln
 import io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
 
 object Stats:
 
-  type StatsContext[T] = (typ: String, sum: Double, count: Int, mean: Double, digest: TDigest)
+  /** Accumulates the non-missing values of a numeric column so that quantiles can be computed exactly.
+    *
+    * Values are stored in a growable primitive `Array[Double]` (no boxing) and sorted once, lazily, the first time a quantile, `min` or `max` is requested. Quantiles use linear
+    * interpolation between closest ranks (Hyndman & Fan type 7), which is the default of `numpy.quantile`, `pandas.Series.quantile` and R's `quantile`.
+    *
+    * Memory is O(n) per numeric column. That is a deliberate trade for exactness: scautable targets "small" data, and an approximate sketch (e.g. t-digest) gives badly wrong
+    * medians for small samples.
+    */
+  final class ExactQuantiles:
+    private var values: Array[Double] = new Array[Double](16)
+    private var n: Int = 0
+    private var sorted: Boolean = true
+
+    def add(v: Double): Unit =
+      if n == values.length then values = java.util.Arrays.copyOf(values, n * 2)
+      end if
+      values(n) = v
+      n += 1
+      sorted = false
+    end add
+
+    def size: Int = n
+
+    private def ensureSorted(): Unit =
+      if !sorted then
+        java.util.Arrays.sort(values, 0, n)
+        sorted = true
+    end ensureSorted
+
+    /** Minimum of the added values, or `NaN` if none were added. */
+    def min: Double =
+      ensureSorted()
+      if n == 0 then Double.NaN else values(0)
+      end if
+    end min
+
+    /** Maximum of the added values, or `NaN` if none were added. */
+    def max: Double =
+      ensureSorted()
+      if n == 0 then Double.NaN else values(n - 1)
+      end if
+    end max
+
+    /** The `p`-quantile (0 <= p <= 1) using linear interpolation (type 7), or `NaN` if no values were added. */
+    def quantile(p: Double): Double =
+      require(p >= 0.0 && p <= 1.0, s"quantile must be in [0, 1], got $p")
+      ensureSorted()
+      if n == 0 then Double.NaN
+      else
+        val h = (n - 1) * p
+        val lo = math.floor(h).toInt
+        val hi = math.min(lo + 1, n - 1)
+        values(lo) + (h - lo) * (values(hi) - values(lo))
+      end if
+    end quantile
+  end ExactQuantiles
+
+  type StatsContext[T] = (typ: String, sum: Double, count: Int, mean: Double, digest: ExactQuantiles)
 
   type NonNumericStatsContext[T] = (uniqueValues: Set[String], counts: scala.collection.mutable.Map[String, Int])
 
@@ -25,7 +80,8 @@ object Stats:
     /** Computes comprehensive statistical summaries for all numeric columns in the dataset.
       *
       * This method processes an `Iterator` of `NamedTuple`s and calculates descriptive statistics for each column that contains numeric data (Int, Long, Double, or Option-wrapped
-      * versions). Non-numeric columns are ignored. The computation uses T-Digest for efficient quantile estimation, making it suitable for large datasets.
+      * versions). Non-numeric columns are ignored. Quantiles are exact, using linear interpolation (the numpy / pandas default); all non-missing values of each numeric column are
+      * held in memory.
       *
       * The method handles missing values gracefully:
       *   - `None` values in `Option` types are excluded from calculations
@@ -61,7 +117,7 @@ object Stats:
         // Use the first row to initialize the stats structure
         val firstRow = nt.next()
         val zeroValue = firstRow.map[StatsContext] { [T] => (value: T) =>
-          val digest = TDigest.createDigest(100)
+          val digest = new ExactQuantiles()
 
           // Enhanced runtime type detection that handles Option types properly
           val typ = value match
@@ -95,7 +151,7 @@ object Stats:
         val res = nt.foldLeft(zeroValue) { (acc, row) =>
           val result = acc.zip(row).map[StatsContext] { [T] => (t: T) =>
             t match
-              case ((typ: String, sum: Double, count: Int, mean: Double, digestA: TDigest), incA) =>
+              case ((typ: String, sum: Double, count: Int, mean: Double, digestA: ExactQuantiles), incA) =>
                 val incADouble = incA match
                   case v: Double       => v
                   case v: Int          => v.toDouble
@@ -143,8 +199,8 @@ object Stats:
         }
 
         val headers: List[String] = constValueTuple[K].toList.map(_.toString())
-        val asList: List[(typ: String, sum: Double, count: Int, mean: Double, digest: TDigest)] =
-          res.toList.asInstanceOf[List[(typ: String, sum: Double, count: Int, mean: Double, digest: TDigest)]]
+        val asList: List[(typ: String, sum: Double, count: Int, mean: Double, digest: ExactQuantiles)] =
+          res.toList.asInstanceOf[List[(typ: String, sum: Double, count: Int, mean: Double, digest: ExactQuantiles)]]
         headers
           .zip(asList)
           .map { case (name, res) => (name = name) ++ res }
@@ -153,11 +209,11 @@ object Stats:
               name = p.name,
               typ = p.typ,
               mean = p.mean,
-              min = p.digest.getMin,
+              min = p.digest.min,
               `0.25` = p.digest.quantile(0.25),
               median = p.digest.quantile(0.5),
               `0.75` = p.digest.quantile(0.75),
-              max = p.digest.getMax
+              max = p.digest.max
             )
           }
 
@@ -260,7 +316,7 @@ object Stats:
   extension [K <: Tuple, V <: Tuple](nt: Iterable[NamedTuple[K, V]])
 
     private inline def zeroStatsValue = nt.head.map[StatsContext] { [T] => (value: T) =>
-      val digest = TDigest.createDigest(100)
+      val digest = new ExactQuantiles()
 
       // We'll start with empty stats
       val base = (sum = 0.0, count = 0, mean = 0.0, digest = digest)
@@ -370,7 +426,8 @@ object Stats:
     /** Computes comprehensive statistical summaries for all numeric columns in the dataset.
       *
       * This method processes an `Iterable` of `NamedTuple`s and calculates descriptive statistics for each column that contains numeric data (Int, Long, Double, or Option-wrapped
-      * versions). Non-numeric columns are ignored. The computation uses T-Digest for efficient quantile estimation, making it suitable for large datasets.
+      * versions). Non-numeric columns are ignored. Quantiles are exact, using linear interpolation (the numpy / pandas default); all non-missing values of each numeric column are
+      * held in memory.
       *
       * The method handles missing values gracefully:
       *   - `None` values in `Option` types are excluded from calculations
@@ -405,7 +462,7 @@ object Stats:
       val res = nt.foldLeft(zeroValue) { (acc, row) =>
         val result = acc.zip(row).map[StatsContext] { [T] => (t: T) =>
           t match
-            case ((typ: String, sum: Double, count: Int, mean: Double, digestA: TDigest), incA) =>
+            case ((typ: String, sum: Double, count: Int, mean: Double, digestA: ExactQuantiles), incA) =>
               // Use helper function for type-safe numeric conversion
 
               val incADouble = incA match
@@ -454,8 +511,8 @@ object Stats:
         result.asInstanceOf[NamedTuple[K, Tuple.Map[V, StatsContext]]]
       }
       val headers: List[String] = constValueTuple[K].toList.map(_.toString())
-      val asList: List[(typ: String, sum: Double, count: Int, mean: Double, digest: TDigest)] =
-        res.toList.asInstanceOf[List[(typ: String, sum: Double, count: Int, mean: Double, digest: TDigest)]]
+      val asList: List[(typ: String, sum: Double, count: Int, mean: Double, digest: ExactQuantiles)] =
+        res.toList.asInstanceOf[List[(typ: String, sum: Double, count: Int, mean: Double, digest: ExactQuantiles)]]
       headers
         .zip(asList)
         .map { case (name, res) => (name = name) ++ res }
@@ -464,11 +521,11 @@ object Stats:
             name = p.name,
             typ = p.typ,
             mean = p.mean,
-            min = p.digest.getMin,
+            min = p.digest.min,
             `0.25` = p.digest.quantile(0.25),
             median = p.digest.quantile(0.5),
             `0.75` = p.digest.quantile(0.75),
-            max = p.digest.getMax
+            max = p.digest.max
           )
         }
     end numericSummary
