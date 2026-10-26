@@ -17,6 +17,38 @@ private[scautable] object HeaderOptionsProcessing:
     end if
   end stripBom
 
+  /** Describes how `headers` and a data row disagree on width, or `None` when they agree.
+    *
+    * The names become the NamedTuple's `K` and the row's values its `V`, so a mismatch would build a NamedTuple whose names and values have different lengths. This is the one
+    * place that wording lives: the compile-time readers abort with it and the runtime readers throw it.
+    */
+  private[scautable] def headerWidthMismatch(headers: Seq[String], dataRow: Seq[String]): Option[String] =
+    val dataWidth = dataRow.length
+    if headers.length == dataWidth then None
+    else
+      val names = headers.map(h => if h.isEmpty then "<empty>" else h).mkString(", ")
+      val base = s"Header has ${headers.length} columns ($names) but data rows have $dataWidth columns."
+      val hint =
+        if headers.length == dataWidth + 1 && headers.lastOption.contains("") then
+          " The header line appears to end with a trailing delimiter, which produces an extra column with an empty name. Remove the trailing delimiter from the header line, or name the columns with HeaderOptions.Manual."
+        else if dataWidth == headers.length + 1 && dataRow.lastOption.contains("") then
+          " The data rows appear to end with a trailing delimiter, which produces an extra empty value. Remove the trailing delimiter from the data rows."
+        else if headers.exists(_.isEmpty) then " The header contains an empty column name."
+        else ""
+      Some(base + hint)
+    end if
+  end headerWidthMismatch
+
+  /** Checks the first data row against `headers`. Returns the message from [[headerWidthMismatch]] on disagreement, otherwise the rows, unconsumed. With no data rows there is
+    * nothing to disagree with.
+    */
+  private[scautable] def validateDataWidth(headers: Seq[String], rows: Iterator[String], delimiter: Char): Either[String, Iterator[String]] =
+    val buffered = rows.buffered
+    if !buffered.hasNext then Right(buffered)
+    else headerWidthMismatch(headers, CSVParser.parseLine(buffered.head, delimiter)).toLeft(buffered)
+    end if
+  end validateDataWidth
+
   extension (rawRows: Iterator[String])
     def headers(headers: HeaderOptions, delimiter: Char = ','): (Seq[String], Iterator[String]) =
       val rows = stripBom(rawRows)
