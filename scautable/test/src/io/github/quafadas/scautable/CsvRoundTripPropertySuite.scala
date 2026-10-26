@@ -3,11 +3,12 @@ package io.github.quafadas.scautable
 import munit.ScalaCheckSuite
 import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
+import org.scalacheck.Prop.propBoolean
 
 /** Whatever `CSVWriter` writes, the reader must give back unchanged.
   *
-  * Fields are built from fragments chosen to hit every branch of the parser: quotes, doubled quotes, backslashes next to quotes and delimiters, every flavour of line break,
-  * edge whitespace and non-ASCII text. The one documented normalisation is that a line break inside a quoted field (`\r\n`, `\r` or `\n`) is read back as `\n`.
+  * Fields are built from fragments chosen to hit every branch of the parser: quotes, doubled quotes, backslashes next to quotes and delimiters, every flavour of line break, edge
+  * whitespace and non-ASCII text. The one documented normalisation is that a line break inside a quoted field (`\r\n`, `\r` or `\n`) is read back as `\n`.
   */
 class CsvRoundTripPropertySuite extends ScalaCheckSuite:
 
@@ -17,7 +18,8 @@ class CsvRoundTripPropertySuite extends ScalaCheckSuite:
 
   property("parseLine reads back any single line formatLine writes") {
     forAll(delimiter, Gen.nonEmptyListOf(field.map(withoutLineBreaks))) { (d, fields) =>
-      assertEquals(CSVParser.parseLine(CSVWriter.formatLine(fields, d), d), fields)
+      // Shrinking can step outside the generator; an empty row has no CSV form, so keep counterexamples meaningful.
+      fields.nonEmpty ==> assertEquals(CSVParser.parseLine(CSVWriter.formatLine(fields, d), d), fields)
     }
   }
 
