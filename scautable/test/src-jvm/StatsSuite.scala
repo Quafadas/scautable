@@ -685,4 +685,117 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(idStats.typ, "Int")
     assertEquals(idStats.mean, 3.0)
 
+  test("numericSummary should handle Float columns, skipping NaN"):
+    val data = List(
+      (id = 1, x = 1.5f),
+      (id = 2, x = 2.5f),
+      (id = 3, x = Float.NaN)
+    )
+    val xStats = data.numericSummary.find(_.name == "x").get
+    assertEquals(xStats.typ, "Float")
+    assertEquals(xStats.mean, 2.0, 1e-9)
+    assertEquals(xStats.min, 1.5, 1e-9)
+    assertEquals(xStats.max, 2.5, 1e-9)
+
+  test("numericSummary should handle Option[Float] columns, skipping None and NaN"):
+    val data: List[(id: Int, x: Option[Float])] = List(
+      (id = 1, x = Some(1.5f)),
+      (id = 2, x = None),
+      (id = 3, x = Some(2.5f)),
+      (id = 4, x = Some(Float.NaN))
+    )
+    val xStats = data.numericSummary.find(_.name == "x").get
+    assertEquals(xStats.typ, "Float")
+    assertEquals(xStats.mean, 2.0, 1e-9)
+    assertEquals(xStats.min, 1.5, 1e-9)
+    assertEquals(xStats.max, 2.5, 1e-9)
+
+  test("numericSummary should infer Option[Float] type when first row is None"):
+    val data: List[(id: Int, x: Option[Float])] = List(
+      (id = 1, x = None),
+      (id = 2, x = Some(4.0f)),
+      (id = 3, x = Some(6.0f))
+    )
+    val xStats = data.numericSummary.find(_.name == "x").get
+    assertEquals(xStats.typ, "Float")
+    assertEquals(xStats.mean, 5.0, 1e-9)
+    assertEquals(xStats.min, 4.0, 1e-9)
+    assertEquals(xStats.max, 6.0, 1e-9)
+
+  test("summary should include Float and Option[Float] columns in numeric results"):
+    val data: List[(name: String, f: Float, of: Option[Float])] = List(
+      (name = "a", f = 1.0f, of = Some(10.0f)),
+      (name = "b", f = 3.0f, of = Some(30.0f))
+    )
+    val numeric = data.summary.numeric
+    val fStats = numeric.find(_.name == "f").get
+    val ofStats = numeric.find(_.name == "of").get
+    assertEquals(fStats.mean, 2.0, 1e-9)
+    assertEquals(fStats.min, 1.0, 1e-9)
+    assertEquals(fStats.max, 3.0, 1e-9)
+    assertEquals(ofStats.mean, 20.0, 1e-9)
+    assertEquals(ofStats.min, 10.0, 1e-9)
+    assertEquals(ofStats.max, 30.0, 1e-9)
+
+  test("numericSummary should handle Short and Byte columns"):
+    val data = List(
+      (s = 10.toShort, b = 1.toByte),
+      (s = 30.toShort, b = 3.toByte)
+    )
+    val result = data.numericSummary
+    val sStats = result.find(_.name == "s").get
+    val bStats = result.find(_.name == "b").get
+    assertEquals(sStats.typ, "Short")
+    assertEquals(sStats.mean, 20.0, 1e-9)
+    assertEquals(sStats.min, 10.0, 1e-9)
+    assertEquals(sStats.max, 30.0, 1e-9)
+    assertEquals(bStats.typ, "Byte")
+    assertEquals(bStats.mean, 2.0, 1e-9)
+
+  test("Iterator numericSummary should handle Float and Option[Float] columns"):
+    val data: List[(f: Float, of: Option[Float])] = List(
+      (f = 1.5f, of = Some(1.5f)),
+      (f = Float.NaN, of = None),
+      (f = 2.5f, of = Some(2.5f)),
+      (f = 2.0f, of = Some(Float.NaN))
+    )
+    val result = data.iterator.numericSummary
+    val fStats = result.find(_.name == "f").get
+    val ofStats = result.find(_.name == "of").get
+    assertEquals(fStats.typ, "Float")
+    assertEquals(fStats.mean, 2.0, 1e-9)
+    assertEquals(fStats.min, 1.5, 1e-9)
+    assertEquals(fStats.max, 2.5, 1e-9)
+    assertEquals(ofStats.typ, "Float")
+    assertEquals(ofStats.mean, 2.0, 1e-9)
+    assertEquals(ofStats.min, 1.5, 1e-9)
+    assertEquals(ofStats.max, 2.5, 1e-9)
+
+  test("Iterator numericSummary should not count Option[String] values as 0.0"):
+    val data: List[(id: Int, label: Option[String])] = List(
+      (id = 1, label = Some("x")),
+      (id = 2, label = Some("y")),
+      (id = 3, label = None),
+      (id = 4, label = Some("z"))
+    )
+    val result = data.iterator.numericSummary
+    val idStats = result.find(_.name == "id").get
+    assertEquals(idStats.mean, 2.5, 1e-9)
+    result.find(_.name == "label").foreach { labelStats =>
+      assertEquals(labelStats.typ, "Unknown")
+      assertNotEquals(labelStats.min, 0.0, "Some(String) values must not be recorded as 0.0")
+      assertNotEquals(labelStats.max, 0.0, "Some(String) values must not be recorded as 0.0")
+    }
+
+  test("Iterable numericSummary should not count Option[String] values as 0.0"):
+    val data: List[(id: Int, label: Option[String])] = List(
+      (id = 1, label = Some("x")),
+      (id = 2, label = Some("y"))
+    )
+    val result = data.numericSummary
+    result.find(_.name == "label").foreach { labelStats =>
+      assertEquals(labelStats.typ, "Unknown")
+      assertNotEquals(labelStats.min, 0.0, "Some(String) values must not be recorded as 0.0")
+    }
+
 end StatsSuite
