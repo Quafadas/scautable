@@ -7,6 +7,21 @@ import scala.compiletime.*
   */
 object CSVWriterExtensions:
 
+  /** Writes all lines (each terminated by a newline) to `target` in a single streaming `os.write.over`, always replacing any existing file content - even when there are no lines.
+    */
+  private[scautable] def writeLines(target: os.Path, lines: Iterator[String]): Unit =
+    val writable = new geny.Writable:
+      override def writeBytesTo(out: java.io.OutputStream): Unit =
+        val writer = new java.io.BufferedWriter(new java.io.OutputStreamWriter(out, java.nio.charset.StandardCharsets.UTF_8))
+        lines.foreach { line =>
+          writer.write(line)
+          writer.write('\n')
+        }
+        writer.flush()
+      end writeBytesTo
+    os.write.over(target, writable)
+  end writeLines
+
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 
     /** Converts the iterator to CSV format as an iterator of lines.
@@ -29,15 +44,14 @@ object CSVWriterExtensions:
       val headerLine = CSVWriter.formatLine(headers, delimiter, quote)
 
       val strIterator = itr.map { namedTuple =>
-        val values = namedTuple.toList.map(_.toString)
-        CSVWriter.formatLine(values, delimiter, quote)
+        CSVWriter.formatRow(namedTuple.toList, delimiter, quote)
       }
       if includeHeaders then Iterator(headerLine) ++ strIterator
       else strIterator
       end if
     end toCsv
 
-    /** Writes the iterator to a CSV file, streaming line by line.
+    /** Writes the iterator to a CSV file, streaming line by line. Any existing file at `path` is replaced.
       *
       * @param path
       *   The file path to write to
@@ -55,11 +69,7 @@ object CSVWriterExtensions:
         quote: Char = '"'
     ): os.Path =
       val target = path.getOrElse(os.temp(contents = "", suffix = ".csv", prefix = "scautable-"))
-      val lines = toCsv(includeHeaders, delimiter, quote)
-      if lines.hasNext then
-        os.write.over(target, lines.next() + "\n")
-        lines.foreach(line => os.write.append(target, line + "\n"))
-      end if
+      CSVWriterExtensions.writeLines(target, toCsv(includeHeaders, delimiter, quote))
       target
     end writeCsvIterator
 
@@ -87,8 +97,7 @@ object CSVWriterExtensions:
       val headerLine = CSVWriter.formatLine(headers, delimiter, quote)
 
       val strIterator = data.iterator.map { namedTuple =>
-        val values = namedTuple.toList.map(_.toString)
-        CSVWriter.formatLine(values, delimiter, quote)
+        CSVWriter.formatRow(namedTuple.toList, delimiter, quote)
       }
       if includeHeaders then Iterator(headerLine) ++ strIterator
       else strIterator
@@ -117,14 +126,13 @@ object CSVWriterExtensions:
         else Seq.empty
 
       val dataLines = data.view.map { namedTuple =>
-        val values = namedTuple.toList.map(_.toString)
-        CSVWriter.formatLine(values, delimiter, quote)
+        CSVWriter.formatRow(namedTuple.toList, delimiter, quote)
       }.toSeq
 
       (headerLine ++ dataLines).mkString("\n")
     end toCsvString
 
-    /** Writes the iterable to a CSV file, streaming line by line.
+    /** Writes the iterable to a CSV file, streaming line by line. Any existing file at `path` is replaced.
       *
       * @param path
       *   The file path to write to
@@ -142,11 +150,7 @@ object CSVWriterExtensions:
         quote: Char = '"'
     ): os.Path =
       val target = path.getOrElse(os.temp(contents = "", suffix = ".csv", prefix = "scautable-"))
-      val lines = toCsv(includeHeaders, delimiter, quote)
-      if lines.hasNext then
-        os.write.over(target, lines.next() + "\n")
-        lines.foreach(line => os.write.append(target, line + "\n"))
-      end if
+      CSVWriterExtensions.writeLines(target, toCsv(includeHeaders, delimiter, quote))
       target
     end writeCsv
 
