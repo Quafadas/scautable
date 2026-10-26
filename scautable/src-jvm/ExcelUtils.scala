@@ -30,6 +30,7 @@ object ExcelUtils:
         throw new BadTableException(s"Failed to open Excel file: $filePath")
       )
     val sheet = workbook.getSheet(sheetName)
+    val cellReader = ExcelCells.Reader()
 
     colRange match
       case Some(range) if range.nonEmpty =>
@@ -37,10 +38,10 @@ object ExcelUtils:
         val firstRow = sheet.getRow(cellRange.getFirstRow)
         val cells =
           for i <- cellRange.getFirstColumn to cellRange.getLastColumn
-          yield firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+          yield cellReader.text(firstRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK))
         cells.toList
       case _ =>
-        if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(_.toString)
+        if sheet.iterator().hasNext then sheet.iterator().next().cellIterator().asScala.toList.map(cellReader.text)
         else throw new BadTableException("No headers found in the first row of the sheet, and no range specified.")
     end match
   end extractHeaders

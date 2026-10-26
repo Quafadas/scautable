@@ -43,6 +43,9 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
   /** The range's corners, parsed once. `CellRangeAddress.valueOf` is string parsing, and this sits on the per-row path. */
   private lazy val parsedRange: Option[(Int, Int, Int, Int)] = colRange.filter(_.nonEmpty).map(parseRange)
 
+  /** Renders cells as the decoders see them, formula cells included. Declared before `headers`, which reads cells as the iterator is constructed. */
+  private val cellReader = ExcelCells.Reader()
+
   /** Validates that headers are unique (no duplicates)
     */
   private def validateUniqueHeaders(headers: List[String]): Unit =
@@ -103,14 +106,14 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
     val headerRow = sheet.getRow(firstRow)
     val cells =
       for i <- firstCol.to(lastCol)
-      yield headerRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+      yield cellReader.text(headerRow.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK))
     cells.toList
   end extractHeadersFromRange
 
   /** Extract headers from the first row of the sheet This consumes the header row from the sheet iterator
     */
   private def extractHeadersFromFirstRow(): List[String] =
-    if sheetIterator.hasNext then sheetIterator.next().cellIterator().asScala.toList.map(_.toString)
+    if sheetIterator.hasNext then sheetIterator.next().cellIterator().asScala.toList.map(cellReader.text)
     else throw new BadTableException("No headers found in the first row of the sheet, and no range specified.")
   end extractHeadersFromFirstRow
 
@@ -121,10 +124,10 @@ class ExcelIterator[K <: Tuple, V <: Tuple](filePath: String, sheetName: String,
       case Some((_, _, firstCol, lastCol)) =>
         val cells =
           for i <- firstCol.to(lastCol)
-          yield row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).toString
+          yield cellReader.text(row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK))
         cells.toList
       case None =>
-        row.cellIterator().asScala.toList.map(_.toString)
+        row.cellIterator().asScala.toList.map(cellReader.text)
   end extractCellValues
 
   override def next(): NamedTuple[K, V] =
