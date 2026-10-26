@@ -1,6 +1,7 @@
 package io.github.quafadas.scautable
 
 import scala.NamedTuple.*
+import scala.io.Codec
 import scala.io.Source
 import scala.quoted.*
 import java.nio.file.{Files, Path, Paths}
@@ -365,14 +366,14 @@ object CSV:
   end openSourceWithFallback
 
   private[scautable] def openSourceWithFallback(absolutePath: String, rootRelativePath: String, resourceName: String, useFallback: Boolean): Source =
-    if !useFallback then Source.fromFile(absolutePath)
+    if !useFallback then Source.fromFile(absolutePath)(using Codec.UTF8)
     else
       val candidateResources = Seq(rootRelativePath, resourceName).map(_.replace('\\', '/')).distinct
-      Try(Source.fromFile(absolutePath))
-        .orElse(Try(Source.fromFile(rootRelativePath)))
+      Try(Source.fromFile(absolutePath)(using Codec.UTF8))
+        .orElse(Try(Source.fromFile(rootRelativePath)(using Codec.UTF8)))
         .orElse(
           candidateResources.iterator
-            .map(resource => Try(Source.fromResource(resource)))
+            .map(resource => Try(Source.fromResource(resource)(using Codec.UTF8)))
             .collectFirst { case scala.util.Success(source) => source }
             .map(scala.util.Success(_))
             .getOrElse(scala.util.Failure(new RuntimeException("Resource lookup failed")))
@@ -417,7 +418,7 @@ object CSV:
     val denseRowMajorType: Option[TypeRepr] = CSV.extractDenseArrayType(readAsTerm, "ArrayDenseRowMajor")
 
     val source = scala.util
-      .Try(Source.fromFile(pathChain.absolutePath))
+      .Try(Source.fromFile(pathChain.absolutePath)(using Codec.UTF8))
       .getOrElse(
         report.errorAndAbort(
           s"scautable: could not read a CSV at '${pathChain.absolutePath}' while compiling. The file has to exist at compile time so its columns can be typed.${pathChain.anchorHint}"
@@ -652,7 +653,7 @@ object CSV:
       "This method saves the CSV to a local temp file and opens it. There may be performance implications - it is recommended to use one of the other methods where possible."
     )
 
-    val source = Source.fromURL(pathExpr.valueOrAbort)
+    val source = Source.fromURL(pathExpr.valueOrAbort)(using Codec.UTF8)
     val tmpPath = java.nio.file.Files.createTempFile("temp_csv_", ".csv")
     java.nio.file.Files.writeString(tmpPath, source.mkString)
     readHeaderlineAsCsv(runtimePathChain(tmpPath, Paths.get(".").toAbsolutePath.normalize, useFallback = false), optsExpr)
@@ -955,7 +956,7 @@ object CSV:
     */
   private inline def fromTyped[K <: Tuple, V <: Tuple](headers: HeaderOptions): PlatformPath => CsvIterator[K, V] =
     (path: PlatformPath) =>
-      val source = scala.io.Source.fromFile(path.platformPathString)
+      val source = scala.io.Source.fromFile(path.platformPathString)(using scala.io.Codec.UTF8)
       // Every check below can throw, and each one used to strand the handle it had just opened.
       try
         val (hdrs, iterator) = source.getLines().headers(headers)
