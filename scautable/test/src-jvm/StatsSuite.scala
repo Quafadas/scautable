@@ -685,4 +685,102 @@ class StatsSuite extends munit.FunSuite:
     assertEquals(idStats.typ, "Int")
     assertEquals(idStats.mean, 3.0)
 
+  // ---- Exact quantiles: expected values match numpy.quantile / pandas default (linear interpolation, Hyndman-Fan type 7) ----
+
+  private def assertQuantiles(clue: String, q25: Double, median: Double, q75: Double)(eq25: Double, emedian: Double, eq75: Double): Unit =
+    assertEqualsDouble(q25, eq25, 1e-9, s"$clue: 0.25 quantile")
+    assertEqualsDouble(median, emedian, 1e-9, s"$clue: median")
+    assertEqualsDouble(q75, eq75, 1e-9, s"$clue: 0.75 quantile")
+
+  test("Iterable numericSummary quantiles for [1,2,3,4] match numpy linear interpolation"):
+    val s = List((v = 1), (v = 2), (v = 3), (v = 4)).numericSummary.head
+    assertQuantiles("[1,2,3,4]", s.`0.25`, s.median, s.`0.75`)(1.75, 2.5, 3.25)
+
+  test("Iterator numericSummary quantiles for [1,2,3,4] match numpy linear interpolation"):
+    val s = Iterator((v = 1), (v = 2), (v = 3), (v = 4)).numericSummary.head
+    assertQuantiles("[1,2,3,4]", s.`0.25`, s.median, s.`0.75`)(1.75, 2.5, 3.25)
+
+  test("Iterable numericSummary median of [1,100] is 50.5"):
+    val s = List((v = 1), (v = 100)).numericSummary.head
+    assertQuantiles("[1,100]", s.`0.25`, s.median, s.`0.75`)(25.75, 50.5, 75.25)
+
+  test("Iterator numericSummary median of [1,100] is 50.5"):
+    val s = Iterator((v = 1), (v = 100)).numericSummary.head
+    assertQuantiles("[1,100]", s.`0.25`, s.median, s.`0.75`)(25.75, 50.5, 75.25)
+
+  test("Iterable numericSummary quantiles for odd-length unsorted input"):
+    val s3 = List((v = 3.0), (v = 1.0), (v = 2.0)).numericSummary.head
+    assertQuantiles("[3,1,2]", s3.`0.25`, s3.median, s3.`0.75`)(1.5, 2.0, 2.5)
+    val s7 = List((v = 100L), (v = 1L), (v = 6L), (v = 2L), (v = 5L), (v = 3L), (v = 4L)).numericSummary.head
+    assertQuantiles("[1,2,3,4,5,6,100]", s7.`0.25`, s7.median, s7.`0.75`)(2.5, 4.0, 5.5)
+
+  test("Iterator numericSummary quantiles for odd-length unsorted input"):
+    val s3 = Iterator((v = 3.0), (v = 1.0), (v = 2.0)).numericSummary.head
+    assertQuantiles("[3,1,2]", s3.`0.25`, s3.median, s3.`0.75`)(1.5, 2.0, 2.5)
+    val s7 = Iterator((v = 100L), (v = 1L), (v = 6L), (v = 2L), (v = 5L), (v = 3L), (v = 4L)).numericSummary.head
+    assertQuantiles("[1,2,3,4,5,6,100]", s7.`0.25`, s7.median, s7.`0.75`)(2.5, 4.0, 5.5)
+
+  test("Iterable and Iterator numericSummary quantiles for 1..10"):
+    val data = (1 to 10).toList.map(i => (v = i))
+    val a = data.numericSummary.head
+    val b = data.iterator.numericSummary.head
+    assertQuantiles("1..10 iterable", a.`0.25`, a.median, a.`0.75`)(3.25, 5.5, 7.75)
+    assertQuantiles("1..10 iterator", b.`0.25`, b.median, b.`0.75`)(3.25, 5.5, 7.75)
+
+  test("Iterable numericSummary quantiles for a single value"):
+    val s = List((v = 42)).numericSummary.head
+    assertQuantiles("[42]", s.`0.25`, s.median, s.`0.75`)(42.0, 42.0, 42.0)
+    assertEqualsDouble(s.min, 42.0, 0.0)
+    assertEqualsDouble(s.max, 42.0, 0.0)
+
+  test("Iterator numericSummary quantiles for a single value"):
+    val s = Iterator((v = 42)).numericSummary.head
+    assertQuantiles("[42]", s.`0.25`, s.median, s.`0.75`)(42.0, 42.0, 42.0)
+    assertEqualsDouble(s.min, 42.0, 0.0)
+    assertEqualsDouble(s.max, 42.0, 0.0)
+
+  test("Iterable numericSummary quantiles skip None values"):
+    val data = List(
+      (d = Some(4.0), i = None: Option[Int]),
+      (d = None, i = Some(1)),
+      (d = Some(1.0), i = Some(4)),
+      (d = Some(3.0), i = None),
+      (d = None, i = Some(2)),
+      (d = Some(2.0), i = Some(3))
+    )
+    val res = data.numericSummary
+    val d = res.find(_.name == "d").get
+    val i = res.find(_.name == "i").get
+    assertQuantiles("Option[Double]", d.`0.25`, d.median, d.`0.75`)(1.75, 2.5, 3.25)
+    assertQuantiles("Option[Int]", i.`0.25`, i.median, i.`0.75`)(1.75, 2.5, 3.25)
+
+  test("Iterator numericSummary quantiles skip None values"):
+    val data = Iterator(
+      (d = Some(4.0), i = None: Option[Int]),
+      (d = None, i = Some(1)),
+      (d = Some(1.0), i = Some(4)),
+      (d = Some(3.0), i = None),
+      (d = None, i = Some(2)),
+      (d = Some(2.0), i = Some(3))
+    )
+    val res = data.numericSummary
+    val d = res.find(_.name == "d").get
+    val i = res.find(_.name == "i").get
+    assertQuantiles("Option[Double]", d.`0.25`, d.median, d.`0.75`)(1.75, 2.5, 3.25)
+    assertQuantiles("Option[Int]", i.`0.25`, i.median, i.`0.75`)(1.75, 2.5, 3.25)
+
+  test("Iterable numericSummary quantiles skip NaN values"):
+    val data = List((v = Double.NaN), (v = 1.0), (v = 100.0), (v = Double.NaN))
+    val s = data.numericSummary.head
+    assertQuantiles("[NaN,1,100,NaN]", s.`0.25`, s.median, s.`0.75`)(25.75, 50.5, 75.25)
+    assertEqualsDouble(s.min, 1.0, 0.0)
+    assertEqualsDouble(s.max, 100.0, 0.0)
+
+  test("Iterator numericSummary quantiles skip NaN values"):
+    val data = Iterator((v = Double.NaN), (v = 1.0), (v = 100.0), (v = Double.NaN))
+    val s = data.numericSummary.head
+    assertQuantiles("[NaN,1,100,NaN]", s.`0.25`, s.median, s.`0.75`)(25.75, 50.5, 75.25)
+    assertEqualsDouble(s.min, 1.0, 0.0)
+    assertEqualsDouble(s.max, 100.0, 0.0)
+
 end StatsSuite
