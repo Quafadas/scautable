@@ -2,7 +2,6 @@ package io.github.quafadas.scautable.scalasql
 
 import scala.quoted.*
 import io.github.quafadas.scautable.db.{DbFlavour, ColumnMeta, SchemaReader, SchemaSnapshot, ConnectionResolver}
-import java.sql.DriverManager
 import scalasql.query.{Table, TableRef, Column}
 import scalasql.core.{Queryable, DialectTypeMappers, Expr as SExpr}
 
@@ -80,7 +79,9 @@ private object SqlTableMacro:
       s"table:$tableName",
       (url, user, pass) =>
         val conn = ConnectionResolver.openConnectionWith(url, user, pass)
-        SchemaReader.forTable(conn, schema, table)
+        try SchemaReader.forTable(conn, schema, table)
+        finally conn.close()
+        end try
     )
 
     buildSqlTableExpr(cols, table, schema, fdExpr)
@@ -152,16 +153,6 @@ private object SqlTableMacro:
       end if
     catch case _: Exception => None
   end loadFromClasspath
-
-  private def withConnection[A](f: java.sql.Connection => A): A =
-    val (url, user, pass) = ConnectionResolver.resolveAtCompileTime().get
-    val conn =
-      if user.isDefined then DriverManager.getConnection(url, user.get, pass.getOrElse(""))
-      else DriverManager.getConnection(url)
-    try f(conn)
-    finally conn.close()
-    end try
-  end withConnection
 
   private def jdbcTypeToTypeRepr(col: ColumnMeta)(using q: Quotes): q.reflect.TypeRepr =
     import q.reflect.*
