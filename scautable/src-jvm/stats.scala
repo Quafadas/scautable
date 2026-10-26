@@ -13,7 +13,87 @@ import io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
 
 object Stats:
 
-  type StatsContext[T] = (typ: String, sum: Double, count: Int, mean: Double, digest: TDigest)
+  /** Accumulates the non-missing values of a numeric column for quantiles, with bounded memory.
+    *
+    * Up to `exactLimit` values are buffered in a primitive `Array[Double]` and quantiles are exact, using linear interpolation between closest ranks (Hyndman & Fan type 7), the
+    * default of `numpy.quantile`, `pandas.Series.quantile` and R's `quantile`. t-digest is badly wrong at small n (median of `[1, 100]` comes out as 100), hence the exact path.
+    *
+    * Once more than `exactLimit` values arrive, the buffer is flushed into a t-digest and dropped, and every later value streams into the digest. Memory is then bounded (roughly
+    * `exactLimit` doubles plus the digest's centroids) however long the input iterator is, and quantiles are approximate. `min` and `max` are always exact.
+    */
+  final class QuantileSketch(exactLimit: Int = QuantileSketch.DefaultExactLimit):
+    private var values: Array[Double] = new Array[Double](16)
+    private var digest: TDigest | Null = null
+    private var n: Long = 0
+    private var sorted: Boolean = true
+    private var minV: Double = Double.PositiveInfinity
+    private var maxV: Double = Double.NegativeInfinity
+
+    def add(v: Double): Unit =
+      if v < minV then minV = v
+      end if
+      if v > maxV then maxV = v
+      end if
+      val d = digest
+      if d != null then d.add(v)
+      else if n < exactLimit then
+        if n == values.length then values = java.util.Arrays.copyOf(values, math.min(values.length * 2, exactLimit))
+        end if
+        values(n.toInt) = v
+        sorted = false
+      else
+        val fresh = TDigest.createDigest(QuantileSketch.Compression)
+        var i = 0
+        while i < n do
+          fresh.add(values(i))
+          i += 1
+        end while
+        fresh.add(v)
+        digest = fresh
+        values = Array.emptyDoubleArray
+      end if
+      n += 1
+    end add
+
+    def size: Long = n
+
+    /** True while every value is still held and quantiles are exact. */
+    def isExact: Boolean = digest == null
+
+    /** Minimum of the added values, or `NaN` if none were added. */
+    def min: Double = if n == 0 then Double.NaN else minV
+
+    /** Maximum of the added values, or `NaN` if none were added. */
+    def max: Double = if n == 0 then Double.NaN else maxV
+
+    /** The `p`-quantile (0 <= p <= 1), or `NaN` if no values were added. Exact (type 7) up to `exactLimit` values, t-digest estimate beyond. */
+    def quantile(p: Double): Double =
+      require(p >= 0.0 && p <= 1.0, s"quantile must be in [0, 1], got $p")
+      val d = digest
+      if n == 0 then Double.NaN
+      else if d != null then d.quantile(p)
+      else
+        if !sorted then
+          java.util.Arrays.sort(values, 0, n.toInt)
+          sorted = true
+        end if
+        val h = (n - 1) * p
+        val lo = math.floor(h).toInt
+        val hi = math.min(lo + 1, n.toInt - 1)
+        values(lo) + (h - lo) * (values(hi) - values(lo))
+      end if
+    end quantile
+  end QuantileSketch
+
+  object QuantileSketch:
+    /** Columns with at most this many values get exact quantiles. */
+    val DefaultExactLimit: Int = 1000
+
+    /** t-digest compression once a column outgrows the exact buffer. 200 keeps median error well under 1% of the range for typical data. */
+    val Compression: Double = 200
+  end QuantileSketch
+
+  type StatsContext[T] = (typ: String, sum: Double, count: Int, mean: Double, digest: QuantileSketch)
 
   type NonNumericStatsContext[T] = (uniqueValues: Set[String], counts: scala.collection.mutable.Map[String, Int])
 
@@ -49,7 +129,8 @@ object Stats:
     /** Computes comprehensive statistical summaries for all numeric columns in the dataset.
       *
       * This method processes an `Iterator` of `NamedTuple`s and calculates descriptive statistics for each column that contains numeric data (Int, Long, Float, Double, or
-      * Option-wrapped versions). Non-numeric columns are ignored. The computation uses T-Digest for efficient quantile estimation, making it suitable for large datasets.
+      * Option-wrapped versions). Non-numeric columns are ignored. Quantiles are exact, using linear interpolation (the numpy / pandas default), for columns of up to
+      * `QuantileSketch.DefaultExactLimit` non-missing values; longer columns fall back to a T-Digest estimate to bound memory.
       *
       * The method handles missing values gracefully:
       *   - `None` values in `Option` types are excluded from calculations
@@ -85,7 +166,7 @@ object Stats:
         // Use the first row to initialize the stats structure
         val firstRow = nt.next()
         val zeroValue = firstRow.map[StatsContext] { [T] => (value: T) =>
-          val digest = TDigest.createDigest(100)
+          val digest = new QuantileSketch()
 
           val typ = (typ = numericTypeName(value))
 
@@ -103,7 +184,7 @@ object Stats:
         val res = nt.foldLeft(zeroValue) { (acc, row) =>
           val result = acc.zip(row).map[StatsContext] { [T] => (t: T) =>
             t match
-              case ((typ: String, sum: Double, count: Int, mean: Double, digestA: TDigest), incA) =>
+              case ((typ: String, sum: Double, count: Int, mean: Double, digestA: QuantileSketch), incA) =>
                 val incAOpt = toDoubleOpt(incA)
 
                 if incAOpt.isDefined then
@@ -128,8 +209,8 @@ object Stats:
         }
 
         val headers: List[String] = constValueTuple[K].toList.map(_.toString())
-        val asList: List[(typ: String, sum: Double, count: Int, mean: Double, digest: TDigest)] =
-          res.toList.asInstanceOf[List[(typ: String, sum: Double, count: Int, mean: Double, digest: TDigest)]]
+        val asList: List[(typ: String, sum: Double, count: Int, mean: Double, digest: QuantileSketch)] =
+          res.toList.asInstanceOf[List[(typ: String, sum: Double, count: Int, mean: Double, digest: QuantileSketch)]]
         headers
           .zip(asList)
           .map { case (name, res) => (name = name) ++ res }
@@ -138,11 +219,11 @@ object Stats:
               name = p.name,
               typ = p.typ,
               mean = p.mean,
-              min = p.digest.getMin,
+              min = p.digest.min,
               `0.25` = p.digest.quantile(0.25),
               median = p.digest.quantile(0.5),
               `0.75` = p.digest.quantile(0.75),
-              max = p.digest.getMax
+              max = p.digest.max
             )
           }
 
@@ -245,7 +326,7 @@ object Stats:
   extension [K <: Tuple, V <: Tuple](nt: Iterable[NamedTuple[K, V]])
 
     private inline def zeroStatsValue = nt.head.map[StatsContext] { [T] => (value: T) =>
-      val digest = TDigest.createDigest(100)
+      val digest = new QuantileSketch()
 
       // We'll start with empty stats
       val base = (sum = 0.0, count = 0, mean = 0.0, digest = digest)
@@ -344,7 +425,8 @@ object Stats:
     /** Computes comprehensive statistical summaries for all numeric columns in the dataset.
       *
       * This method processes an `Iterable` of `NamedTuple`s and calculates descriptive statistics for each column that contains numeric data (Int, Long, Float, Double, or
-      * Option-wrapped versions). Non-numeric columns are ignored. The computation uses T-Digest for efficient quantile estimation, making it suitable for large datasets.
+      * Option-wrapped versions). Non-numeric columns are ignored. Quantiles are exact, using linear interpolation (the numpy / pandas default), for columns of up to
+      * `QuantileSketch.DefaultExactLimit` non-missing values; longer columns fall back to a T-Digest estimate to bound memory.
       *
       * The method handles missing values gracefully:
       *   - `None` values in `Option` types are excluded from calculations
@@ -379,7 +461,7 @@ object Stats:
       val res = nt.foldLeft(zeroValue) { (acc, row) =>
         val result = acc.zip(row).map[StatsContext] { [T] => (t: T) =>
           t match
-            case ((typ: String, sum: Double, count: Int, mean: Double, digestA: TDigest), incA) =>
+            case ((typ: String, sum: Double, count: Int, mean: Double, digestA: QuantileSketch), incA) =>
               val incAOpt = toDoubleOpt(incA)
 
               if incAOpt.isDefined then
@@ -403,8 +485,8 @@ object Stats:
         result.asInstanceOf[NamedTuple[K, Tuple.Map[V, StatsContext]]]
       }
       val headers: List[String] = constValueTuple[K].toList.map(_.toString())
-      val asList: List[(typ: String, sum: Double, count: Int, mean: Double, digest: TDigest)] =
-        res.toList.asInstanceOf[List[(typ: String, sum: Double, count: Int, mean: Double, digest: TDigest)]]
+      val asList: List[(typ: String, sum: Double, count: Int, mean: Double, digest: QuantileSketch)] =
+        res.toList.asInstanceOf[List[(typ: String, sum: Double, count: Int, mean: Double, digest: QuantileSketch)]]
       headers
         .zip(asList)
         .map { case (name, res) => (name = name) ++ res }
@@ -413,11 +495,11 @@ object Stats:
             name = p.name,
             typ = p.typ,
             mean = p.mean,
-            min = p.digest.getMin,
+            min = p.digest.min,
             `0.25` = p.digest.quantile(0.25),
             median = p.digest.quantile(0.5),
             `0.75` = p.digest.quantile(0.75),
-            max = p.digest.getMax
+            max = p.digest.max
           )
         }
     end numericSummary
