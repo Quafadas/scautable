@@ -99,6 +99,50 @@ private[scautable] object ColumnDecoder:
   end optionDecoder
 end ColumnDecoder
 
+/** Runtime helpers shared by every CSV read mode, so that rows, columns and dense arrays agree on what counts as a row. */
+private[scautable] object CsvRows:
+  import scala.collection.mutable.ArrayBuffer
+
+  /** A line holding nothing but whitespace is not a row, and is skipped by every read mode.
+    *
+    * The delimiter never counts as whitespace, so a tab-delimited `"\t\t"` is still a row of empty cells.
+    */
+  def isBlank(line: String, delimiter: Char): Boolean =
+    val n = line.length
+    var i = 0
+    while i < n && line.charAt(i) != delimiter && Character.isWhitespace(line.charAt(i)) do i += 1
+    end while
+    i == n
+  end isBlank
+
+  /** Parses every data line into one buffer per column, skipping blank lines and rejecting any row whose width differs from `numCols` with a [[CsvRowWidthException]].
+    *
+    * All buffers therefore always have the same length.
+    */
+  def fillColumnBuffers(lines: Iterator[String], numCols: Int, delimiter: Char): Array[ArrayBuffer[String]] =
+    val bufs = Array.fill(numCols)(ArrayBuffer[String]())
+    var dataLine = 0
+    while lines.hasNext do
+      val line = lines.next()
+      dataLine += 1
+      if !isBlank(line, delimiter) then
+        // Walk the List once: `parsed(i)` / `parsed.length` would make each row quadratic in its width.
+        var cells = CSVParser.parseLine(line, delimiter)
+        var i = 0
+        while i < numCols && cells.nonEmpty do
+          bufs(i) += cells.head
+          cells = cells.tail
+          i += 1
+        end while
+        // Partially filled buffers are discarded along with the exception.
+        if i != numCols || cells.nonEmpty then throw CsvRowWidthException(dataLine, numCols, i + cells.length)
+        end if
+      end if
+    end while
+    bufs
+  end fillColumnBuffers
+end CsvRows
+
 /** Helper object for decoding columns at runtime using compile-time derived decoders */
 private[scautable] object ColumnsDecoder:
   import scala.collection.mutable.ArrayBuffer

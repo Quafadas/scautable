@@ -67,12 +67,31 @@ class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (
   override def hasNext: Boolean =
     if closed then false
     else
-      val more = rows.hasNext
+      val more = advance()
       if !more then close()
       end if
       more
     end if
   end hasNext
+
+  /** The next non-blank line, read ahead so that `hasNext` can see past blank lines; `null` when none is buffered. */
+  private var pending: String = null
+
+  /** 1-based index of the last line taken from `rows`, blank lines included, for error messages. */
+  private var dataLine = 0
+
+  private val numCols = headers.length
+
+  /** Buffers the next non-blank line, if there is one. Blank lines are skipped, as in the column and dense-array read modes. */
+  private def advance(): Boolean =
+    while pending == null && rows.hasNext do
+      val line = rows.next()
+      dataLine += 1
+      if !CsvRows.isBlank(line, delimiter) then pending = line
+      end if
+    end while
+    pending != null
+  end advance
 
   // inline override def next() =
   //   val str = rows.next()
@@ -85,8 +104,14 @@ class CsvIterator[K <: Tuple, V <: Tuple] @publicInBinary private[scautable] (
     // Not just tidiness: past a close the underlying source is gone, so reading on would hand back whatever happened to be buffered, or fail deep inside the reader.
     if closed then throw new NoSuchElementException("This CsvIterator has been closed, so there are no more rows to read.")
     end if
-    val str = rows.next()
+    if !advance() then throw new NoSuchElementException("No more rows in this CsvIterator.")
+    end if
+    val str = pending
+    pending = null
     val splitted = CSVParser.parseLine(str, delimiter)
+    val width = splitted.length
+    if width != numCols then throw CsvRowWidthException(dataLine, numCols, width)
+    end if
     val tuple = decoder
       .decodeRow(splitted)
       .getOrElse(

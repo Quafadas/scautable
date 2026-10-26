@@ -51,9 +51,11 @@ private[scautable] object InferrerOps:
     end if
   end inferMostGeneralType
 
-  def inferrer(using Quotes)(rows: Iterator[String], preferIntToBoolean: Boolean, numRows: Int = 1, delimiter: Char = ',') =
+  def inferrer(using Quotes)(allRows: Iterator[String], preferIntToBoolean: Boolean, numRows: Int = 1, delimiter: Char = ',') =
     import quotes.reflect.*
 
+    // Blank lines are skipped at runtime by every read mode, so they must not take part in inference either.
+    val rows = allRows.filterNot(CsvRows.isBlank(_, delimiter))
     validateInput(rows, numRows)
 
     val sampleRows = rows.take(numRows).toList
@@ -94,6 +96,38 @@ private[scautable] object InferrerOps:
       throw new IllegalArgumentException(
         "No rows available for type inference."
       )
+
+  /** Aborts compilation when the header and the data rows disagree on the number of columns. Every compile-time CSV reader runs this before choosing a type, whichever
+    * `TypeInferrer` is in play - including those that never read the data themselves. Returns the rows, unconsumed.
+    */
+  def validateHeaderWidth(using Quotes)(headers: Seq[String], rows: Iterator[String], delimiter: Char): Iterator[String] =
+    HeaderOptionsProcessing.validateDataWidth(headers, rows, delimiter) match
+      case Left(msg)      => quotes.reflect.report.errorAndAbort(msg)
+      case Right(checked) => checked
+  end validateHeaderWidth
+
+  /** Aborts compilation when `TypeInferrer.FromTuple` declares a different number of column types than the header has names. */
+  def validateTupleArity(using Quotes)(headers: Seq[String], tupleType: quotes.reflect.TypeRepr): Unit =
+    import quotes.reflect.*
+    tupleArity(tupleType).foreach { arity =>
+      if arity != headers.length then
+        val names = headers.map(h => if h.isEmpty then "<empty>" else h).mkString(", ")
+        report.errorAndAbort(
+          s"TypeInferrer.FromTuple declares $arity column types but the header has ${headers.length} columns ($names)."
+        )
+    }
+  end validateTupleArity
+
+  private def tupleArity(using Quotes)(tpe: quotes.reflect.TypeRepr): Option[Int] =
+    import quotes.reflect.*
+    val consSym = TypeRepr.of[*:].typeSymbol
+    tpe.dealias match
+      case t if t =:= TypeRepr.of[EmptyTuple]                               => Some(0)
+      case AppliedType(tycon, List(_, tail)) if tycon.typeSymbol == consSym => tupleArity(tail).map(_ + 1)
+      case AppliedType(tycon, args) if defn.isTupleClass(tycon.typeSymbol)  => Some(args.length)
+      case _                                                                => None
+    end match
+  end tupleArity
 
   private def validateColumnConsistency(parsedRows: List[List[String]])(using Quotes): Unit =
     val columnCount = parsedRows.head.length

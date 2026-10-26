@@ -97,16 +97,40 @@ object Stats:
 
   type NonNumericStatsContext[T] = (uniqueValues: Set[String], counts: scala.collection.mutable.Map[String, Int])
 
-  // Alternative approach: Use a helper function with context bound and call it from the context function
-  private def processNumericValue[T: Numeric](value: T): Double =
-    summon[Numeric[T]].toDouble(value)
+  private def scalarToDoubleOpt(a: Any): Option[Double] = a match
+    case v: Double => if v.isNaN then None else Some(v)
+    case v: Float  => if v.isNaN then None else Some(v.toDouble)
+    case v: Int    => Some(v.toDouble)
+    case v: Long   => Some(v.toDouble)
+    case v: Short  => Some(v.toDouble)
+    case v: Byte   => Some(v.toDouble)
+    case _         => None
+
+  /** The numeric value of a cell (plain or `Some`-wrapped), or `None` if it is missing, NaN or not numeric. Single source of truth for both the value and whether to include it. */
+  private[scautable] def toDoubleOpt(a: Any): Option[Double] = a match
+    case Some(v) => scalarToDoubleOpt(v)
+    case v       => scalarToDoubleOpt(v)
+
+  private def scalarTypeName(a: Any): String = a match
+    case _: Double => "Double"
+    case _: Float  => "Float"
+    case _: Int    => "Int"
+    case _: Long   => "Long"
+    case _: Short  => "Short"
+    case _: Byte   => "Byte"
+    case _         => "Unknown"
+
+  /** Runtime numeric type name of a cell (plain or `Some`-wrapped); "Unknown" for `None` or non-numeric values. */
+  private[scautable] def numericTypeName(a: Any): String = a match
+    case Some(v) => scalarTypeName(v)
+    case v       => scalarTypeName(v)
 
   extension [K <: Tuple, V <: Tuple](nt: Iterator[NamedTuple[K, V]])
     /** Computes comprehensive statistical summaries for all numeric columns in the dataset.
       *
-      * This method processes an `Iterator` of `NamedTuple`s and calculates descriptive statistics for each column that contains numeric data (Int, Long, Double, or Option-wrapped
-      * versions). Non-numeric columns are ignored. Quantiles are exact, using linear interpolation (the numpy / pandas default); all non-missing values of each numeric column are
-      * held in memory.
+      * This method processes an `Iterator` of `NamedTuple`s and calculates descriptive statistics for each column that contains numeric data (Int, Long, Float, Double, or
+      * Option-wrapped versions). Non-numeric columns are ignored. Quantiles are exact, using linear interpolation (the numpy / pandas default), for columns of up to
+      * `QuantileSketch.DefaultExactLimit` non-missing values; longer columns fall back to a T-Digest estimate to bound memory.
       *
       * The method handles missing values gracefully:
       *   - `None` values in `Option` types are excluded from calculations
@@ -119,7 +143,7 @@ object Stats:
       * @return
       *   A list of named tuples, one per numeric column, containing:
       *   - `name`: Column name (String)
-      *   - `typ`: Detected data type ("Int", "Long", "Double", or "Unknown")
+      *   - `typ`: Detected data type ("Int", "Long", "Float", "Double", "Short", "Byte", or "Unknown")
       *   - `mean`: Arithmetic mean of non-missing values
       *   - `min`: Minimum value
       *   - `0.25`: 25th percentile (first quartile)
@@ -144,30 +168,14 @@ object Stats:
         val zeroValue = firstRow.map[StatsContext] { [T] => (value: T) =>
           val digest = new QuantileSketch()
 
-          // Enhanced runtime type detection that handles Option types properly
-          val typ = value match
-            case v: Double       => (typ = "Double")
-            case i: Int          => (typ = "Int")
-            case l: Long         => (typ = "Long")
-            case Some(v: Double) => (typ = "Double")
-            case Some(i: Int)    => (typ = "Int")
-            case Some(l: Long)   => (typ = "Long")
-            case None            => (typ = "Unknown")
-            case _               => (typ = "Unknown")
+          val typ = (typ = numericTypeName(value))
 
           // Process the first value
-          val (initialSum, initialCount, shouldInclude) = value match
-            case v: Double       => if v.isNaN then (0.0, 0, false) else (v, 1, true)
-            case v: Int          => (v.toDouble, 1, true)
-            case v: Long         => (v.toDouble, 1, true)
-            case Some(v: Double) => if v.isNaN then (0.0, 0, false) else (v, 1, true)
-            case Some(i: Int)    => (i.toDouble, 1, true)
-            case Some(l: Long)   => (l.toDouble, 1, true)
-            case None            => (0.0, 0, false)
-            case _               => (0.0, 0, false)
+          val firstValue = toDoubleOpt(value)
+          val initialSum = firstValue.getOrElse(0.0)
+          val initialCount = if firstValue.isDefined then 1 else 0
 
-          if shouldInclude then digest.add(initialSum)
-          end if
+          firstValue.foreach(digest.add)
 
           typ ++ (sum = initialSum, count = initialCount, mean = if initialCount == 0 then 0.0 else initialSum, digest = digest)
         }
@@ -177,25 +185,10 @@ object Stats:
           val result = acc.zip(row).map[StatsContext] { [T] => (t: T) =>
             t match
               case ((typ: String, sum: Double, count: Int, mean: Double, digestA: QuantileSketch), incA) =>
-                val incADouble = incA match
-                  case v: Double       => v
-                  case v: Int          => v.toDouble
-                  case v: Long         => v.toDouble
-                  case Some(v: Double) => v
-                  case Some(i: Int)    => i.toDouble
-                  case Some(l: Long)   => l.toDouble
-                  case _               => 0.0
+                val incAOpt = toDoubleOpt(incA)
 
-                val shouldIncludeValue = incA match
-                  case v: Double       => !v.isNaN
-                  case v: Int          => true
-                  case v: Long         => true
-                  case Some(v: Double) => !v.isNaN
-                  case Some(_)         => true
-                  case None            => false
-                  case _               => false
-
-                if shouldIncludeValue then
+                if incAOpt.isDefined then
+                  val incADouble = incAOpt.get
                   digestA.add(incADouble)
                   val newSum = sum + incADouble
                   val newCount = count + 1
@@ -203,15 +196,7 @@ object Stats:
 
                   // Update type if it was Unknown and we now have a real value
                   val updatedTyp =
-                    if typ == "Unknown" then
-                      incA match
-                        case v: Double       => "Double"
-                        case i: Int          => "Int"
-                        case l: Long         => "Long"
-                        case Some(v: Double) => "Double"
-                        case Some(i: Int)    => "Int"
-                        case Some(l: Long)   => "Long"
-                        case _               => "Unknown"
+                    if typ == "Unknown" then numericTypeName(incA)
                     else typ
 
                   (typ = updatedTyp, sum = newSum, count = newCount, mean = newMean, digest = digestA)
@@ -346,19 +331,8 @@ object Stats:
       // We'll start with empty stats
       val base = (sum = 0.0, count = 0, mean = 0.0, digest = digest)
 
-      // Enhanced runtime type detection that handles Option types properly
-      val typ = value match
-        case v: Double       => (typ = "Double")
-        case i: Int          => (typ = "Int")
-        case l: Long         => (typ = "Long")
-        case Some(v: Double) => (typ = "Double")
-        case Some(i: Int)    => (typ = "Int")
-        case Some(l: Long)   => (typ = "Long")
-        case None            =>
-          // For None values, we need to look ahead in the data to infer type
-          // This is a limitation - we'll mark as Unknown and fix during processing
-          (typ = "Unknown")
-        case _ => (typ = "Unknown")
+      // "Unknown" for None / non-numeric; fixed up during processing once a real value appears
+      val typ = (typ = numericTypeName(value))
       typ ++ base
     }
 
@@ -450,9 +424,9 @@ object Stats:
 
     /** Computes comprehensive statistical summaries for all numeric columns in the dataset.
       *
-      * This method processes an `Iterable` of `NamedTuple`s and calculates descriptive statistics for each column that contains numeric data (Int, Long, Double, or Option-wrapped
-      * versions). Non-numeric columns are ignored. Quantiles are exact, using linear interpolation (the numpy / pandas default); all non-missing values of each numeric column are
-      * held in memory.
+      * This method processes an `Iterable` of `NamedTuple`s and calculates descriptive statistics for each column that contains numeric data (Int, Long, Float, Double, or
+      * Option-wrapped versions). Non-numeric columns are ignored. Quantiles are exact, using linear interpolation (the numpy / pandas default), for columns of up to
+      * `QuantileSketch.DefaultExactLimit` non-missing values; longer columns fall back to a T-Digest estimate to bound memory.
       *
       * The method handles missing values gracefully:
       *   - `None` values in `Option` types are excluded from calculations
@@ -465,7 +439,7 @@ object Stats:
       * @return
       *   A list of named tuples, one per numeric column, containing:
       *   - `name`: Column name (String)
-      *   - `typ`: Detected data type ("Int", "Long", "Double", or "Unknown")
+      *   - `typ`: Detected data type ("Int", "Long", "Float", "Double", "Short", "Byte", or "Unknown")
       *   - `mean`: Arithmetic mean of non-missing values
       *   - `min`: Minimum value
       *   - `0.25`: 25th percentile (first quartile)
@@ -488,27 +462,10 @@ object Stats:
         val result = acc.zip(row).map[StatsContext] { [T] => (t: T) =>
           t match
             case ((typ: String, sum: Double, count: Int, mean: Double, digestA: QuantileSketch), incA) =>
-              // Use helper function for type-safe numeric conversion
+              val incAOpt = toDoubleOpt(incA)
 
-              val incADouble = incA match
-                case v: Double       => processNumericValue(v)
-                case v: Int          => processNumericValue(v)
-                case v: Long         => processNumericValue(v)
-                case Some(v: Double) => processNumericValue(v)
-                case Some(i: Int)    => processNumericValue(i)
-                case Some(l: Long)   => processNumericValue(l)
-                case _               => 0.0 // fallback instead of ???
-
-              val shouldIncludeValue = incA match
-                case v: Double       => !v.isNaN
-                case v: Int          => true
-                case v: Long         => true
-                case Some(v: Double) => !v.isNaN
-                case Some(_)         => true
-                case None            => false
-                case _               => false
-
-              if shouldIncludeValue then
+              if incAOpt.isDefined then
+                val incADouble = incAOpt.get
                 digestA.add(incADouble)
                 val newSum = sum + incADouble
                 val newCount = count + 1
@@ -516,15 +473,7 @@ object Stats:
 
                 // Update type if it was Unknown and we now have a real value
                 val updatedTyp =
-                  if typ == "Unknown" then
-                    incA match
-                      case v: Double       => "Double"
-                      case i: Int          => "Int"
-                      case l: Long         => "Long"
-                      case Some(v: Double) => "Double"
-                      case Some(i: Int)    => "Int"
-                      case Some(l: Long)   => "Long"
-                      case _               => "Unknown"
+                  if typ == "Unknown" then numericTypeName(incA)
                   else typ
 
                 (typ = updatedTyp, sum = newSum, count = newCount, mean = newMean, digest = digestA)
@@ -558,7 +507,7 @@ object Stats:
     /** Computes comprehensive statistical summaries for both numeric and non-numeric columns.
       *
       * This method processes an `Iterable` of `NamedTuple`s and calculates both numeric and categorical statistics for all columns in the dataset. It automatically separates
-      * columns into numeric (Int, Long, Double, or Option-wrapped versions) and non-numeric types, providing comprehensive analysis in a single call.
+      * columns into numeric (Int, Long, Float, Double, or Option-wrapped versions) and non-numeric types, providing comprehensive analysis in a single call.
       *
       * @note
       *   Unlike the `Iterator` version, this method does not consume the collection, allowing for multiple analyses on the same dataset.
