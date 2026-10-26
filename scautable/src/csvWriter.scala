@@ -35,6 +35,24 @@ private[scautable] object CSVWriter:
     fields.map(formatField(_, delimiter, quote)).mkString(delimiter.toString)
   end formatLine
 
+  /** Converts a single cell value to its CSV string representation.
+    *
+    * Options are unwrapped (recursively, so nested options also work): `Some(x)` is written as the string form of `x`, and `None` (or `null`) as an empty field. This keeps CSV
+    * output round-trippable, since an empty cell is read back as `None` for an `Option[T]` column.
+    */
+  def cellToString(value: Any): String =
+    value match
+      case null        => ""
+      case None        => ""
+      case Some(inner) => cellToString(inner)
+      case other       => other.toString
+  end cellToString
+
+  /** Formats a row of arbitrary cell values as a CSV line, using [[cellToString]] for each cell. */
+  def formatRow(values: Seq[Any], delimiter: Char = ',', quote: Char = '"'): String =
+    formatLine(values.map(cellToString), delimiter, quote)
+  end formatRow
+
   /** Determines if a field needs quoting according to RFC 4180.
     *
     * Fields need quoting if they contain:
