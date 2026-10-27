@@ -25,8 +25,10 @@ object TerminalTable:
     *   data rows - each row's `cells` should have the same arity as `headers`, missing cells are treated as empty
     * @param widthOverride
     *   optional override instead of detecting the terminal width (useful for tests / non-tty output)
+    * @param colour
+    *   colour each column with ANSI escapes. Turn off for output that isn't going to a terminal.
     */
-  def render(headers: Seq[String], rows: Seq[TableRow], widthOverride: Option[Int] = None): String =
+  def render(headers: Seq[String], rows: Seq[TableRow], widthOverride: Option[Int] = None, colour: Boolean = true): String =
     val numCols = headers.length
     if numCols == 0 then ""
     else
@@ -47,13 +49,13 @@ object TerminalTable:
       val sb = new StringBuilder
       sb.append(separatorLine(colWidths))
       sb.append('\n')
-      sb.append(renderRow(headers, colWidths))
+      sb.append(renderRow(headers, colWidths, colour))
       sb.append('\n')
       sb.append(separatorLine(colWidths))
       sb.append('\n')
       for row <- rows do
         val cells = headers.indices.map(i => if i < row.cells.length then row.cells(i) else "")
-        sb.append(renderRow(cells, colWidths))
+        sb.append(renderRow(cells, colWidths, colour))
         sb.append('\n')
       end for
       sb.append(separatorLine(colWidths))
@@ -156,13 +158,14 @@ object TerminalTable:
     fansi.Color.Red
   )
 
-  private def renderRow(cells: Seq[String], colWidths: Seq[Int]): String =
+  private def renderRow(cells: Seq[String], colWidths: Seq[Int], colour: Boolean): String =
     // Uses `String#length` (UTF-16 code units) for width/padding, not code-point-aware display width; per the
     // issue's non-goals, correctness for wide/CJK or zero-width/combining characters is not required for v1.
     val padded = cells.zip(colWidths).zipWithIndex.map { case ((cell, w), colNum) =>
       val truncated = truncateCell(if cell == null then "" else cell, w)
-      val idx = colNum % colours.length
-      colours(idx)(truncated + (" " * (w - truncated.length))).render
+      val cellText = truncated + (" " * (w - truncated.length))
+      if colour then colours(colNum % colours.length)(cellText).render else cellText
+      end if
     }
     padded.mkString("| ", " | ", " |")
   end renderRow

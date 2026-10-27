@@ -1,0 +1,23 @@
+package build.almond
+
+import mill.*
+import mill.scalalib.*
+import build.Config
+
+object `package` extends Module:
+
+  object jvm extends ScalaModule with build.Common with build.PublishModule:
+    override def artifactName = "scautable-almond"
+    override def moduleDeps = Seq(build.scautable.jvm)
+
+    // Provided: the almond kernel already has these on its classpath, so we don't drag them in.
+    override def compileMvnDeps = super.compileMvnDeps() ++ Seq(Config.almondApi)
+  end jvm
+
+  object test extends ScalaModule with TestModule.Munit with build.CommonTests:
+    override def scalaVersion = build.Config.scalaVersion
+    override def moduleDeps = Seq(build.almond.jvm, build.scautable.jvm)
+    override def mvnDeps = super.mvnDeps() ++ Seq(Config.almondApi)
+  end test
+
+end `package`

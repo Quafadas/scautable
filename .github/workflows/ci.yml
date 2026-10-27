@@ -56,6 +56,10 @@ jobs:
         run: ./mill parquet.test
         if: matrix.platform == 'jvm'
 
+      - name: Almond Tests ${{ matrix.platform }}
+        run: ./mill almond.test
+        if: matrix.platform == 'jvm'
+
       - name: Publish ${{ matrix.platform }} artifacts
         run: ./mill -i scautable.${{ matrix.platform }}.publishArtifacts
         

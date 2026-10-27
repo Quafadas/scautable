@@ -16,6 +16,7 @@ object table:
 
   export io.github.quafadas.scautable.ConsoleFormat.*
   export io.github.quafadas.scautable.CellFormat
+  export io.github.quafadas.scautable.TableSink
   export io.github.quafadas.scautable.CellFormat.given
   export io.github.quafadas.scautable.ColumnFormat.*
   export io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
