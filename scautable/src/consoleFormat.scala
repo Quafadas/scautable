@@ -2,6 +2,7 @@ package io.github.quafadas.scautable
 
 import scala.NamedTuple.*
 import scala.compiletime.constValueTuple
+import scala.deriving.Mirror
 
 import fansi.EscapeAttr
 import fansi.Str
@@ -61,6 +62,22 @@ object ConsoleFormat:
         val values = nt.iterator.map(_.toTuple).toSeq
         ConsoleFormat.consoleFormat_(formatProducts[V](values), fansi, headers.getOrElse(foundHeaders))
     end consoleFormatNt
+  end extension
+
+  /** Case classes (or any `Product` with a `Mirror`) render via their `NamedTuple.From` view, so headers are the field names and cells go through `CellFormat`. */
+  extension [A <: Product](s: IterableOnce[A])(using m: Mirror.ProductOf[A])
+
+    inline def toNamedTuples: Iterator[NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]] =
+      s.iterator.map(a => Tuple.fromProductTyped(a).asInstanceOf[NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]])
+
+    inline def consoleFormatCc: String = s.toNamedTuples.consoleFormatNt
+
+    inline def consoleFormatCc(headers: Option[List[String]], fansi: Boolean): String =
+      s.toNamedTuples.consoleFormatNt(headers, fansi)
+
+    inline def ptblc: Unit = println(s.consoleFormatCc)
+
+    inline def htmlCc: String = s.toNamedTuples.html
   end extension
 
   /** Render each cell of `rows` through the `CellFormat` for its column type, falling back to `toString`. Formatters are resolved once, not per row. */
