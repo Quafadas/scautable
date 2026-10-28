@@ -44,4 +44,34 @@ class ConsoleFormatFiniteCollectionSuite extends FunSuite:
     assert(formatted2.contains("Alice"))
   }
 
+  test("case classes render with field names as headers") {
+    val rates = List(Rate("EUR", 1.08), Rate("GBP", 1.27))
+    import io.github.quafadas.scautable.ConsoleFormat.*
+
+    rates.ptblc
+    val formatted = rates.consoleFormatCc
+    assert(formatted.contains("currency"))
+    assert(formatted.contains("rate"))
+    assert(formatted.contains("GBP"))
+
+    val plain = rates.consoleFormatCc(None, fansi = false)
+    assert(plain.contains("currency"))
+
+    val html = rates.toArray.htmlCc
+    assert(html.contains("<table"))
+    assert(html.contains("currency"))
+    assert(html.contains("EUR"))
+  }
+
+  test("case classes convert to named tuples for the rest of the API") {
+    val rates = Vector(Rate("EUR", 1.08), Rate("GBP", 1.27))
+    import io.github.quafadas.table.*
+
+    val nts = rates.toNamedTuples.toList
+    assertEquals(nts.map(_.currency), List("EUR", "GBP"))
+    assertEquals(nts.map(_.rate), List(1.08, 1.27))
+  }
+
 end ConsoleFormatFiniteCollectionSuite
+
+case class Rate(currency: String, rate: Double)

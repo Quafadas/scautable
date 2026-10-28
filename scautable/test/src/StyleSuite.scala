@@ -74,6 +74,20 @@ class StyleSuite extends FunSuite:
     summon[ColumnTyped.Styled[K, V, (c: ColumnFormat.IntThousands)] =:= (String, String, ColumnFormat.IntThousands)]
   }
 
+  test("style works on case classes via toNamedTuples") {
+    val quotes = List(Quote("A", 1.23456, 0.0425), Quote("B", 2.5, 0.1))
+    val out = quotes.toNamedTuples.style[(spread: Decimals[2], el: Percent[1])].consoleFormatNt
+    assert(out.contains("1.23"), out)
+    assert(out.contains("4.3%"), out)
+    assert(out.contains("name"), out)
+  }
+
+  test("style on case classes still rejects an unknown column") {
+    assert(compileErrors("""
+      List(Quote("A", 1.0, 0.1)).toNamedTuples.style[(nope: Decimals[2])]
+    """).contains("no column named nope"))
+  }
+
 end StyleSuite
 
 class SpecOpsSuite extends FunSuite:
@@ -137,3 +151,5 @@ class SpecOpsSuite extends FunSuite:
   }
 
 end SpecOpsSuite
+
+case class Quote(name: String, spread: Double, el: Double)
