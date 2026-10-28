@@ -51,7 +51,9 @@ object ConsoleFormat:
       )
     end consoleFormatNt
 
-    inline def ptbln: Unit = println(nt.consoleFormatNt)
+    /** Print the table. Goes to the console unless another [[TableSink]] is in scope, e.g. a notebook. */
+    inline def ptbln(using sink: TableSink): Unit =
+      sink.show(constValueTuple[K].toList.map(_.toString()), CellFormat.formattersFor[V].toArray, nt.iterator.map(_.toTuple))
 
     inline def html: String = HtmlRenderer.nt(nt).render
 
@@ -83,7 +85,7 @@ object ConsoleFormat:
   /** Render each cell of `rows` through the `CellFormat` for its column type, falling back to `toString`. Formatters are resolved once, not per row. */
   private inline def formatRows[V <: Tuple](rows: Seq[Product]): Seq[TableRow] =
     val fmts = CellFormat.formattersFor[V].toArray
-    rows.map(row => TableRow(row.productIterator.toSeq.zipWithIndex.map((cell, i) => if i < fmts.length then fmts(i)(cell) else CellFormat.toStringFormat(cell))))
+    rows.map(row => TableRow(CellFormat.formatRow(row, fmts)))
   end formatRows
 
   /** As [[formatRows]], but yielding `Product`s of pre-formatted strings for the legacy `consoleFormat_` path. */

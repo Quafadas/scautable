@@ -185,6 +185,61 @@ Both are unchecked casts, but stripping a display tag is the case where that is 
 sound - a tag erases to the type underneath it, so nothing about the data changes.
 
 
+## In a notebook (almond)
+
+The `scautable-almond` module renders tables in an [almond](https://almond.sh) Jupyter notebook. It is
+a separate artifact so that core scautable doesn't depend on almond, which the kernel already provides.
+
+```scala
+//> using dep io.github.quafadas::scautable-almond:@VERSION@
+// or: import $ivy.`io.github.quafadas::scautable-almond:@VERSION@`
+
+import io.github.quafadas.table.*
+import io.github.quafadas.scautable.notebook.{*, given}
+
+val data = CSV.resource("cereals.csv").toVector
+
+data.display()                            // head and tail, if over 60 rows
+data.display(maxRows = 200, edgeRows = 10)
+data.displayAll                           // every row
+data.ptbln                                // in a notebook, the same as display()
+```
+
+Column headers come from the named tuple's type, so an empty table still shows its headers.
+Format tags (`formatColumn`, `style`) apply exactly as they do in the console.
+
+Each call publishes a MIME bundle:
+
+- `text/html` - a scrollable table with a sticky header, styled to fit in JupyterLab, the classic notebook and VS Code
+- `text/plain` - an uncoloured text table, for `nbconvert`, exports and consoles
+- `application/vnd.dataresource+json` - only with `display(dataResource = true)`. A [Table Schema](https://specs.frictionlessdata.io/table-schema/)
+  payload of the first `maxRows` rows, for frontends with a data-explorer extension.
+
+Like pandas, tables over `maxRows` (default 60) show `edgeRows` (default 5) from each end, with a
+"… n more rows" marker between them. Only the rows shown are formatted.
+
+### Iterators
+
+`display` is only defined for an `Iterable`. Displaying an `Iterator` would consume it, leaving
+nothing for the next cell, so materialise it first with `.toVector` or `.toSeq`. `ptbln` still
+accepts an `Iterator`, as it always has, and consumes it.
+
+### `ptbln` in a notebook
+
+`import notebook.given` brings in a notebook `TableSink`, which `ptbln` prefers over the default
+console sink. Leave out `given` if you'd rather `ptbln` printed text.
+
+### Updating a table in place
+
+`notebookTable` builds the bundle without publishing it, so you can use almond's display ids:
+
+```scala
+val handle = data.take(10).notebookTable().displayData.withId("progress")
+handle.show()
+// ... later
+data.take(20).notebookTable().displayData.withId("progress").update()
+```
+
 ## In browser (currently untested with named tuples)
 
 ```scala

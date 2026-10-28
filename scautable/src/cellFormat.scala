@@ -156,6 +156,10 @@ object CellFormat:
   /** Used for every column with no `CellFormat` in scope - i.e. all existing tables. */
   private[scautable] val toStringFormat: Any => String = a => if a == null then "" else a.toString
 
+  /** Format each cell of `row` with the formatter for its position, as resolved by [[formattersFor]]. */
+  def formatRow(row: Product, formatters: Array[Any => String]): Seq[String] =
+    row.productIterator.toSeq.zipWithIndex.map((cell, i) => if i < formatters.length then formatters(i)(cell) else toStringFormat(cell))
+
   /** One formatter per element of `T`, positionally aligned with a row tuple.
     *
     * Resolved once per render call (not per row) - `summonFrom` rather than `summonInline` so that an untagged column falls back to `toString` instead of failing to compile.
