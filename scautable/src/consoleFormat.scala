@@ -1,6 +1,7 @@
 package io.github.quafadas.scautable
 
 import scala.NamedTuple.*
+import scala.collection.IterableOnceOps
 import scala.compiletime.constValueTuple
 import scala.deriving.Mirror
 
@@ -65,19 +66,25 @@ object ConsoleFormat:
   end extension
 
   /** Case classes (or any `Product` with a `Mirror`) render via their `NamedTuple.From` view, so headers are the field names and cells go through `CellFormat`. */
+  extension [A <: Product, CC[X] <: IterableOnceOps[X, CC, CC[X]]](s: CC[A])(using m: Mirror.ProductOf[A])
+    /** Preserves the collection type: a `List` of case classes becomes a `List` of named tuples, an `Iterator` stays an `Iterator`, etc. */
+    inline def toNamedTuples: CC[NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]] =
+      s.map(a => Tuple.fromProductTyped(a).asInstanceOf[NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]])
+  end extension
+
   extension [A <: Product](s: IterableOnce[A])(using m: Mirror.ProductOf[A])
 
-    inline def toNamedTuples: Iterator[NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]] =
+    private inline def ntIterator: Iterator[NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]] =
       s.iterator.map(a => Tuple.fromProductTyped(a).asInstanceOf[NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]])
 
-    inline def consoleFormatCc: String = s.toNamedTuples.consoleFormatNt
+    inline def consoleFormatCc: String = s.ntIterator.consoleFormatNt
 
     inline def consoleFormatCc(headers: Option[List[String]], fansi: Boolean): String =
-      s.toNamedTuples.consoleFormatNt(headers, fansi)
+      s.ntIterator.consoleFormatNt(headers, fansi)
 
     inline def ptblc: Unit = println(s.consoleFormatCc)
 
-    inline def htmlCc: String = s.toNamedTuples.html
+    inline def htmlCc: String = s.ntIterator.html
   end extension
 
   /** Render each cell of `rows` through the `CellFormat` for its column type, falling back to `toString`. Formatters are resolved once, not per row. */

@@ -72,6 +72,23 @@ class ConsoleFormatFiniteCollectionSuite extends FunSuite:
     assertEquals(nts.map(_.rate), List(1.08, 1.27))
   }
 
+  test("toNamedTuples preserves the input collection type") {
+    val rates = List(Rate("EUR", 1.08), Rate("GBP", 1.27))
+    import io.github.quafadas.table.*
+
+    val asList: List[(currency: String, rate: Double)] = rates.toNamedTuples
+    assertEquals(asList.map(_.currency), List("EUR", "GBP"))
+
+    val asVector: Vector[(currency: String, rate: Double)] = rates.toVector.toNamedTuples
+    assertEquals(asVector.map(_.rate), Vector(1.08, 1.27))
+
+    val asIterator: Iterator[(currency: String, rate: Double)] = rates.iterator.toNamedTuples
+    assertEquals(asIterator.map(_.currency).toList, List("EUR", "GBP"))
+
+    val fromArray = rates.toArray.toNamedTuples
+    assertEquals(fromArray.map(_.currency).toList, List("EUR", "GBP"))
+  }
+
 end ConsoleFormatFiniteCollectionSuite
 
 case class Rate(currency: String, rate: Double)
