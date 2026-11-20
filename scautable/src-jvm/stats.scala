@@ -532,6 +532,7 @@ object Stats:
       *   [[summary]] for the `Iterator` version
       */
     inline def summary =
+      checkNumericClassifiable[K, V, "summary"]
       val numeric = nt.numericCols.numericSummary
       val nonNumeric = nt.nonNumericCols.nonNumericSummary
       (numeric = numeric, nonNumeric = nonNumeric)
@@ -542,6 +543,7 @@ object Stats:
       * The numeric columns are tagged with `SigFigs[4]` for display only - `summary` still returns raw `Double`s, so nothing downstream of it is affected.
       */
     inline def describe =
+      checkNumericClassifiable[K, V, "describe"]
       val (numeric, nonNumeric) = nt.summary
       println("===== Numeric Columns: =======")
       numeric
