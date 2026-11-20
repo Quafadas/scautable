@@ -2,7 +2,44 @@ package io.github.quafadas.scautable
 
 import io.github.quafadas.table.*
 
+object StatsSuiteOpaques:
+  /** Opaque with no bound - `IsNumeric` cannot see through it. */
+  opaque type Rel = Double
+  object Rel:
+    def apply(d: Double): Rel = d
+  end Rel
+
+  /** Opaque but bounded by `Double`, so `IsNumeric` still reduces. */
+  opaque type Bounded <: Double = Double
+  object Bounded:
+    def apply(d: Double): Bounded = d
+  end Bounded
+end StatsSuiteOpaques
+
 class StatsSuite extends munit.FunSuite:
+  import StatsSuiteOpaques.*
+
+  test("describe names a column whose type is opaque, rather than dumping the match type"):
+    val errs = compileErrors("""
+      val data = List((Multiple = Option(1.0), EL = Option(Rel(2.0))))
+      data.describe
+    """)
+    assert(errs.contains("describe: cannot tell whether column 'EL' is numeric"), errs)
+    assert(!errs.contains("Not all columns"), errs)
+
+  test("summary, numericCols and nonNumericCols name the opaque column too"):
+    def check(who: String, errs: String) = assert(errs.contains(s"$who: cannot tell whether column 'EL' is numeric"), errs)
+    check("summary", compileErrors("List((Multiple = Option(1.0), EL = Option(Rel(2.0)))).summary"))
+    check("numericCols", compileErrors("List((Multiple = Option(1.0), EL = Option(Rel(2.0)))).numericCols"))
+    check("nonNumericCols", compileErrors("List((Multiple = Option(1.0), EL = Option(Rel(2.0)))).nonNumericCols"))
+    check("numericCols", compileErrors("Iterator((Multiple = Option(1.0), EL = Option(Rel(2.0)))).numericCols"))
+    check("nonNumericCols", compileErrors("Iterator((Multiple = Option(1.0), EL = Option(Rel(2.0)))).nonNumericCols"))
+
+  test("an opaque type bounded by Double is still classified as numeric"):
+    val data = List((name = "a", b = Bounded(1.0)), (name = "b", b = Bounded(3.0)))
+    val s = data.summary
+    assertEquals(s.numeric.map(_.name), List("b"))
+    assertEquals(s.nonNumeric.map(_.name), List("name"))
 
   test("summary should compute basic statistics for Integer data"):
     val data = List(
