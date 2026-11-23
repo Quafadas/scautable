@@ -16,6 +16,9 @@ import scala.quoted.*
   * // Read with schema-qualified name (schema.table)
   * val c2 = DB.table[Postgres]("public.country")
   *
+  * // Another database on the same server (catalog.schema.table)
+  * val c3 = DB.table[MsSqlServer]("OtherDb.dbo.country")
+  *
   * // Arbitrary SQL — no data is executed; schema comes from PreparedStatement.getMetaData.
   * val pop = DB.query[H2]("SELECT name, population FROM country WHERE population > 1000000")
   * }}}
@@ -34,7 +37,8 @@ object DB:
 
   /** Infer the schema of `tableName` from the live database at compile time.
     *
-    * `tableName` may include a schema qualifier: `"schema.table"` or just `"table"`.
+    * `tableName` may be `"table"`, `"schema.table"` or `"catalog.schema.table"`. The catalog form reads from another database on the same server (e.g. SQL Server
+    * `"OtherDb.dbo.Customers"`) over the one configured connection.
     */
   transparent inline def table[F <: DbFlavour](inline tableName: String): Any =
     ${ tableImpl[F]('tableName) }
@@ -55,21 +59,19 @@ object DB:
 
     val tableName = tableNameExpr.valueOrAbort
 
-    // Parse optional "schema.table" notation (split on literal dot using char overload)
-    val (schema, table) = tableName.split('.') match
-      case Array(s, t) => (Some(s), t)
-      case Array(t)    => (None, t)
-      case other       => report.throwError(s"Invalid table name: '$tableName'. Use 'table' or 'schema.table'.")
+    val (catalog, schema, table) = parseTableName(tableName) match
+      case Right(parts) => parts
+      case Left(msg)    => report.throwError(msg)
 
     val cols = readSchema(
       s"table:$tableName",
       () =>
         withConnection { conn =>
-          SchemaReader.forTable(conn, schema, table)
+          SchemaReader.forTable(conn, catalog, schema, table)
         }
     )
 
-    buildIteratorExpr(cols, buildTableSql(schema, table, cols))
+    buildIteratorExpr(cols, buildTableSql(catalog, schema, table, cols))
   end tableImpl
 
   def queryImpl[F <: DbFlavour: Type](sqlExpr: Expr[String])(using q: Quotes): Expr[Any] =
@@ -120,7 +122,7 @@ object DB:
                      |     (e.g. -D${ConnectionResolver.urlEnvVar}=... on the compiler's JVM).
                      |     Optionally set ${ConnectionResolver.userEnvVar} and ${ConnectionResolver.passwordEnvVar}.
                      |  B) Generate a snapshot file:
-                     |       SchemaSnapshot.write(conn, Map("$key" -> SchemaSnapshot.fromTable(conn, None, "...")))
+                     |       SchemaSnapshot.write(conn, Map("$key" -> SchemaSnapshot.fromTable(conn, "...")))
                      |     then commit '$snapshotPath' (or set ${ConnectionResolver.snapshotEnvVar}).
                      |""".stripMargin
                 )
@@ -190,10 +192,25 @@ object DB:
     end if
   end jdbcTypeToTypeRepr
 
-  /** Build the SQL `SELECT col1, col2 FROM [schema.]table` used at runtime. */
-  private def buildTableSql(schema: Option[String], table: String, cols: Seq[ColumnMeta]): String =
+  /** Split a table reference into `(catalog, schema, table)`.
+    *
+    * Accepts `table`, `schema.table` or `catalog.schema.table`. The three-part form reaches another database on the same server (SQL Server `OtherDb.dbo.Customers`, H2
+    * `MYDB.PUBLIC.T`), provided the connecting login has access to it.
+    */
+  def parseTableName(tableName: String): Either[String, (Option[String], Option[String], String)] =
+    tableName.split('.') match
+      case parts if parts.exists(_.isEmpty) || tableName.endsWith(".") =>
+        Left(s"Invalid table name: '$tableName'. Empty name part. Use 'table', 'schema.table' or 'catalog.schema.table'.")
+      case Array(t)       => Right((None, None, t))
+      case Array(s, t)    => Right((None, Some(s), t))
+      case Array(c, s, t) => Right((Some(c), Some(s), t))
+      case _              => Left(s"Invalid table name: '$tableName'. Use 'table', 'schema.table' or 'catalog.schema.table'.")
+  end parseTableName
+
+  /** Build the SQL `SELECT col1, col2 FROM [[catalog.]schema.]table` used at runtime. */
+  private[db] def buildTableSql(catalog: Option[String], schema: Option[String], table: String, cols: Seq[ColumnMeta]): String =
     val quotedCols = cols.map(c => quoteIdentifier(c.name)).mkString(", ")
-    val qualifiedTable = schema.fold(quoteIdentifier(table))(s => s"${quoteIdentifier(s)}.${quoteIdentifier(table)}")
+    val qualifiedTable = (catalog.toList ++ schema.toList :+ table).map(quoteIdentifier).mkString(".")
     s"SELECT $quotedCols FROM $qualifiedTable"
   end buildTableSql
 

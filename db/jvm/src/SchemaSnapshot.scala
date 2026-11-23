@@ -7,7 +7,7 @@ package io.github.quafadas.scautable.db
   *
   * Produce a snapshot with:
   * {{{
-  *   SchemaSnapshot.write(conn, Map("country" -> SchemaSnapshot.fromTable(conn, None, "country")))
+  *   SchemaSnapshot.write(conn, Map("country" -> SchemaSnapshot.fromTable(conn, "country")))
   * }}}
   */
 case class SchemaSnapshot(
@@ -38,8 +38,11 @@ object SchemaSnapshot:
   end write
 
   /** Build a snapshot from a live connection for a table. */
-  def fromTable(conn: java.sql.Connection, schema: Option[String], table: String): Seq[ColumnMeta] =
-    SchemaReader.forTable(conn, schema, table)
+  /** Build a snapshot from a live connection for a table. `tableName` is written exactly as passed to `DB.table`: `table`, `schema.table` or `catalog.schema.table`. */
+  def fromTable(conn: java.sql.Connection, tableName: String): Seq[ColumnMeta] =
+    DB.parseTableName(tableName) match
+      case Right((catalog, schema, table)) => SchemaReader.forTable(conn, catalog, schema, table)
+      case Left(msg)                       => throw new IllegalArgumentException(msg)
 
   /** Build a snapshot from a live connection for a query. */
   def fromQuery(conn: java.sql.Connection, sql: String): Seq[ColumnMeta] =

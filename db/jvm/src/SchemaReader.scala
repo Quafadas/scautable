@@ -17,8 +17,10 @@ object SchemaReader:
     *
     * @param conn
     *   An open JDBC connection. Not closed by this method.
+    * @param catalog
+    *   Optional catalog, i.e. the database on servers hosting several (SQL Server, MySQL, H2). `None` means the database in the connection URL.
     * @param schema
-    *   Optional schema / catalog qualifier (e.g. `Some("public")` for Postgres).
+    *   Optional schema qualifier (e.g. `Some("public")` for Postgres, `Some("dbo")` for SQL Server).
     * @param table
     *   The bare table name (without schema prefix).
     * @return
@@ -26,9 +28,9 @@ object SchemaReader:
     * @throws IllegalArgumentException
     *   If the table is not found. The message includes a list of near-miss table names.
     */
-  def forTable(conn: Connection, schema: Option[String], table: String): Seq[ColumnMeta] =
+  def forTable(conn: Connection, catalog: Option[String], schema: Option[String], table: String): Seq[ColumnMeta] =
     val md = conn.getMetaData
-    val cols: ResultSet = md.getColumns(null, schema.orNull, table, null)
+    val cols: ResultSet = md.getColumns(catalog.orNull, schema.orNull, table, null)
 
     val buf = ArrayBuffer.empty[ColumnMeta]
     while cols.next() do
@@ -44,10 +46,10 @@ object SchemaReader:
 
     if buf.isEmpty then
       // Build a near-miss list for a better error message.
-      val candidates = nearMissTables(conn, schema, table)
+      val candidates = nearMissTables(conn, catalog, schema, table)
       val hint = if candidates.nonEmpty then s"\n  Did you mean one of: ${candidates.mkString(", ")}?" else ""
       throw new IllegalArgumentException(
-        s"Table '$table'${schema.fold("")(s => s" in schema '$s'")} not found.$hint"
+        s"Table '$table'${schema.fold("")(s => s" in schema '$s'")}${catalog.fold("")(c => s" in catalog '$c'")} not found.$hint"
       )
     end if
 
@@ -99,10 +101,10 @@ object SchemaReader:
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  private def nearMissTables(conn: Connection, schema: Option[String], table: String): Seq[String] =
+  private def nearMissTables(conn: Connection, catalog: Option[String], schema: Option[String], table: String): Seq[String] =
     try
       val md = conn.getMetaData
-      val rs = md.getTables(null, schema.orNull, "%", Array("TABLE", "VIEW"))
+      val rs = md.getTables(catalog.orNull, schema.orNull, "%", Array("TABLE", "VIEW"))
       val all = ArrayBuffer.empty[String]
       while rs.next() do all += rs.getString("TABLE_NAME")
       end while

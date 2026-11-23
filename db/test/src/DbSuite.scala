@@ -54,7 +54,7 @@ class SchemaReaderSuite extends H2Fixture:
 
   test("forTable returns correct ColumnMeta for country table") {
     withConn { conn =>
-      val cols = SchemaReader.forTable(conn, None, "COUNTRY")
+      val cols = SchemaReader.forTable(conn, None, None, "COUNTRY")
       assertEquals(cols.length, 5)
 
       val iso3 = cols
@@ -76,7 +76,7 @@ class SchemaReaderSuite extends H2Fixture:
   test("forTable throws on unknown table with near-miss") {
     withConn { conn =>
       intercept[IllegalArgumentException] {
-        SchemaReader.forTable(conn, None, "countryXYZ")
+        SchemaReader.forTable(conn, None, None, "countryXYZ")
       }
     }
   }
@@ -89,7 +89,60 @@ class SchemaReaderSuite extends H2Fixture:
     }
   }
 
+  test("forTable with a catalog reads the table in that catalog") {
+    withConn { conn =>
+      val catalog = conn.getCatalog // H2: the database name, e.g. SCAUTABLE_TEST
+      val cols = SchemaReader.forTable(conn, Some(catalog), Some("PUBLIC"), "COUNTRY")
+      assertEquals(cols.length, 5)
+    }
+  }
+
+  test("forTable with an unknown catalog does not fall back to the connected database") {
+    withConn { conn =>
+      val ex = intercept[IllegalArgumentException] {
+        SchemaReader.forTable(conn, Some("NO_SUCH_DB"), Some("PUBLIC"), "COUNTRY")
+      }
+      assert(ex.getMessage.contains("catalog 'NO_SUCH_DB'"), ex.getMessage)
+    }
+  }
+
+  test("three-part SQL from buildTableSql runs against the catalog") {
+    withConn { conn =>
+      val catalog = conn.getCatalog
+      val cols = SchemaReader.forTable(conn, Some(catalog), Some("PUBLIC"), "COUNTRY")
+      val sql = DB.buildTableSql(Some(catalog), Some("PUBLIC"), "COUNTRY", cols)
+      assert(sql.endsWith(s"""FROM "$catalog"."PUBLIC"."COUNTRY""""), sql)
+      val rs = conn.createStatement().executeQuery(sql)
+      var n = 0
+      while rs.next() do n += 1
+      end while
+      rs.close()
+      assertEquals(n, 4)
+    }
+  }
+
 end SchemaReaderSuite
+
+class TableNameSuite extends munit.FunSuite:
+
+  test("parseTableName accepts one, two and three parts") {
+    assertEquals(DB.parseTableName("t"), Right((None, None, "t")))
+    assertEquals(DB.parseTableName("s.t"), Right((None, Some("s"), "t")))
+    assertEquals(DB.parseTableName("OtherDb.dbo.Customers"), Right((Some("OtherDb"), Some("dbo"), "Customers")))
+  }
+
+  test("parseTableName rejects empty parts and four parts") {
+    for bad <- List("a.b.c.d", ".t", "s..t", "s.t.", "") do assert(DB.parseTableName(bad).isLeft, bad)
+    end for
+  }
+
+  test("buildTableSql quotes every part") {
+    val cols = Seq(ColumnMeta("id", java.sql.Types.INTEGER, "int", false, 1))
+    assertEquals(DB.buildTableSql(None, None, "t", cols), """SELECT "id" FROM "t"""")
+    assertEquals(DB.buildTableSql(Some("Other Db"), Some("dbo"), "t", cols), """SELECT "id" FROM "Other Db"."dbo"."t"""")
+  }
+
+end TableNameSuite
 
 class JdbcDecoderSuite extends H2Fixture:
 
@@ -357,6 +410,15 @@ class DbMacroSnapshotSuite extends munit.FunSuite:
     // Verify the iterator was constructed (factory is set; no DB connection opened yet)
     assertNotEquals(typed, null)
     // Do NOT call hasNext or next — we have no DB at test time (snapshot-only mode).
+  }
+
+  test("DB.table accepts a catalog.schema.table name (another database on the same server)") {
+    val other = DB.table[MsSqlServer]("OtherDb.dbo.country")
+    val typed: DbIterator[
+      ("iso3", "name", "population", "area_km2", "is_island"),
+      (String, String, Option[Long], Double, Boolean)
+    ] = other
+    assertNotEquals(typed, null)
   }
 
   test("DB.table runtime execution reads rows from live database (requires SCAUTABLE_DB_URL)") {
