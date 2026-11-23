@@ -74,6 +74,25 @@ object NamedTupleIteratorExtensions:
           case _: true => error(constValue[Who] + ": column " + constValue[n & String] + " exists on both sides - rename or drop it first")
           case _       => checkNoSharedNames[Left, rest, Who]
 
+  /** Fail compilation if `IsNumeric` cannot reduce for some column, naming that column. `Who` is the calling method, as in [[checkSpecNames]].
+    *
+    * A column whose type is opaque (`opaque type Rel = Double`) or abstract leaves `IsNumeric` stuck: it is neither `true` nor `false`. Without this check, `numericCols` and
+    * friends then fail with a raw dump of the unreduced match type and the misleading claim that a column is missing. A stuck match type matches neither literal in an inline
+    * match, so it falls through to the wildcard case here.
+    */
+  private[scautable] inline def checkNumericClassifiable[K <: Tuple, V <: Tuple, Who <: String]: Unit =
+    inline erasedValue[(K, V)] match
+      case _: (EmptyTuple, EmptyTuple) => ()
+      case _: ((n *: ns), (v *: vs))   =>
+        inline erasedValue[IsNumeric[v]] match
+          case _: true  => checkNumericClassifiable[ns, vs, Who]
+          case _: false => checkNumericClassifiable[ns, vs, Who]
+          case _        =>
+            error(
+              constValue[Who] + ": cannot tell whether column '" + constValue[n & String] +
+                "' is numeric - its type is opaque or abstract. Map it to a plain Double/Int (or Option thereof) first, or drop it."
+            )
+
   /** Drop the cell at `idx`. The `EmptyTuple` case is not redundant - it is what a right hand table consisting of nothing but the join key hits. */
   private def removeAt(t: Tuple, idx: Int): Tuple =
     val (head, tail) = t.splitAt(idx)
@@ -305,6 +324,7 @@ object NamedTupleIteratorExtensions:
         GetTypesAtNames[K, SelectFromTuple[K, NumericColsIdx[V]], V]
       ]
     ] =
+      checkNumericClassifiable[K, V, "numericCols"]
       val ev1 = summonInline[AllAreColumns[SelectFromTuple[K, NumericColsIdx[V]], K] =:= true]
       columns[SelectFromTuple[K, NumericColsIdx[V]]](using ev1)
     end numericCols
@@ -315,6 +335,7 @@ object NamedTupleIteratorExtensions:
         GetTypesAtNames[K, SelectFromTuple[K, Negate[NumericColsIdx[V]]], V]
       ]
     ] =
+      checkNumericClassifiable[K, V, "nonNumericCols"]
       val ev1 = summonInline[
         AllAreColumns[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K] =:= true
       ]
@@ -590,6 +611,7 @@ object NamedTupleIteratorExtensions:
         GetTypesAtNames[K, SelectFromTuple[K, NumericColsIdx[V]], V]
       ]
     ] =
+      checkNumericClassifiable[K, V, "numericCols"]
       val ev1 = summonInline[AllAreColumns[SelectFromTuple[K, NumericColsIdx[V]], K] =:= true]
       columns[SelectFromTuple[K, NumericColsIdx[V]]](using ev1)
     end numericCols
@@ -606,6 +628,7 @@ object NamedTupleIteratorExtensions:
         GetTypesAtNames[K, SelectFromTuple[K, Negate[NumericColsIdx[V]]], V]
       ]
     ] =
+      checkNumericClassifiable[K, V, "nonNumericCols"]
       val ev1 = summonInline[
         AllAreColumns[SelectFromTuple[K, Negate[NumericColsIdx[V]]], K] =:= true
       ]
