@@ -47,7 +47,7 @@ type NTRow[N <: Tuple, Vals <: Tuple] = [T[_]] =>> NamedTuple[N, Tuple.Map[Vals,
   * @param ntName
   *   The exact database table name.
   * @param ntSchema
-  *   Optional schema qualifier (e.g. `"public"` for PostgreSQL).
+  *   Optional qualifier, rendered unescaped before the table name: `"public"` for PostgreSQL, or `"OtherDb.dbo"` to reach another database on the same SQL Server.
   * @tparam N
   *   Tuple of column-name string literals.
   * @tparam Vals

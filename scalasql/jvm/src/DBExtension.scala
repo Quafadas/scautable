@@ -1,7 +1,7 @@
 package io.github.quafadas.scautable.scalasql
 
 import scala.quoted.*
-import io.github.quafadas.scautable.db.{DbFlavour, ColumnMeta, SchemaReader, SchemaSnapshot, ConnectionResolver}
+import io.github.quafadas.scautable.db.{DB, DbFlavour, ColumnMeta, SchemaReader, SchemaSnapshot, ConnectionResolver}
 import scalasql.query.{Table, TableRef, Column}
 import scalasql.core.{Queryable, DialectTypeMappers, Expr as SExpr}
 
@@ -46,7 +46,7 @@ extension (db: io.github.quafadas.scautable.db.DB.type)
   /** Infer the schema of `tableName` from the live database at compile time and return a `(DbApi, NamedTupleTable)` pair: a lazily-connecting `DbApi` wired from the same
     * connection env vars as the schema inference, and a `NamedTupleTable` that enables the full scalasql push-down query DSL.
     *
-    * `tableName` may include a schema qualifier: `"schema.table"` or just `"table"`.
+    * `tableName` may be `"table"`, `"schema.table"` or `"catalog.schema.table"` (another database on the same server, e.g. SQL Server `"OtherDb.dbo.Customers"`).
     *
     * ==Connection resolution==
     * Schema (compile time): live env vars → filesystem snapshot → classpath snapshot, same priority order as `DB.table`. Runtime `DbApi`: opened lazily from `SCAUTABLE_DB_URL` /
@@ -69,22 +69,22 @@ private object SqlTableMacro:
 
     val tableName = tableNameExpr.valueOrAbort
 
-    val (schema, table) = tableName.split('.') match
-      case Array(s, t) => (Some(s), t)
-      case Array(t)    => (None, t)
-      case other       =>
-        report.throwError(s"Invalid table name: '$tableName'. Use 'table' or 'schema.table'.")
+    val (catalog, schema, table) = DB.parseTableName(tableName) match
+      case Right(parts) => parts
+      case Left(msg)    => report.throwError(msg)
 
     val cols = readSchema(
       s"table:$tableName",
       (url, user, pass) =>
         val conn = ConnectionResolver.openConnectionWith(url, user, pass)
-        try SchemaReader.forTable(conn, schema, table)
+        try SchemaReader.forTable(conn, catalog, schema, table)
         finally conn.close()
         end try
     )
 
-    buildSqlTableExpr(cols, table, schema, fdExpr)
+    // scalasql renders `schemaName + "." + table`, so a catalog rides along in the schema slot: "OtherDb.dbo".
+    val qualifier = (catalog.toList ++ schema.toList).mkString(".")
+    buildSqlTableExpr(cols, table, Option.when(qualifier.nonEmpty)(qualifier), fdExpr)
   end sqlTableImpl
 
   def tableOnlyImpl[F <: DbFlavour: Type](

@@ -281,6 +281,24 @@ class DbSqlTableSuite extends H2FixtureScalasql:
     assert(rows.nonEmpty, "Expected rows from runtime DB")
   }
 
+  test("DB.sqlTable accepts catalog.schema.table and renders it qualified") {
+    val other = DB.sqlTable[DbH2]("OtherDb.dbo.country")
+    assertEquals(other.ntSchema, "OtherDb.dbo")
+    assertEquals(other.ntName, "country")
+    val sql = dbClient.renderSql(other.select)
+    assert(sql.contains("FROM OtherDb.dbo.\""), sql) // qualifier verbatim, table escaped by the dialect
+  }
+
+  test("a catalog-qualified NamedTupleTable reads rows over the same connection") {
+    val catalog = withConn(_.getCatalog) // H2: the database name
+    object qualified
+        extends NamedTupleTable[("iso3", "name", "population", "area_km2", "is_island"), (String, String, Option[Long], Double, Boolean)](
+          "COUNTRY",
+          s"$catalog.PUBLIC"
+        )
+    assertEquals(db.run(qualified.select).length, 4)
+  }
+
 end DbSqlTableSuite
 
 // ---------------------------------------------------------------------------

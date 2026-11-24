@@ -68,7 +68,7 @@ You select a dialect via a `DbFlavour` marker type (`H2`, `Postgres`, `MsSqlServ
 
 ## `DB.sqlTable` — infer a table's schema
 
-`DB.sqlTable[F]("tableName")` reads the schema of `tableName` from the database at compile time and returns a `NamedTupleTable` — a scalasql `Table` whose row type is an anonymous `NamedTuple`. `tableName` may include a schema qualifier: `"schema.table"` or just `"table"`.
+`DB.sqlTable[F]("tableName")` reads the schema of `tableName` from the database at compile time and returns a `NamedTupleTable` — a scalasql `Table` whose row type is an anonymous `NamedTuple`. `tableName` may include a schema qualifier: `"schema.table"` or just `"table"`. On servers that host several databases, `"catalog.schema.table"` reaches another one through the same connection, e.g. `DB.sqlTable[MsSqlServer]("OtherDb.dbo.Customers")`.
 
 
 Constructing `countries` never opens a network connection — it only runs at compile time against the schema-inference connection (or a snapshot).
