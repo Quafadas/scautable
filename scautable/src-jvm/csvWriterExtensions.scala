@@ -10,6 +10,11 @@ object CSVWriterExtensions:
   /** Writes all lines (each terminated by a newline) to `target` in a single streaming `os.write.over`, always replacing any existing file content - even when there are no lines.
     */
   private[scautable] def writeLines(target: os.Path, lines: Iterator[String]): Unit =
+    writeLines(target, geny.Generator.from(lines))
+
+  /** As above, for a push-based [[geny.Generator]] (e.g. scalasql's `db.stream`), which cannot become an `Iterator` without buffering.
+    */
+  private[scautable] def writeLines(target: os.Path, lines: geny.Generator[String]): Unit =
     val writable = new geny.Writable:
       override def writeBytesTo(out: java.io.OutputStream): Unit =
         val writer = new java.io.BufferedWriter(new java.io.OutputStreamWriter(out, java.nio.charset.StandardCharsets.UTF_8))
@@ -21,6 +26,44 @@ object CSVWriterExtensions:
       end writeBytesTo
     os.write.over(target, writable)
   end writeLines
+
+  /** The CSV header line for the column names `K`. */
+  private[scautable] inline def headerLine[K <: Tuple](delimiter: Char, quote: Char): String =
+    CSVWriter.formatLine(constValueTuple[K].toList.map(_.toString()), delimiter, quote)
+
+  extension [K <: Tuple, V <: Tuple](gen: geny.Generator[NamedTuple[K, V]])
+
+    /** Converts the generator to CSV format as a generator of lines. Nothing runs until the result is consumed.
+      */
+    inline def toCsv(
+        includeHeaders: Boolean,
+        delimiter: Char,
+        quote: Char
+    ): geny.Generator[String] =
+      val strGen = gen.map { namedTuple =>
+        CSVWriter.formatRow(namedTuple.toList, delimiter, quote)
+      }
+      if includeHeaders then geny.Generator(headerLine[K](delimiter, quote)) ++ strGen
+      else strGen
+      end if
+    end toCsv
+
+    /** Writes the generator to a CSV file row by row, never holding all rows in memory. Any existing file at `path` is replaced.
+      *
+      * Intended for scalasql's `db.stream(query)`, whose [[geny.Generator]] keeps its JDBC result set open only while it is consumed.
+      */
+    inline def writeCsvGenerator(
+        path: Option[os.Path] = None,
+        includeHeaders: Boolean = true,
+        delimiter: Char = ',',
+        quote: Char = '"'
+    ): os.Path =
+      val target = path.getOrElse(os.temp(contents = "", suffix = ".csv", prefix = "scautable-"))
+      CSVWriterExtensions.writeLines(target, toCsv(includeHeaders, delimiter, quote))
+      target
+    end writeCsvGenerator
+
+  end extension
 
   extension [K <: Tuple, V <: Tuple](itr: Iterator[NamedTuple[K, V]])
 
@@ -40,13 +83,10 @@ object CSVWriterExtensions:
         delimiter: Char,
         quote: Char
     ): Iterator[String] =
-      val headers = constValueTuple[K].toList.map(_.toString())
-      val headerLine = CSVWriter.formatLine(headers, delimiter, quote)
-
       val strIterator = itr.map { namedTuple =>
         CSVWriter.formatRow(namedTuple.toList, delimiter, quote)
       }
-      if includeHeaders then Iterator(headerLine) ++ strIterator
+      if includeHeaders then Iterator(headerLine[K](delimiter, quote)) ++ strIterator
       else strIterator
       end if
     end toCsv
@@ -93,15 +133,7 @@ object CSVWriterExtensions:
         delimiter: Char,
         quote: Char
     ): Iterator[String] =
-      val headers = constValueTuple[K].toList.map(_.toString())
-      val headerLine = CSVWriter.formatLine(headers, delimiter, quote)
-
-      val strIterator = data.iterator.map { namedTuple =>
-        CSVWriter.formatRow(namedTuple.toList, delimiter, quote)
-      }
-      if includeHeaders then Iterator(headerLine) ++ strIterator
-      else strIterator
-      end if
+      data.iterator.toCsv(includeHeaders, delimiter, quote)
     end toCsv
 
     /** Converts the iterable to CSV format as a string.
@@ -120,16 +152,15 @@ object CSVWriterExtensions:
         delimiter: Char,
         quote: Char
     ): String =
-      val headers = constValueTuple[K].toList.map(_.toString())
-      val headerLine =
-        if includeHeaders then Seq(CSVWriter.formatLine(headers, delimiter, quote))
+      val header =
+        if includeHeaders then Seq(headerLine[K](delimiter, quote))
         else Seq.empty
 
       val dataLines = data.view.map { namedTuple =>
         CSVWriter.formatRow(namedTuple.toList, delimiter, quote)
       }.toSeq
 
-      (headerLine ++ dataLines).mkString("\n")
+      (header ++ dataLines).mkString("\n")
     end toCsvString
 
     /** Writes the iterable to a CSV file, streaming line by line. Any existing file at `path` is replaced.
