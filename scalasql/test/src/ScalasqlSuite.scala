@@ -136,6 +136,17 @@ class NamedTupleTableSuite extends H2FixtureScalasql:
     assertEquals(result.head.iso3, "DEU") // DEU is first alphabetically
   }
 
+  test("db.stream writes straight to CSV via writeCsvGenerator") {
+    import io.github.quafadas.scautable.CSVWriterExtensions.*
+    val out = db
+      .stream(country.select.filter(_.is_island === true).sortBy(_.iso3))
+      .writeCsvGenerator(path = Some(os.temp(suffix = ".csv")))
+    assertEquals(
+      os.read(out),
+      "iso3,name,population,area_km2,is_island\nISL,Iceland,370000,103000.0,true\nNZL,New Zealand,5000000,268000.0,true\n"
+    )
+  }
+
   // --- R3: write path ---
 
   test("R3: insert.columns then select") {

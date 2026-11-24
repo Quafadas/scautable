@@ -196,6 +196,25 @@ class CSVWriterSuite extends munit.FunSuite:
     val tmp2 = os.temp(suffix = ".csv", prefix = "scautable-roundtrip-")
     data.iterator.writeCsvIterator(path = Some(tmp2))
     assertEquals(os.read(tmp2), os.read(tmp))
+
+    // ...and so does the generator writer (the shape of scalasql's db.stream)
+    val tmp3 = os.temp(suffix = ".csv", prefix = "scautable-roundtrip-")
+    geny.Generator.from(data).writeCsvGenerator(path = Some(tmp3))
+    assertEquals(os.read(tmp3), os.read(tmp))
+  }
+
+  test("writeCsvGenerator consumes the generator exactly once and replaces an existing file") {
+    var opened = 0
+    val gen = new geny.Generator[(a: Int, b: String)]:
+      def generate(handle: ((a: Int, b: String)) => geny.Generator.Action): geny.Generator.Action =
+        opened += 1
+        handle((a = 1, b = "x,y"))
+        handle((a = 2, b = "z"))
+      end generate
+    val tmp = os.temp(contents = "stale\n", suffix = ".csv")
+    gen.writeCsvGenerator(path = Some(tmp))
+    assertEquals(os.read(tmp), "a,b\n1,\"x,y\"\n2,z\n")
+    assertEquals(opened, 1)
   }
 
   test("writeCsv with empty data replaces an existing file") {
