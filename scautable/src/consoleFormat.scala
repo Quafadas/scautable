@@ -57,6 +57,10 @@ object ConsoleFormat:
 
     inline def html: String = HtmlRenderer.nt(nt).render
 
+    /** Start styling the table conditionally - colours, bold and so on, driven by cell values or whole rows. See [[Styler]]. */
+    inline def styler: Styler[K, V] =
+      new Styler(nt, constValueTuple[K].toList.map(_.toString()), CellFormat.formattersFor[V].toArray, Vector.empty)
+
     inline def consoleFormatNt(headers: Option[List[String]] = None, fansi: Boolean = true): String =
       if fansi then consoleFormatNt
       else

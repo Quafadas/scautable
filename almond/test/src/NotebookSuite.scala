@@ -92,6 +92,14 @@ class NotebookSuite extends munit.FunSuite:
     assert(t.html.contains("&lt;b&gt;&amp;&lt;/b&gt;"))
   }
 
+  test("a styler's ptbln publishes inline styles to the notebook, head and tail") {
+    given out: Recorder = Recorder()
+    rows(100).styler.cell["price"](_ > 100, CellStyle.fg(Colour.Red)).ptbln
+    val html = out.displayed.head.data("text/html")
+    assert(html.contains("""<td style="color:rgb(214,39,40)">148.5</td>"""), html)
+    assert(html.contains("<td>1.5</td>"), html)
+  }
+
   test("ptbln on an Iterable publishes to the notebook in preference to the console") {
     given out: Recorder = Recorder()
     rows(2).ptbln
