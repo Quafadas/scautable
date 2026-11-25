@@ -17,20 +17,21 @@ enum Colour:
 
   /** The colour as RGB - what HTML uses, and what contrast is judged on. */
   def rgb: (Int, Int, Int) = this match
-    case Black         => (0, 0, 0)
-    case Red           => (214, 39, 40)
-    case Green         => (44, 160, 44)
-    case Yellow        => (255, 221, 87)
-    case Blue          => (31, 119, 180)
-    case Magenta       => (196, 72, 196)
-    case Cyan          => (23, 190, 207)
-    case White         => (255, 255, 255)
-    case Grey          => (190, 190, 190)
-    case Rgb(r, g, b)  => (r, g, b)
+    case Black        => (0, 0, 0)
+    case Red          => (214, 39, 40)
+    case Green        => (44, 160, 44)
+    case Yellow       => (255, 221, 87)
+    case Blue         => (31, 119, 180)
+    case Magenta      => (196, 72, 196)
+    case Cyan         => (23, 190, 207)
+    case White        => (255, 255, 255)
+    case Grey         => (190, 190, 190)
+    case Rgb(r, g, b) => (r, g, b)
 
   def css: String =
     val (r, g, b) = rgb
     s"rgb($r,$g,$b)"
+  end css
 
   /** Whether dark text reads better than light text on this colour, by relative luminance. */
   def isLight: Boolean =
@@ -95,6 +96,7 @@ final case class CellStyle(
   def ansi(text: String): String =
     val attrs = Seq(effectiveFg.map(_.fg), bg.map(_.bg), Option.when(bold)(fansi.Bold.On), Option.when(underline)(fansi.Underlined.On)).flatten
     if attrs.isEmpty then text else fansi.Attrs(attrs*)(fansi.Str(text)).render
+    end if
   end ansi
 end CellStyle
 
