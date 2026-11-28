@@ -61,3 +61,21 @@ cabin.flatten.distinct.size
 // keep missing as its own group, like dropna=False
 cabin.groupMapReduce(identity)(_ => 1)(_ + _).get(None)
 ```
+
+## Dropping or filling missing values
+
+`dropNone` and `fillNone` work on one column at a time, like pandas `dropna(subset=["col"])` and `fillna({"col": value})`. Both narrow the column from `Option[A]` to `A`, so nothing downstream needs a `.get`.
+
+```scala mdoc:silent
+val withCabin = titanic.dropNone["Cabin"]
+val filled = titanic.fillNone["Cabin"]("unknown")
+```
+
+```scala mdoc
+withCabin.size
+withCabin.column["Cabin"].take(3)  // Seq[String], no Option
+
+filled.column["Cabin"].take(3)
+```
+
+Calling either on a column that is not an `Option` is a compile error, since it has no `None` to drop or fill.

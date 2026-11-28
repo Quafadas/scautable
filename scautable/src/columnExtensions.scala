@@ -129,6 +129,15 @@ object NamedTupleIteratorExtensions:
     Tuple.fromArray(cells)
   end unwrapAt
 
+  /** Replace the `Option` at `idx` with its content, or with `fill` where it is `None` - the runtime half of `fillNone`. */
+  private def fillAt(t: Tuple, idx: Int, fill: Any): Tuple =
+    val cells = t.toArray
+    cells(idx) = cells(idx) match
+      case Some(v) => v.asInstanceOf[Object]
+      case _       => fill.asInstanceOf[Object]
+    Tuple.fromArray(cells)
+  end fillAt
+
   /** A `None` key means "unknown", and two unknowns are not a match.
     *
     * This is what SQL does - `NULL = NULL` is never true - and what pandas does, dropping missing keys from a merge. Treating `None` as an ordinary value would also quietly square
@@ -505,6 +514,40 @@ object NamedTupleIteratorExtensions:
         false
       )
     end leftJoinOn
+
+    /** Drop the rows where an `Option` column is `None`, and narrow that column from `Option[A]` to `A`. Like pandas `dropna(subset=["col"])`.
+      * {{{
+      * titanic.dropNone["Cabin"]   // Cabin: Option[String] => String
+      * }}}
+      * A column that is not an `Option` has nothing to drop, and is a compile error.
+      */
+    inline def dropNone[S <: String](using
+        @implicitNotFound("dropNone: column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        @implicitNotFound("dropNone: column ${S} is not an Option, so has no None to drop")
+        opt: GetTypeAtName[K, S, V] <:< Option[?]
+    ): Iterator[NamedTuple[K, NarrowKey[K, V, S]]] =
+      val idx = constValue[IdxAtName[S, K]]
+      itr
+        .filter(row => !isMissingKey(row.toTuple.productElement(idx)))
+        .map(row => unwrapAt(row.toTuple, idx).withNames[K].asInstanceOf[NamedTuple[K, NarrowKey[K, V, S]]])
+    end dropNone
+
+    /** Replace `None` in an `Option` column with `value`, and narrow that column from `Option[A]` to `A`. Like pandas `fillna({"col": value})`.
+      * {{{
+      * titanic.fillNone["Cabin"]("unknown")   // Cabin: Option[String] => String
+      * }}}
+      * A column that is not an `Option` has nothing to fill, and is a compile error.
+      */
+    inline def fillNone[S <: String](using
+        @implicitNotFound("fillNone: column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        @implicitNotFound("fillNone: column ${S} is not an Option, so has no None to fill")
+        opt: GetTypeAtName[K, S, V] <:< Option[?]
+    )(value: Unwrapped[GetTypeAtName[K, S, V]]): Iterator[NamedTuple[K, NarrowKey[K, V, S]]] =
+      val idx = constValue[IdxAtName[S, K]]
+      itr.map(row => fillAt(row.toTuple, idx, value).withNames[K].asInstanceOf[NamedTuple[K, NarrowKey[K, V, S]]])
+    end fillNone
   end extension
 
   extension [CC[X] <: Iterable[X], K <: Tuple, V <: Tuple](nt: CC[NamedTuple[K, V]])
@@ -874,6 +917,34 @@ object NamedTupleIteratorExtensions:
         )
       )
     end leftJoinOn
+
+    /** Drop the rows where an `Option` column is `None` and narrow it to `A`, preserving the collection type. See the `Iterator` overload. */
+    inline def dropNone[S <: String](using
+        @implicitNotFound("dropNone: column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        @implicitNotFound("dropNone: column ${S} is not an Option, so has no None to drop")
+        opt: GetTypeAtName[K, S, V] <:< Option[?],
+        bf: BuildFrom[CC[NamedTuple[K, V]], NamedTuple[K, NarrowKey[K, V, S]], CC[NamedTuple[K, NarrowKey[K, V, S]]]]
+    ): CC[NamedTuple[K, NarrowKey[K, V, S]]] =
+      val idx = constValue[IdxAtName[S, K]]
+      bf.fromSpecific(nt)(
+        nt.view
+          .filter(row => !isMissingKey(row.toTuple.productElement(idx)))
+          .map(row => unwrapAt(row.toTuple, idx).withNames[K].asInstanceOf[NamedTuple[K, NarrowKey[K, V, S]]])
+      )
+    end dropNone
+
+    /** Replace `None` in an `Option` column with `value` and narrow it to `A`, preserving the collection type. See the `Iterator` overload. */
+    inline def fillNone[S <: String](using
+        @implicitNotFound("fillNone: column ${S} not found")
+        ev: IsColumn[S, K] =:= true,
+        @implicitNotFound("fillNone: column ${S} is not an Option, so has no None to fill")
+        opt: GetTypeAtName[K, S, V] <:< Option[?],
+        bf: BuildFrom[CC[NamedTuple[K, V]], NamedTuple[K, NarrowKey[K, V, S]], CC[NamedTuple[K, NarrowKey[K, V, S]]]]
+    )(value: Unwrapped[GetTypeAtName[K, S, V]]): CC[NamedTuple[K, NarrowKey[K, V, S]]] =
+      val idx = constValue[IdxAtName[S, K]]
+      bf.fromSpecific(nt)(nt.view.map(row => fillAt(row.toTuple, idx, value).withNames[K].asInstanceOf[NamedTuple[K, NarrowKey[K, V, S]]]))
+    end fillNone
 
   end extension
 end NamedTupleIteratorExtensions

@@ -48,7 +48,7 @@ Assuming two `Iterator` / `Iterable` of named tuples. The key goes *after* the r
 | key column is `Option` | `None` never matches, as in SQL / pandas |
 | key column is `Option`, after `join` | narrowed - `Option[Int]` becomes `Int` |
 | key column is `Option`, after `leftJoin` | left alone - the `None` rows are still there |
-| really want `None` to match | `mapColumn["k", Int](_.getOrElse(-1))` first |
+| really want `None` to match | `fillNone["k"](-1)` first |
 
 The right hand table is read into memory; the left streams. Put the smaller table on the right.
 
@@ -63,6 +63,8 @@ The right hand table is read into memory; the left streams. Put the smaller tabl
 | `df["col"].value_counts()` | `data.column["col"].groupMapReduce(identity)(_ => 1)(_ + _).toSeq.sortBy(-_._2)` |
 | display the counts | `counts.map((v, n) => (col = v, count = n)).ptbln` |
 | drop missing first | `data.column["col"].flatten` (for an `Option` column) |
+| `df.dropna(subset=["col"])` | `data.dropNone["col"]` - column becomes `A`, not `Option[A]` |
+| `df.fillna({"col": 0})` | `data.fillNone["col"](0)` - column becomes `A`, not `Option[A]` |
 
 See the [Exploring a Column](cookbook/ExploringColumns.md) cookbook page for worked examples.
 
