@@ -14,10 +14,26 @@ trait TableSink:
     *   the rows, as plain tuples
     */
   def show(headers: List[String], formatters: Array[Any => String], rows: Iterator[Product]): Unit
+
+  /** As [[show]], with a [[CellStyle]] per cell from a [[Styler]]. A sink that cannot style simply ignores them, which is the default.
+    *
+    * @param styles
+    *   the style of each cell of a row, positionally aligned with it
+    */
+  def showStyled(headers: List[String], formatters: Array[Any => String], styles: Product => IndexedSeq[CellStyle], rows: Iterator[Product]): Unit =
+    show(headers, formatters, rows)
 end TableSink
 
 object TableSink:
 
-  given console: TableSink = (headers, formatters, rows) => println(TerminalTable.render(headers, rows.map(row => TableRow(CellFormat.formatRow(row, formatters))).toSeq))
+  given console: TableSink with
+    def show(headers: List[String], formatters: Array[Any => String], rows: Iterator[Product]): Unit =
+      println(TerminalTable.render(headers, rows.map(row => TableRow(CellFormat.formatRow(row, formatters))).toSeq))
+
+    override def showStyled(headers: List[String], formatters: Array[Any => String], styles: Product => IndexedSeq[CellStyle], rows: Iterator[Product]): Unit =
+      val materialised = rows.toSeq
+      println(TerminalTable.render(headers, materialised.map(row => TableRow(CellFormat.formatRow(row, formatters))), styles = materialised.map(styles)))
+    end showStyled
+  end console
 
 end TableSink

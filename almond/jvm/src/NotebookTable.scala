@@ -22,13 +22,19 @@ import almond.interpreter.api.DisplayData
   *   the number of rows in the source collection
   * @param dataResource
   *   an `application/vnd.dataresource+json` payload, if requested
+  * @param headStyles
+  *   a [[CellStyle]] per cell of `head`, or empty for an unstyled table
+  * @param tailStyles
+  *   a [[CellStyle]] per cell of `tail`, or empty for an unstyled table
   */
 final case class NotebookTable(
     headers: Seq[String],
     head: Seq[Seq[String]],
     tail: Seq[Seq[String]],
     totalRows: Int,
-    dataResource: Option[String] = None
+    dataResource: Option[String] = None,
+    headStyles: Seq[IndexedSeq[CellStyle]] = Seq.empty,
+    tailStyles: Seq[IndexedSeq[CellStyle]] = Seq.empty
 ):
   /** Rows not shown, i.e. those replaced by the "… n more rows" marker. */
   def omittedRows: Int = totalRows - head.size - tail.size
@@ -41,12 +47,18 @@ final case class NotebookTable(
   def html: String =
     import scalatags.Text.all.*
     val (headRows, tailRows) = (this.head, this.tail) // scalatags exports its own `head`
-    def dataRow(idx: Int, cells: Seq[String]) = tr(th(idx), cells.map(td(_)))
+    def dataRow(idx: Int, cells: Seq[String], styles: Option[IndexedSeq[CellStyle]]) =
+      val tds = styles match
+        case None     => cells.map(td(_))
+        case Some(ss) => cells.zipWithIndex.map((c, i) => if i < ss.length && !ss(i).isEmpty then td(style := ss(i).css, c) else td(c))
+      tr(th(idx), tds)
+    end dataRow
     val gap =
       if isTruncated then Seq(tr(cls := "scautable-nb-gap", td(colspan := headers.size + 1, s"… $omittedRows more rows")))
       else Seq.empty
     val body =
-      headRows.zipWithIndex.map((r, i) => dataRow(i, r)) ++ gap ++ tailRows.zipWithIndex.map((r, i) => dataRow(tailStart + i, r))
+      headRows.zipWithIndex.map((r, i) => dataRow(i, r, headStyles.lift(i))) ++ gap ++
+        tailRows.zipWithIndex.map((r, i) => dataRow(tailStart + i, r, tailStyles.lift(i)))
     val footer =
       if isTruncated then Seq(p(cls := "scautable-nb-dims", s"$totalRows rows × ${headers.size} columns")) else Seq.empty
     div(cls := "scautable-nb")(
@@ -126,7 +138,8 @@ object NotebookTable:
       schemaTypes: Option[List[String]],
       rows: Iterator[Product],
       maxRows: Int,
-      edgeRows: Int
+      edgeRows: Int,
+      styles: Option[Product => IndexedSeq[CellStyle]] = None
   ): NotebookTable =
     require(maxRows >= 0, s"maxRows must be non-negative, was $maxRows")
     require(edgeRows >= 0, s"edgeRows must be non-negative, was $edgeRows")
@@ -143,15 +156,17 @@ object NotebookTable:
     end for
 
     def format(row: Product): Seq[String] = CellFormat.formatRow(row, fmts)
+    def styleAll(shown: Seq[Product]): Seq[IndexedSeq[CellStyle]] = styles.fold(Seq.empty)(shown.map)
 
     val resource = schemaTypes.map(types => dataResourceJson(headers, types, prefix.toSeq))
 
-    if total <= maxRows then NotebookTable(headers, prefix.toSeq.map(format), Seq.empty, total, resource)
+    if total <= maxRows then NotebookTable(headers, prefix.toSeq.map(format), Seq.empty, total, resource, styleAll(prefix.toSeq))
     else
       // Always hide at least one row, otherwise the marker would claim "0 more rows".
       val edge = math.min(edgeRows, (total - 1) / 2)
       val tail = (total - edge until total).map(i => ring(i % edgeRows))
-      NotebookTable(headers, prefix.take(edge).toSeq.map(format), tail.map(format), total, resource)
+      val head = prefix.take(edge).toSeq
+      NotebookTable(headers, head.map(format), tail.map(format), total, resource, styleAll(head), styleAll(tail))
     end if
   end build
 
