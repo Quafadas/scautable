@@ -2,7 +2,7 @@
 //| mill-jvm-version: 25
 //| mill-jvm-opts: ["-Xmx1g", "-Xms256m", "-Xss2m"]
 //| mvnDeps:
-//| - io.github.quafadas:millSite_mill1_3.8:0.0.59
+//| - io.github.quafadas:millSite_mill1_3.9:0.0.59
 //| - com.goyeau::mill-scalafix::0.6.0
 //| - com.lihaoyi::mill-contrib-jmh:$MILL_VERSION
 
