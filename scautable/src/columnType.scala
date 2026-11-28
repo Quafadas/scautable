@@ -164,6 +164,14 @@ object ColumnTyped:
     case ? *: rest  => NameIn[rest, Name]
     case EmptyTuple => false
 
+  /** Whether every name in `Cols` is one of `Names`, by [[NameIn]]. */
+  type AllNamesIn[Names <: Tuple, Cols <: Tuple] <: Boolean = Cols match
+    case EmptyTuple => true
+    case c *: cs    =>
+      NameIn[Names, c] match
+        case true  => AllNamesIn[Names, cs]
+        case false => false
+
   /** [[ReplaceOneTypeAtName]] with an unbounded `Name`, for the same reason as [[ColTypeAtName]]. A name that is not a column leaves `V` alone. */
   type ReplaceTypeAtName[K <: Tuple, V <: Tuple, Name, A] <: Tuple = (K, V) match
     case (Name *: ?, ? *: vs) => A *: vs
