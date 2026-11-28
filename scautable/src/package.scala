@@ -23,6 +23,8 @@ object table:
   export io.github.quafadas.scautable.CellFormat.given
   export io.github.quafadas.scautable.ColumnFormat.*
   export io.github.quafadas.scautable.NamedTupleIteratorExtensions.*
+  export io.github.quafadas.scautable.GroupByExtensions.groupBy
+  export io.github.quafadas.scautable.Agg
   export io.github.quafadas.scautable.CSVWriterExtensions.*
   export io.github.quafadas.scautable.Stats.*
   export io.github.quafadas.scautable.json.JsonTable

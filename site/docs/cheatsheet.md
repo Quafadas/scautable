@@ -52,6 +52,23 @@ Assuming two `Iterator` / `Iterable` of named tuples. The key goes *after* the r
 
 The right hand table is read into memory; the left streams. Put the smaller table on the right.
 
+## Grouping
+
+Assuming an `Iterator` of named tuples - on a `Seq`, call `.iterator` first.
+
+| Want | Hints |
+|-|-|
+| one key | `emps.groupBy["dept"].agg[(n: Agg.Count, total: Agg.Sum["salary"])]` |
+| several keys | `emps.groupBy[("dept", "region")].agg[...]` |
+| reducers | `Agg.Count`, `Agg.Sum["c"]`, `Agg.Mean["c"]`, `Agg.Min["c"]`, `Agg.Max["c"]`, `Agg.First["c"]` |
+| reuse a spec | `type Summary = (n: Agg.Count, avg: Agg.Mean["salary"])` <br><br> `emps.groupBy["dept"].agg[Summary]` |
+| anything else | `emps.groupBy["dept"].aggWith(g => (names = g.map(_.name).mkString(",")))` |
+| `None` values | skipped; `Min` / `Max` / `First` of an `Option` column stay `Option` |
+| `None` keys | kept, as their own group |
+| order | first seen - `.sortBy(_.dept)` for anything else |
+
+`agg` streams, holding one running total per group. `aggWith` holds every row, since it hands whole groups to your function.
+
 ## Exploring a Column
 
 `column["name"]` returns a typed `Iterator` / collection, so the standard library covers these. On an `Iterator`, `column` consumes the stream - call `.toSeq` first to reuse the data.
