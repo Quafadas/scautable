@@ -56,6 +56,7 @@ object GroupByExtensions:
   private def meanFinish(acc: Any): Double =
     val m = acc.asInstanceOf[MeanAcc]
     if m.n == 0 then Double.NaN else m.sum / m.n
+    end if
   end meanFinish
 
   /** Keep the smaller (or, for `max`, the larger) of two present values. */
@@ -99,6 +100,7 @@ object GroupByExtensions:
             type T = ColTypeAtName[K, V, c]
             val n = numeric[T, "Sum", c]
             Reducer(_.productElement(i), (acc, row) => n.plus(acc.asInstanceOf[T], row.productElement(i).asInstanceOf[T]), identity)
+        end match
 
       case _: Agg.Mean[c] =>
         val i = colIdx[K, c, "agg"]
@@ -112,6 +114,7 @@ object GroupByExtensions:
             val n = numeric[T, "Mean", c]
             def step(acc: Any, row: Tuple) = meanStep(acc, n.toDouble(row.productElement(i).asInstanceOf[T]))
             Reducer(row => step(freshMean, row), step, meanFinish)
+        end match
 
       case _: Agg.Min[c] => extreme[K, V, c, "Min"](max = false)
       case _: Agg.Max[c] => extreme[K, V, c, "Max"](max = true)
@@ -129,7 +132,7 @@ object GroupByExtensions:
               case (Some(x), Some(y)) => Some(keep(x, y))
               case (None, y)          => y
               case (x, None)          => x
-        ,
+          ,
           identity
         )
       case _ =>
@@ -227,7 +230,9 @@ object GroupByExtensions:
       * }}}
       * Unlike [[agg]], this holds every row in memory, since `f` is handed whole groups.
       */
-    inline def aggWith[N <: Tuple, R <: Tuple](f: IndexedSeq[NamedTuple[K, V]] => NamedTuple[N, R]): Seq[NamedTuple[Tuple.Concat[Keys, N], Tuple.Concat[ColTypesAtNames[K, V, Keys], R]]] =
+    inline def aggWith[N <: Tuple, R <: Tuple](
+        f: IndexedSeq[NamedTuple[K, V]] => NamedTuple[N, R]
+    ): Seq[NamedTuple[Tuple.Concat[Keys, N], Tuple.Concat[ColTypesAtNames[K, V, Keys], R]]] =
       checkNoKeyClash[Keys, N, "aggWith"]
       buckets.map { (key, g) =>
         Tuple
