@@ -52,6 +52,20 @@ Assuming two `Iterator` / `Iterable` of named tuples. The key goes *after* the r
 
 The right hand table is read into memory; the left streams. Put the smaller table on the right.
 
+## Exploring a Column
+
+`column["name"]` returns a typed `Iterator` / collection, so the standard library covers these. On an `Iterator`, `column` consumes the stream - call `.toSeq` first to reuse the data.
+
+| pandas | Hints |
+|-|-|
+| `df["col"].unique()` | `data.column["col"].distinct` |
+| `df["col"].nunique()` | `data.column["col"].toSet.size` |
+| `df["col"].value_counts()` | `data.column["col"].groupMapReduce(identity)(_ => 1)(_ + _).toSeq.sortBy(-_._2)` |
+| display the counts | `counts.map((v, n) => (col = v, count = n)).ptbln` |
+| drop missing first | `data.column["col"].flatten` (for an `Option` column) |
+
+See the [Exploring a Column](cookbook/ExploringColumns.md) cookbook page for worked examples.
+
 ## Excel Operations (JVM only)
 
 TBD
