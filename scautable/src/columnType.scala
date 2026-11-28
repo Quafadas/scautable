@@ -218,6 +218,37 @@ object ColumnTyped:
   type MappedCols[K <: Tuple, V <: Tuple, Spec <: AnyNamedTuple] =
     FoldSpec[K, V, Names[Spec], DropNames[Spec], FnResult]
 
+  /** The key columns named by `groupBy[Key]`: a single name, `"dept"`, or a tuple of them, `("dept", "region")`. */
+  type KeyNames[Key] <: Tuple = Key match
+    case h *: t => h *: t
+    case _      => Key *: EmptyTuple
+
+  /** [[GetTypesAtNames]] driven by [[ColTypeAtName]], so names need no `<: String` bound. */
+  type ColTypesAtNames[K <: Tuple, V <: Tuple, Ns <: Tuple] <: Tuple = Ns match
+    case EmptyTuple => EmptyTuple
+    case n *: ns    => ColTypeAtName[K, V, n] *: ColTypesAtNames[K, V, ns]
+
+  /** The output type of one reducer from `Agg`.
+    *
+    * A group always holds at least one row, so `Min`, `Max` and `First` of a plain column need no `Option`. An optional column keeps its `Option`: every value in the group may be
+    * missing. `Sum` skips missing values, so its result is always present.
+    */
+  type AggOut[K <: Tuple, V <: Tuple, R] = R match
+    case Agg.Count    => Int
+    case Agg.Sum[c]   => Unwrapped[ColTypeAtName[K, V, c]]
+    case Agg.Mean[c]  => Double
+    case Agg.Min[c]   => ColTypeAtName[K, V, c]
+    case Agg.Max[c]   => ColTypeAtName[K, V, c]
+    case Agg.First[c] => ColTypeAtName[K, V, c]
+
+  type AggOuts[K <: Tuple, V <: Tuple, Rs <: Tuple] <: Tuple = Rs match
+    case EmptyTuple => EmptyTuple
+    case r *: rs    => AggOut[K, V, r] *: AggOuts[K, V, rs]
+
+  /** One row of `groupBy[Keys].agg[Spec]`: the key columns, then one column per spec entry. */
+  type Aggregated[K <: Tuple, V <: Tuple, Keys <: Tuple, Spec <: AnyNamedTuple] =
+    NamedTuple.NamedTuple[Tuple.Concat[Keys, Names[Spec]], Tuple.Concat[ColTypesAtNames[K, V, Keys], AggOuts[K, V, DropNames[Spec]]]]
+
   type IsNumeric[T] <: Boolean = T match
     case Option[a] => IsNumeric[a]
     case Int       => true

@@ -187,6 +187,38 @@ colmanipuluation.filter(_.col4_renamed > 20).groupMapReduce(_.col1)(_.col4_renam
 
 ```
 
+That works, but hands back a `Map` - the column names are gone. To keep them, `groupBy` a column
+(or a tuple of columns) and give `agg` a named tuple *type*: its names become the output columns,
+its values say how to fill them.
+
+```scala mdoc
+val emps = Seq(
+  (dept = "eng", salary = 100, bonus = Option(10.0)),
+  (dept = "ops", salary = 70, bonus = None),
+  (dept = "eng", salary = 120, bonus = None)
+)
+
+emps.iterator
+  .groupBy["dept"]
+  .agg[(n: Agg.Count, total: Agg.Sum["salary"], avg: Agg.Mean["salary"], best: Agg.Max["bonus"])]
+  .ptbln
+```
+
+The reducers are `Count`, `Sum`, `Mean`, `Min`, `Max` and `First`. `None` values are skipped, and
+`Min`, `Max` and `First` of an optional column stay optional. `agg` streams its input once, keeping
+a running total per group. Groups come out in the order their keys were first seen - sort the
+result if you want something else - and a `None` key is a group like any other.
+
+For anything else, `aggWith` hands each group over as typed rows, so the standard library is back
+in play:
+
+```scala mdoc
+emps.iterator.groupBy["dept"].aggWith(g => (payroll = g.map(_.salary).sum, size = g.size)).ptbln
+```
+
+`groupBy` is only on `Iterator` - every collection already has a `groupBy` of its own, which always
+wins - so call `.iterator` on a `Seq` first.
+
 ### Joining
 
 Joining is the one relational operation the standard library cannot do for us. It can group and
