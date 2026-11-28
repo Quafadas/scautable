@@ -27,8 +27,16 @@ object TerminalTable:
     *   optional override instead of detecting the terminal width (useful for tests / non-tty output)
     * @param colour
     *   colour each column with ANSI escapes. Turn off for output that isn't going to a terminal.
+    * @param styles
+    *   one [[CellStyle]] per cell, aligned with `rows`. When given, these replace the per-column colouring (header included), and like it are dropped when `colour` is off.
     */
-  def render(headers: Seq[String], rows: Seq[TableRow], widthOverride: Option[Int] = None, colour: Boolean = true): String =
+  def render(
+      headers: Seq[String],
+      rows: Seq[TableRow],
+      widthOverride: Option[Int] = None,
+      colour: Boolean = true,
+      styles: Seq[IndexedSeq[CellStyle]] = Seq.empty
+  ): String =
     val numCols = headers.length
     if numCols == 0 then ""
     else
@@ -49,13 +57,16 @@ object TerminalTable:
       val sb = new StringBuilder
       sb.append(separatorLine(colWidths))
       sb.append('\n')
-      sb.append(renderRow(headers, colWidths, colour))
+      val styled = styles.nonEmpty
+      sb.append(renderRow(headers, colWidths, colour && !styled))
       sb.append('\n')
       sb.append(separatorLine(colWidths))
       sb.append('\n')
-      for row <- rows do
+      for (row, r) <- rows.zipWithIndex do
         val cells = headers.indices.map(i => if i < row.cells.length then row.cells(i) else "")
-        sb.append(renderRow(cells, colWidths, colour))
+        if styled then sb.append(renderStyledRow(cells, colWidths, if colour && r < styles.length then styles(r) else IndexedSeq.empty))
+        else sb.append(renderRow(cells, colWidths, colour))
+        end if
         sb.append('\n')
       end for
       sb.append(separatorLine(colWidths))
@@ -169,6 +180,17 @@ object TerminalTable:
     }
     padded.mkString("| ", " | ", " |")
   end renderRow
+
+  /** As [[renderRow]], but each cell takes its own [[CellStyle]] instead of a colour by column. */
+  private def renderStyledRow(cells: Seq[String], colWidths: Seq[Int], styles: IndexedSeq[CellStyle]): String =
+    val padded = cells.zip(colWidths).zipWithIndex.map { case ((cell, w), colNum) =>
+      val truncated = truncateCell(if cell == null then "" else cell, w)
+      val cellText = truncated + (" " * (w - truncated.length))
+      if colNum < styles.length then styles(colNum).ansi(cellText) else cellText
+      end if
+    }
+    padded.mkString("| ", " | ", " |")
+  end renderStyledRow
 
   private def separatorLine(colWidths: Seq[Int]): String =
     colWidths.map(w => "-" * (w + 2)).mkString("+", "+", "+")

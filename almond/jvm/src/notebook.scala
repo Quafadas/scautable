@@ -56,7 +56,12 @@ object notebook:
   end extension
 
   /** Sends `ptbln` to the notebook (as [[display]] with its defaults) rather than the console. Brought in by `import notebook.given`. */
-  given notebookSink(using out: OutputHandler): TableSink = (headers, formatters, rows) =>
-    out.display(NotebookTable.build(headers, formatters, None, rows, NotebookTable.DefaultMaxRows, NotebookTable.DefaultEdgeRows).displayData)
+  given notebookSink(using out: OutputHandler): TableSink with
+    def show(headers: List[String], formatters: Array[Any => String], rows: Iterator[Product]): Unit =
+      out.display(NotebookTable.build(headers, formatters, None, rows, NotebookTable.DefaultMaxRows, NotebookTable.DefaultEdgeRows).displayData)
+
+    override def showStyled(headers: List[String], formatters: Array[Any => String], styles: Product => IndexedSeq[CellStyle], rows: Iterator[Product]): Unit =
+      out.display(NotebookTable.build(headers, formatters, None, rows, NotebookTable.DefaultMaxRows, NotebookTable.DefaultEdgeRows, Some(styles)).displayData)
+  end notebookSink
 
 end notebook

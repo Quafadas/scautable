@@ -184,6 +184,44 @@ tagged.retype[(price: Double, margin: Double)]
 Both are unchecked casts, but stripping a display tag is the case where that is always
 sound - a tag erases to the type underneath it, so nothing about the data changes.
 
+## Conditional styling - colours, bold, highlighting
+
+Tags control what a cell *says*. `styler` controls how it *looks*, and can depend on the
+data - much like pandas' `df.style`. Because the rules are predicates, they are values rather
+than types, so `styler` hands back a separate `Styler` that renders rather than transforms:
+
+```scala
+import io.github.quafadas.table.*
+
+def csv = CSV.fromString("product,region,price,margin\nwidget,EU,1234.5678,0.0425\ngizmo,US,99.5,0.113\nsprocket,EU,12.0,-0.02")
+
+csv.toSeq
+  .style[(price: Currency["$", 2], margin: Percent[2])]   // formats, as above
+  .styler
+  .row(_.region == "EU", CellStyle.bg(Colour.Grey))        // whole rows
+  .cell["margin"](_ < 0, CellStyle.fg(Colour.Red) ++ CellStyle.bold) // one column, typed predicate
+  .cells[("product", "price")](_.price > 1000, CellStyle.underline)   // chosen columns of matching rows
+  .ptbln
+```
+
+- `cell[Col](pred, style)` - the predicate takes the column's own type. Format tags are
+  transparent here, so a `Percent[2]` column is still compared as a `Double`.
+- `row(pred, style)` - the predicate takes the whole row, with named field access.
+- `cells[Cols](pred, style)` - a row predicate, styling only the named columns.
+
+Rules apply in order and later ones win property by property, so a cell rule after a row rule
+recolours the text without losing the row's background. A background without a text colour
+gets black or white text automatically, so it reads on light and dark themes alike.
+
+`CellStyle` has `fg`, `bg`, `bold` and `underline`. `Colour` has the eight named terminal
+colours plus `Grey`, which follow the terminal's theme, and `Colour.Rgb(r, g, b)` for exact
+colours (truecolor terminals).
+
+The same `Styler` renders through `ptbln` (the console, or a notebook with
+`notebook.given`), `consoleFormatNt()` and `html`, which puts an inline `style` on each styled
+cell. A styled table drops the console's column-by-column colouring, so your colours stand out.
+Column names are checked at compile time, as for `style`.
+
 
 ## In a notebook (almond)
 
