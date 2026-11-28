@@ -129,6 +129,8 @@ object ColumnTyped:
     *
     * [[Unwrapped]] is the identity on a key that is not optional, so this is a no-op for the ordinary case. A *left* join must not use this: an unmatched left row survives, still
     * holding its `None`.
+    *
+    * `dropNone` and `fillNone` use it too: after either, the named column provably holds no `None`.
     */
   type NarrowKey[K <: Tuple, V <: Tuple, Key <: String] =
     ReplaceOneTypeAtName[K, Key, V, Unwrapped[GetTypeAtName[K, Key, V]]]
